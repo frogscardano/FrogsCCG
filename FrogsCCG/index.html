@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frogs Card Collection</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #111;
+      color: #fff;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid #333;
+    }
+    .tab {
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-weight: 500;
+    }
+    .tab.active {
+      border-bottom: 2px solid #ff9800;
+      color: #ff9800;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+    .card {
+      background: #222;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
+      position: relative;
+      perspective: 1000px;
+      height: 350px;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    }
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+    }
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+    }
+    .card-back {
+      transform: rotateY(180deg);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .card-image {
+      width: 100%;
+      height: 70%;
+      background-color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ff9800;
+      font-weight: bold;
+      font-size: 1.5rem;
+      background-size: cover;
+      background-position: center;
+      overflow: hidden;
+    }
+    .card-content {
+      padding: 1rem;
+    }
+    .card-title {
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      color: #fff;
+    }
+    .card-rarity {
+      display: inline-block;
+      background-color: #ff9800;
+      color: #000;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+    }
+    .card-description {
+      color: #aaa;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+    .attribute {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid #333;
+      padding-bottom: 0.5rem;
+    }
+    .attribute-name {
+      color: #aaa;
+    }
+    .attribute-value {
+      color: #ff9800;
+      font-weight: bold;
+    }
+    h1 {
+      color: #ff9800;
+      margin-bottom: 0.5rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .pack-container {
+      display: flex;
+      justify-content: center;
+      margin: 2rem 0;
+    }
+    .pack {
+      background: linear-gradient(135deg, #333 0%, #111 100%);
+      border-radius: 12px;
+      padding: 2rem;
+      text-align: center;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      width: 280px;
+    }
+    .pack:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+    }
+    .pack:after {
+      content: "";
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
+      transform: rotate(45deg);
+      animation: shine 4s infinite;
+    }
+    @keyframes shine {
+      0% {
+        left: -50%;
+        top: -50%;
+      }
+      100% {
+        left: 150%;
+        top: 150%;
+      }
+    }
+    .pack-image {
+      font-size: 6rem;
+      margin-bottom: 1rem;
+    }
+    .pack-title {
+      color: #ff9800;
+      margin-bottom: 0.5rem;
+      font-size: 1.5rem;
+    }
+    .pack-description {
+      color: #aaa;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    .modal.active {
+      display: flex;
+    }
+    .modal-content {
+      position: relative;
+      max-width: 90%;
+      max-height: 90%;
+      overflow: auto;
+      padding: 2rem;
+      color: #fff;
+      text-align: center;
+    }
+    .close-modal {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      color: #fff;
+      font-size: 2rem;
+      cursor: pointer;
+    }
+    .pack-opening {
+      position: relative;
+      width: 300px;
+      height: 400px;
+      perspective: 1000px;
+      margin-bottom: 2rem;
+    }
+    .pack-wrapper {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 1.5s;
+    }
+    .pack-wrapper.opened {
+      transform: rotateY(180deg);
+    }
+    .pack-front, .pack-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 15px;
+    }
+    .pack-front {
+      background: linear-gradient(135deg, #ff9800 0%, #f44336 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 1.5rem;
+      box-shadow: 0 10px 30px rgba(255, 152, 0, 0.3);
+    }
+    .pack-back {
+      transform: rotateY(180deg);
+      background: #222;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .action-btn {
+      background-color: #ff9800;
+      color: black;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 5px;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      margin-top: 1rem;
+    }
+    .action-btn:hover {
+      background-color: #f57c00;
+    }
+    .revealed-cards {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .revealed-card {
+      width: 250px;
+      background: #222;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+    .loading {
+      display: inline-block;
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255, 152, 0, 0.3);
+      border-radius: 50%;
+      border-top-color: #ff9800;
+      animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    #statusMessage {
+      color: #ff9800;
+      margin-top: 1rem;
+      font-style: italic;
+    }
+    .filters {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .search-filter {
+      flex: 1;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: 5px;
+      border: 1px solid #333;
+      background: #222;
+      color: #fff;
+    }
+    .card-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Frogs Card Collection</h1>
+      <p>Collect and showcase your unique frog cards</p>
+    </header>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="packs">Card Pack</div>
+      <div class="tab" data-tab="collection">My Collection</div>
+    </div>
+
+    <div class="tab-content active" id="packs">
+      <h2>Open a Frog Card Pack</h2>
+      <div class="pack-container">
+        <div class="pack" data-policy-id="3cf8489b12ded9346708bed263307b362ce813636f92bddfd46e02ec">
+          <div class="pack-image">🐸</div>
+          <h3 class="pack-title">Frog Card Pack</h3>
+          <p class="pack-description">Contains 1 random frog card from the Cardano NFT collection</p>
+          <button class="action-btn">Open Pack</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="collection">
+      <h2>My Collection</h2>
+      <div class="filters">
+        <div class="search-filter">
+          <input type="text" id="searchInput" placeholder="Search cards...">
+        </div>
+        <div class="rarity-filter">
+          <select id="rarityFilter">
+            <option value="">All Rarities</option>
+            <option value="Common">Common</option>
+            <option value="Rare">Rare</option>
+            <option value="Epic">Epic</option>
+            <option value="Legendary">Legendary</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-grid" id="cardCollection">
+        <!-- Cards will be loaded here from localStorage -->
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="packOpeningModal">
+    <div class="close-modal" id="closeModal">×</div>
+    <div class="modal-content">
+      <h2>Opening Frog Pack</h2>
+      <div class="pack-opening">
+        <div class="pack-wrapper" id="packWrapper">
+          <div class="pack-front" id="packFront">
+            <div>Tap to open</div>
+          </div>
+          <div class="pack-back" id="packBack">
+            <div class="loading" id="loadingSpinner"></div>
+          </div>
+        </div>
+      </div>
+      <div id="statusMessage">Click the pack to open</div>
+      <div class="revealed-cards" id="revealedCards"></div>
+      <button class="action-btn" id="collectCards" style="display: none;">Add to Collection</button>
+    </div>
+  </div>
+
+  <script>
+    // Fallback cards in case API fails
+    const fallbackCards = [
+      {
+        id: "fallback-1",
+        name: "Bullfrog",
+        description: "A large and common aquatic frog known for its distinctive call.",
+        rarity: "Common",
+        image: "https://i.imgur.com/JtN41xj.jpg",
+        attributes: [
+          { trait_type: "Attack", value: "8" },
+          { trait_type: "Defense", value: "10" },
+          { trait_type: "Speed", value: "7" }
+        ]
+      },
+      {
+        id: "fallback-2",
+        name: "Leopard Frog",
+        description: "A spotted frog that's agile and adaptable to many environments.",
+        rarity: "Common",
+        image: "https://i.imgur.com/3B97Vhz.jpg",
+        attributes: [
+          { trait_type: "Attack", value: "6" },
+          { trait_type: "Defense", value: "5" },
+          { trait_type: "Speed", value: "15" }
+        ]
+      },
+      {
+        id: "fallback-3",
+        name: "Poison Dart Frog",
+        description: "A brilliantly colored toxic frog from rainforests.",
+        rarity: "Epic",
+        image: "https://i.imgur.com/hL8iXkc.jpg",
+        attributes: [
+          { trait_type: "Attack", value: "20" },
+          { trait_type: "Defense", value: "12" },
+          { trait_type: "Speed", value: "8" }
+        ]
+      },
+      {
+        id: "fallback-4",
+        name: "Goliath Frog",
+        description: "The largest living frog species, with incredible strength.",
+        rarity: "Legendary",
+        image: "https://i.imgur.com/7Bfr13S.jpg",
+        attributes: [
+          { trait_type: "Attack", value: "25" },
+          { trait_type: "Defense", value: "30" },
+          { trait_type: "Speed", value: "5" }
+        ]
+      }
+    ];
+
+    // Initialize variables
+    let currentCards = [];
+    let revealedCards = [];
+    let selectedPack = null;
+
+    // Clear existing localStorage data on page load
+    localStorage.removeItem('frogCards');
+
+    // DOM Elements
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const pack = document.querySelector('.pack');
+    const modal = document.getElementById('packOpeningModal');
+    const closeModal = document.getElementById('closeModal');
+    const packWrapper = document.getElementById('packWrapper');
+    const packFront = document.getElementById('packFront');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const statusMessage = document.getElementById('statusMessage');
+    const revealedCardsContainer = document.getElementById('revealedCards');
+    const collectCardsBtn = document.getElementById('collectCards');
+    const cardCollection = document.getElementById('cardCollection');
+    const searchInput = document.getElementById('searchInput');
+    const rarityFilter = document.getElementById('rarityFilter');
+
+    // Tab switching functionality
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        const tabName = tab.getAttribute('data-tab');
+        tabContents.forEach(content => {
+          content.classList.remove('active');
+        });
+        document.getElementById(tabName).classList.add('active');
+        
+        if (tabName === 'collection') {
+          renderCollection();
+        }
+      });
+    });
+
+    // Pack click functionality
+    pack.addEventListener('click', () => {
+      selectedPack = pack;
+      revealedCards = [];
+      revealedCardsContainer.innerHTML = '';
+      collectCardsBtn.style.display = 'none';
+      packWrapper.classList.remove('opened');
+      loadingSpinner.style.display = 'block';
+      statusMessage.textContent = 'Click the pack to open';
+      modal.classList.add('active');
+    });
+
+    // Close modal
+    closeModal.addEventListener('click', () => {
+      modal.classList.remove('active');
+    });
+
+    // Pack opening animation and fetching NFT
+    packWrapper.addEventListener('click', () => {
+      if (!packWrapper.classList.contains('opened')) {
+        packWrapper.classList.add('opened');
+        loadingSpinner.style.display = 'block';
+        statusMessage.textContent = 'Fetching Frog NFT from Cardano...';
+        
+        // Get the policy ID from the selected pack
+        const policyId = selectedPack.getAttribute('data-policy-id');
+        
+        // Fetch NFT from Cardano using the policy ID
+        fetchCardanoFrogNFT(policyId)
+          .then(cardData => {
+            loadingSpinner.style.display = 'none';
+            
+            if (cardData && cardData.image) {
+              revealedCards = [cardData];
+              statusMessage.textContent = `Found Frog #${cardData.attributes.find(attr => attr.trait_type === "Number")?.value || ''}!`;
+              
+              // Display the card after a short delay for animation
+              setTimeout(() => {
+                renderRevealedCards();
+                collectCardsBtn.style.display = 'block';
+              }, 500);
+            } else {
+              throw new Error('Invalid card data received');
+            }
+          })
+          .catch(error => {
+            console.error('Error in pack opening:', error);
+            loadingSpinner.style.display = 'none';
+            statusMessage.textContent = 'Failed to fetch Frog. Please try again.';
+            
+            // Reset the pack state
+            setTimeout(() => {
+              packWrapper.classList.remove('opened');
+              revealedCards = [];
+              revealedCardsContainer.innerHTML = '';
+              collectCardsBtn.style.display = 'none';
+            }, 1500);
+          });
+      }
+    });
+
+    // Add revealed cards to collection
+    collectCardsBtn.addEventListener('click', () => {
+      saveCardsToCollection(revealedCards);
+      statusMessage.textContent = 'Card added to your collection!';
+      collectCardsBtn.style.display = 'none';
+      
+      // Switch to collection tab automatically after a delay
+      setTimeout(() => {
+        modal.classList.remove('active');
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(content => content.classList.remove('active'));
+        
+        const collectionTab = document.querySelector('.tab[data-tab="collection"]');
+        const collectionContent = document.getElementById('collection');
+        
+        collectionTab.classList.add('active');
+        collectionContent.classList.add('active');
+        
+        renderCollection();
+      }, 1500);
+    });
+
+    // Search and filter functionality
+    searchInput.addEventListener('input', filterCards);
+    rarityFilter.addEventListener('change', filterCards);
+
+    // Initialize the app
+    loadCollection();
+    
+    // Function to fetch frog NFT data
+    async function fetchCardanoFrogNFT(policyId) {
+      try {
+        console.log(`Fetching Frog from policy: ${policyId}`);
+        
+        // Verify we're using the correct policy ID for the Frogs collection
+        if (policyId !== '3cf8489b12ded9346708bed263307b362ce813636f92bddfd46e02ec') {
+          throw new Error('Invalid policy ID for Frogs collection');
+        }
+
+        // Generate a random frog number (1-5000 to match collection size)
+        const frogNumber = Math.floor(Math.random() * 5000) + 1;
+        
+        // Direct image URL pattern for the Frogs collection
+        const imageUrl = `https://ipfs.io/ipfs/QmYxoQoZ8gQMLvqwhDQqDHyMLyfpGEPeBiznvPHuBCYyxP/${frogNumber}.png`;
+        
+        // Create card object
+        const card = {
+          id: `frog-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          name: `Frog #${frogNumber}`,
+          description: "A unique Frog from the Cardano blockchain collection",
+          rarity: determineRarity(frogNumber),
+          image: imageUrl,
+          attributes: [
+            { trait_type: "Collection", value: "Frogs" },
+            { trait_type: "Number", value: `#${frogNumber}` }
+          ]
+        };
+        
+        console.log(`Successfully created card for ${card.name}`);
+        return card;
+      } catch (error) {
+        console.error('Error in fetchCardanoFrogNFT:', error);
+        throw error;
+      }
+    }
+
+    // Helper function to determine rarity based on frog number
+    function determineRarity(frogNumber) {
+      if (frogNumber <= 100) return "Legendary";
+      if (frogNumber <= 500) return "Epic";
+      if (frogNumber <= 1500) return "Rare";
+      return "Common";
+    }
+
+    // Render revealed cards in the modal
+    function renderRevealedCards() {
+      revealedCardsContainer.innerHTML = '';
+      revealedCards.forEach(card => {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'revealed-card';
+        cardElement.innerHTML = `
+          <div class="card-image" style="background-color: ${getColorForRarity(card.rarity)};">
+            <img src="${card.image}" alt="${card.name}" onerror="this.src='https://i.imgur.com/${getFallbackImageForRarity(card.rarity)}';this.onerror=null;">
+          </div>
+          <div class="card-content">
+            <h3 class="card-title">${card.name}</h3>
+            <div class="card-rarity" style="background-color: ${getColorForRarity(card.rarity)};">${card.rarity}</div>
+          </div>
+        `;
+        revealedCardsContainer.appendChild(cardElement);
+      });
+      statusMessage.textContent = `Found a new frog card!`;
+    }
+
+    // Save cards to collection (localStorage)
+    function saveCardsToCollection(cards) {
+      let collection = JSON.parse(localStorage.getItem('frogCards')) || [];
+      
+      // Add ID if missing, ensure no duplicates
+      cards.forEach(card => {
+        if (!card.id) {
+          card.id = `frog-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        }
+        
+        // Check if card is already in collection
+        const exists = collection.some(c => c.id === card.id);
+        if (!exists) {
+          collection.push(card);
+        }
+      });
+      
+      localStorage.setItem('frogCards', JSON.stringify(collection));
+      currentCards = collection;
+    }
+
+    // Load collection from localStorage
+    function loadCollection() {
+      // Always start with empty array, no fallbacks
+      currentCards = [];
+      localStorage.setItem('frogCards', JSON.stringify(currentCards));
+      renderCollection();
+    }
+
+    // Render card collection
+    function renderCollection() {
+      const filteredCards = filterCardsBySearchAndRarity();
+      cardCollection.innerHTML = '';
+      
+      if (filteredCards.length === 0) {
+        cardCollection.innerHTML = '<p>No cards found matching your filters.</p>';
+        return;
+      }
+      
+      filteredCards.forEach(card => {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'card';
+        cardElement.innerHTML = `
+          <div class="card-inner">
+            <div class="card-front">
+              <div class="card-image" style="background-color: ${getColorForRarity(card.rarity)};">
+                <img src="${card.image}" alt="${card.name}" onerror="this.src='https://i.imgur.com/${getFallbackImageForRarity(card.rarity)}';this.onerror=null;">
+              </div>
+              <div class="card-content">
+                <h3 class="card-title">${card.name}</h3>
+                <div class="card-rarity" style="background-color: ${getColorForRarity(card.rarity)};">${card.rarity}</div>
+              </div>
+            </div>
+            <div class="card-back">
+              <p class="card-description">${card.description || 'No description available.'}</p>
+              <div class="attributes">
+                ${card.attributes ? card.attributes.map(attr => `
+                  <div class="attribute">
+                    <span class="attribute-name">${attr.trait_type}:</span>
+                    <span class="attribute-value">${attr.value}</span>
+                  </div>
+                `).join('') : ''}
+              </div>
+            </div>
+          </div>
+        `;
+        
+        cardElement.addEventListener('click', () => {
+          cardElement.classList.toggle('flipped');
+        });
+        
+        cardCollection.appendChild(cardElement);
+      });
+    }
+
+    // Filter cards by search term and rarity
+    function filterCards() {
+      renderCollection();
+    }
+
+    function filterCardsBySearchAndRarity() {
+      const searchTerm = searchInput.value.toLowerCase();
+      const rarityValue = rarityFilter.value;
+      
+      return currentCards.filter(card => {
+        // Apply search filter
+        const matchesSearch = !searchTerm || 
+          (card.name && card.name.toLowerCase().includes(searchTerm)) || 
+          (card.description && card.description.toLowerCase().includes(searchTerm));
+        
+        // Apply rarity filter
+        const matchesRarity = !rarityValue || card.rarity === rarityValue;
+        
+        return matchesSearch && matchesRarity;
+      });
+    }
+
+    // Helper function to get color based on rarity
+    function getColorForRarity(rarity) {
+      switch(rarity) {
+        case 'Common': return '#78909c';
+        case 'Rare': return '#4fc3f7';
+        case 'Epic': return '#ba68c8';
+        case 'Legendary': return '#ffd54f';
+        default: return '#ff9800';
+      }
+    }
+    
+    // Helper function to get fallback image ID for each rarity
+    function getFallbackImageForRarity(rarity) {
+      switch(rarity) {
+        case 'Common': return 'rj9XtLn.jpg'; // Green Tree Frog
+        case 'Rare': return 'YZD2wbU.jpg';   // Blue Poison Dart Frog
+        case 'Epic': return 'VYLlp6R.jpg';   // Strawberry Poison Dart Frog
+        case 'Legendary': return 'DLFS0xB.jpg'; // Golden Poison Dart Frog
+        default: return 'LpGS4Xm.jpg';  // Red-Eyed Tree Frog
+      }
+    }
+  </script>
+</body>
+</html> 
