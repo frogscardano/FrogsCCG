@@ -1,0 +1,162 @@
+.gamePageContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0; /* Removed padding for full page */
+    background-color: #1a3d1f; /* Match game background */
+    min-height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
+
+.gameTitle {
+    color: #fff;
+    margin: 10px 0;
+    font-size: 2rem;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.gameIframe {
+    width: 100vw; /* Full viewport width */
+    height: calc(100vh - 120px); /* Full height minus title and controls */
+    border: none; /* Remove border for seamless look */
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.gameControls {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    display: flex;
+    gap: 10px;
+    background: rgba(0,0,0,0.7);
+    padding: 10px;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+
+.fullscreenButton {
+    background: linear-gradient(145deg, #4CAF50, #45a049);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.fullscreenButton:hover {
+    background: linear-gradient(145deg, #45a049, #3d8b40);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+
+.fullscreenButton:active {
+    transform: translateY(0);
+}
+
+.collectionInfo {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    background: rgba(76, 175, 80, 0.9);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.walletWarning {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    background: rgba(255, 152, 0, 0.9);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 6px;
+    font-size: 14px;
+    max-width: 300px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.errorMessage {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    background: rgba(244, 67, 54, 0.9);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 6px;
+    font-size: 14px;
+    max-width: 300px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Hide game instructions to save space */
+.gameInstructions {
+    display: none;
+}
+
+/* Fullscreen mode */
+.gamePageContainer.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    background: #1a3d1f;
+}
+
+.gamePageContainer.fullscreen .gameTitle {
+    display: none;
+}
+
+.gamePageContainer.fullscreen .gameIframe {
+    width: 100vw;
+    height: 100vh;
+}
+
+.gamePageContainer.fullscreen .gameControls {
+    top: 5px;
+    right: 5px;
+}
+
+/* Loading state */
+.loadingMessage {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 1.5rem;
+    z-index: 1000;
+}
+
+/* Make it responsive for smaller screens */
+@media (max-width: 1300px) {
+    .gameIframe {
+        width: 95vw;
+        height: 70vh;
+    }
+}
+
+@media (max-width: 768px) {
+    .gameIframe {
+        width: 95vw;
+        height: 60vh;
+    }
+} 

@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFT Mahjong Solitaire</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #2c5530, #1a3d1f);
+            color: white;
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 100vw; /* Use full viewport width */
+            width: 100%;
+            height: 100vh; /* Use full viewport height */
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        #game-info {
+            display: flex;
+            gap: 40px; /* Increased gap */
+            margin-bottom: 15px;
+            background: rgba(0,0,0,0.3);
+            padding: 15px 40px; /* Increased padding */
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .info-item {
+            text-align: center;
+            color: #fff;
+        }
+
+        .info-label {
+            font-size: 16px; /* Increased from 14px */
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 28px; /* Increased from 24px */
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        #game-message {
+            margin: 10px 0;
+            padding: 15px 40px; /* Increased padding */
+            border-radius: 10px;
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+            color: #fff;
+            text-align: center;
+            min-width: 400px; /* Increased from 300px */
+            font-size: 16px; /* Added font size */
+        }
+
+        #mahjong-board {
+            position: relative;
+            width: 95vw; /* Use almost full viewport width */
+            height: 70vh; /* Use most of viewport height */
+            margin: 10px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .tile {
+            position: absolute;
+            width: 80px; /* Increased from 60px */
+            height: 100px; /* Increased from 75px */
+            background: linear-gradient(145deg, #f0f0f0, #d0d0d0);
+            border: 2px solid #999;
+            border-radius: 8px;
+            box-shadow: 3px 3px 6px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+            overflow: hidden;
+        }
+
+        .tile img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        .tile:hover:not(.blocked):not(.removed) {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 4px 4px 12px rgba(0,0,0,0.6);
+            border-color: #4CAF50;
+            z-index: 1000;
+        }
+
+        .tile.selected {
+            transform: translateY(-5px) scale(1.1);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+            border-color: #FFD700;
+            z-index: 1001;
+        }
+
+        .tile.removed {
+            opacity: 0;
+            transform: scale(0);
+            pointer-events: none;
+        }
+
+        .tile.blocked {
+            opacity: 0.4;
+            cursor: not-allowed;
+            filter: grayscale(50%);
+        }
+
+        .tile.hint {
+            animation: pulse 1s infinite;
+            border-color: #FF5722;
+        }
+
+        @keyframes pulse {
+            0%, 100% { 
+                box-shadow: 0 0 10px rgba(255, 87, 34, 0.8);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 20px rgba(255, 87, 34, 1);
+                transform: scale(1.05);
+            }
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px; /* Increased from 15px */
+            margin-top: 15px; /* Reduced from 20px */
+        }
+
+        button {
+            padding: 15px 30px; /* Increased from 12px 24px */
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(145deg, #4CAF50, #45a049);
+            color: white;
+            cursor: pointer;
+            font-size: 18px; /* Increased from 16px */
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        button:hover {
+            background: linear-gradient(145deg, #45a049, #3d8b40);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .win-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(145deg, #4CAF50, #45a049);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            font-size: 28px;
+            text-align: center;
+            z-index: 2000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        .lose-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(145deg, #f44336, #d32f2f);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            font-size: 28px;
+            text-align: center;
+            z-index: 2000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>NFT Mahjong Solitaire</h1>
+        
+        <div id="game-info">
+            <div class="info-item">
+                <div class="info-label">Tiles Remaining</div>
+                <div class="info-value" id="tilesRemaining">144</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Possible Moves</div>
+                <div class="info-value" id="possibleMoves">0</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Time</div>
+                <div class="info-value" id="gameTime">00:00</div>
+            </div>
+        </div>
+        
+        <div id="game-message">Welcome to NFT Mahjong Solitaire! Find matching pairs of tiles.</div>
+        
+        <div id="mahjong-board"></div>
+        
+        <div class="controls">
+            <button id="newGameBtn">New Game</button>
+            <button id="hintBtn">Hint</button>
+            <button id="shuffleBtn">Shuffle</button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let userNftImages = [];
+        let boardElement;
+        let allTiles = [];
+        let selectedTile = null;
+        let remainingTilesCount = 0;
+        let messageArea;
+        let tilesRemainingEl;
+        let possibleMovesEl;
+        let gameTimeEl;
+        let newGameBtn;
+        let hintBtn;
+        let shuffleBtn;
+        let hintTimeout;
+        let gameStartTime;
+        let gameTimer;
+        let hintsUsed = 0;
+        let shufflesUsed = 0;
+
+        // Tile class
+        class MahjongTile {
+            constructor(id, type, value, imageSrc, x, y, z) {
+                this.id = id;
+                this.type = type;
+                this.value = value;
+                this.imageSrc = imageSrc;
+                this.x = x;
+                this.y = y;
+                this.z = z;
+                this.isRemoved = false;
+                this.isBlocked = true;
+                this.domElement = null;
+            }
+
+            matches(otherTile) {
+                if (!otherTile || this.isRemoved || otherTile.isRemoved) return false;
+                // For NFT tiles, match by image URL since each NFT is unique
+                if (this.type === 'nft' && otherTile.type === 'nft') {
+                    return this.imageSrc === otherTile.imageSrc;
+                }
+                // For traditional mahjong tiles, match by type and value
+                return this.type === otherTile.type && this.value === otherTile.value;
+            }
+
+            isClickable() {
+                return !this.isRemoved && !this.isBlocked;
+            }
+        }
+
+        // Initialize the game
+        function initGame() {
+            boardElement = document.getElementById('mahjong-board');
+            messageArea = document.getElementById('game-message');
+            tilesRemainingEl = document.getElementById('tilesRemaining');
+            possibleMovesEl = document.getElementById('possibleMoves');
+            gameTimeEl = document.getElementById('gameTime');
+            newGameBtn = document.getElementById('newGameBtn');
+            hintBtn = document.getElementById('hintBtn');
+            shuffleBtn = document.getElementById('shuffleBtn');
+
+            // Get NFT images from URL parameters
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const nftsParam = urlParams.get('nfts');
+                if (nftsParam) {
+                    userNftImages = JSON.parse(decodeURIComponent(nftsParam));
+                    console.log(`Loaded ${userNftImages.length} NFT images from URL parameters`);
+                } else {
+                    console.log('No NFT images found in URL parameters, using placeholders');
+                }
+            } catch (error) {
+                console.error('Error parsing NFT images from URL:', error);
+                userNftImages = [];
+            }
+
+            // Fallback to placeholder images if no NFTs
+            if (userNftImages.length === 0) {
+                userNftImages = Array.from({ length: 72 }, (_, i) => 
+                    `https://via.placeholder.com/80x100/4CAF50/FFFFFF?text=T${i + 1}` /* Updated from 60x75 */
+                );
+            }
+
+            newGameBtn.addEventListener('click', startNewGame);
+            hintBtn.addEventListener('click', showHint);
+            shuffleBtn.addEventListener('click', shuffleTiles);
+            
+            startNewGame();
+        }
+
+        // Start a new game
+        function startNewGame() {
+            // Clear previous game state
+            boardElement.innerHTML = '';
+            allTiles = [];
+            selectedTile = null;
+            hintsUsed = 0;
+            shufflesUsed = 0;
+            
+            if (hintTimeout) clearTimeout(hintTimeout);
+            if (gameTimer) clearInterval(gameTimer);
+
+            // Create tile set
+            createTileSet();
+            
+            // Place tiles on board
+            placeTiles();
+            
+            // Update tile availability
+            updateTileAvailability();
+            
+            // Update game info
+            remainingTilesCount = allTiles.length;
+            updateGameInfo();
+            
+            // Start timer
+            gameStartTime = Date.now();
+            gameTimer = setInterval(updateTimer, 1000);
+            
+            messageArea.textContent = "Game Started! Find matching pairs of tiles.";
+            newGameBtn.disabled = false;
+            hintBtn.disabled = false;
+            shuffleBtn.disabled = false;
+        }
+
+        // Create the tile set using NFT images
+        function createTileSet() {
+            let idCounter = 0;
+            
+            // Create 144 tiles (72 pairs) using NFT images
+            const tilesNeeded = 144;
+            const pairsNeeded = 72;
+            
+            // Ensure we have enough images by repeating if necessary
+            let availableImages = [...userNftImages];
+            while (availableImages.length < pairsNeeded) {
+                availableImages = [...availableImages, ...userNftImages];
+            }
+            
+            // Take only the number of unique images we need
+            availableImages = availableImages.slice(0, pairsNeeded);
+            
+            // Create pairs
+            for (let i = 0; i < pairsNeeded; i++) {
+                const imageUrl = availableImages[i];
+                
+                // Create two identical tiles
+                allTiles.push(new MahjongTile(
+                    `tile-${idCounter++}`,
+                    'nft',
+                    i,
+                    imageUrl,
+                    0, 0, 0
+                ));
+                
+                allTiles.push(new MahjongTile(
+                    `tile-${idCounter++}`,
+                    'nft',
+                    i,
+                    imageUrl,
+                    0, 0, 0
+                ));
+            }
+            
+            // Shuffle the tiles
+            for (let i = allTiles.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allTiles[i], allTiles[j]] = [allTiles[j], allTiles[i]];
+            }
+        }
+
+        // Generate turtle layout positions
+        function generateTurtleLayout() {
+            const layout = [];
+            
+            // Layer 0 (bottom) - 60 tiles
+            for (let y = 1; y <= 8; y++) {
+                for (let x = 2; x <= 15; x++) {
+                    if ((y === 1 || y === 8) && (x >= 4 && x <= 13)) {
+                        layout.push({ x, y, z: 0 });
+                    } else if ((y >= 2 && y <= 7) && (x === 2 || x === 15 || (x >= 4 && x <= 13))) {
+                        layout.push({ x, y, z: 0 });
+                    }
+                }
+            }
+            
+            // Layer 1 - 40 tiles
+            for (let y = 2; y <= 7; y++) {
+                for (let x = 4; x <= 13; x++) {
+                    if ((y === 2 || y === 7) && (x >= 6 && x <= 11)) {
+                        layout.push({ x, y, z: 1 });
+                    } else if ((y >= 3 && y <= 6) && (x === 4 || x === 13 || (x >= 6 && x <= 11))) {
+                        layout.push({ x, y, z: 1 });
+                    }
+                }
+            }
+            
+            // Layer 2 - 28 tiles
+            for (let y = 3; y <= 6; y++) {
+                for (let x = 6; x <= 11; x++) {
+                    if ((y === 3 || y === 6) && (x >= 8 && x <= 9)) {
+                        layout.push({ x, y, z: 2 });
+                    } else if ((y >= 4 && y <= 5) && (x === 6 || x === 11 || (x >= 8 && x <= 9))) {
+                        layout.push({ x, y, z: 2 });
+                    }
+                }
+            }
+            
+            // Layer 3 - 12 tiles
+            for (let y = 4; y <= 5; y++) {
+                for (let x = 8; x <= 9; x++) {
+                    layout.push({ x, y, z: 3 });
+                }
+            }
+            
+            // Layer 4 (top) - 4 tiles
+            layout.push({ x: 8, y: 4, z: 4 });
+            layout.push({ x: 9, y: 4, z: 4 });
+            layout.push({ x: 8, y: 5, z: 4 });
+            layout.push({ x: 9, y: 5, z: 4 });
+            
+            return layout;
+        }
+
+        // Place tiles on the board
+        function placeTiles() {
+            const layout = generateTurtleLayout();
+            
+            layout.forEach((pos, index) => {
+                if (index >= allTiles.length) return;
+                
+                const tile = allTiles[index];
+                tile.x = pos.x;
+                tile.y = pos.y;
+                tile.z = pos.z;
+                
+                const tileElement = document.createElement('div');
+                tileElement.className = 'tile';
+                
+                // Position calculation for 3D effect
+                const offsetX = pos.z * 4; /* Increased from 3 */
+                const offsetY = pos.z * 4; /* Increased from 3 */
+                tileElement.style.left = `${pos.x * 70 + offsetX}px`; /* Increased from 55 to 70 */
+                tileElement.style.top = `${pos.y * 80 - offsetY}px`; /* Increased from 60 to 80 */
+                tileElement.style.zIndex = pos.z * 100 + pos.y;
+                
+                // Add NFT image
+                const img = document.createElement('img');
+                img.src = tile.imageSrc;
+                img.alt = `Tile ${tile.value}`;
+                img.onerror = () => {
+                    img.src = 'https://via.placeholder.com/80x100/4CAF50/FFFFFF?text=NFT'; /* Updated from 60x75 */
+                };
+                tileElement.appendChild(img);
+                
+                tileElement.addEventListener('click', () => handleTileClick(tile));
+                tile.domElement = tileElement;
+                boardElement.appendChild(tileElement);
+            });
+        }
+
+        // Update tile availability
+        function updateTileAvailability() {
+            allTiles.forEach(tile => {
+                if (tile.isRemoved) return;
+                
+                // Check if tile is blocked by other tiles
+                const isBlocked = allTiles.some(otherTile => {
+                    if (otherTile.isRemoved || otherTile === tile) return false;
+                    
+                    // Check if there's a tile above
+                    if (otherTile.z > tile.z &&
+                        Math.abs(otherTile.x - tile.x) <= 1 &&
+                        Math.abs(otherTile.y - tile.y) <= 1) {
+                        return true;
+                    }
+                    
+                    return false;
+                });
+                
+                // Check if tile has free sides
+                const hasFreeSides = checkFreeSides(tile);
+                
+                tile.isBlocked = isBlocked || !hasFreeSides;
+                
+                if (tile.domElement) {
+                    tile.domElement.classList.toggle('blocked', tile.isBlocked);
+                }
+            });
+        }
+
+        // Check if tile has at least one free side
+        function checkFreeSides(tile) {
+            const leftBlocked = allTiles.some(otherTile => 
+                !otherTile.isRemoved && otherTile !== tile &&
+                otherTile.z === tile.z &&
+                otherTile.x === tile.x - 1 &&
+                otherTile.y === tile.y
+            );
+            
+            const rightBlocked = allTiles.some(otherTile => 
+                !otherTile.isRemoved && otherTile !== tile &&
+                otherTile.z === tile.z &&
+                otherTile.x === tile.x + 1 &&
+                otherTile.y === tile.y
+            );
+            
+            return !leftBlocked || !rightBlocked;
+        }
+
+        // Handle tile click
+        function handleTileClick(tile) {
+            if (!tile.isClickable()) return;
+            
+            // Clear any existing hints
+            clearHints();
+            
+            if (selectedTile === tile) {
+                // Deselect tile
+                tile.domElement.classList.remove('selected');
+                selectedTile = null;
+                messageArea.textContent = "Tile deselected.";
+            } else if (selectedTile) {
+                // Check for match
+                if (selectedTile.matches(tile)) {
+                    // Match found!
+                    selectedTile.isRemoved = true;
+                    tile.isRemoved = true;
+                    selectedTile.domElement.classList.add('removed');
+                    tile.domElement.classList.add('removed');
+                    
+                    remainingTilesCount -= 2;
+                    updateGameInfo();
+                    messageArea.textContent = "Match found! Great job!";
+                    
+                    selectedTile = null;
+                    updateTileAvailability();
+                    
+                    // Check win condition
+                    if (remainingTilesCount === 0) {
+                        endGame(true);
+                    } else {
+                        // Check if there are still possible moves
+                        const moves = calculatePossibleMoves();
+                        if (moves.length === 0) {
+                            endGame(false);
+                        }
+                    }
+                } else {
+                    // No match, switch selection
+                    selectedTile.domElement.classList.remove('selected');
+                    selectedTile = tile;
+                    tile.domElement.classList.add('selected');
+                    messageArea.textContent = "No match. Try again!";
+                }
+            } else {
+                // Select first tile
+                selectedTile = tile;
+                tile.domElement.classList.add('selected');
+                messageArea.textContent = "Tile selected. Find its match!";
+            }
+        }
+
+        // Calculate possible moves
+        function calculatePossibleMoves() {
+            const moves = [];
+            const clickableTiles = allTiles.filter(t => t.isClickable());
+            
+            for (let i = 0; i < clickableTiles.length; i++) {
+                for (let j = i + 1; j < clickableTiles.length; j++) {
+                    if (clickableTiles[i].matches(clickableTiles[j])) {
+                        moves.push([clickableTiles[i], clickableTiles[j]]);
+                    }
+                }
+            }
+            
+            return moves;
+        }
+
+        // Show hint
+        function showHint() {
+            const moves = calculatePossibleMoves();
+            if (moves.length === 0) {
+                messageArea.textContent = "No possible moves! Try shuffling.";
+                return;
+            }
+            
+            hintsUsed++;
+            const randomMove = moves[Math.floor(Math.random() * moves.length)];
+            const [tile1, tile2] = randomMove;
+            
+            // Clear previous selection
+            if (selectedTile) {
+                selectedTile.domElement.classList.remove('selected');
+                selectedTile = null;
+            }
+            
+            // Highlight hint tiles
+            tile1.domElement.classList.add('hint');
+            tile2.domElement.classList.add('hint');
+            
+            messageArea.textContent = `Hint ${hintsUsed}: These tiles match!`;
+            
+            // Clear hints after 3 seconds
+            if (hintTimeout) clearTimeout(hintTimeout);
+            hintTimeout = setTimeout(clearHints, 3000);
+        }
+
+        // Clear hint highlighting
+        function clearHints() {
+            allTiles.forEach(tile => {
+                if (tile.domElement) {
+                    tile.domElement.classList.remove('hint');
+                }
+            });
+        }
+
+        // Shuffle tiles
+        function shuffleTiles() {
+            if (shufflesUsed >= 3) {
+                messageArea.textContent = "No more shuffles available!";
+                return;
+            }
+            
+            shufflesUsed++;
+            
+            // Get all non-removed tiles
+            const activeTiles = allTiles.filter(t => !t.isRemoved);
+            
+            // Shuffle their images
+            const images = activeTiles.map(t => t.imageSrc);
+            for (let i = images.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [images[i], images[j]] = [images[j], images[i]];
+            }
+            
+            // Reassign images to tiles
+            activeTiles.forEach((tile, index) => {
+                tile.imageSrc = images[index];
+                if (tile.domElement && tile.domElement.querySelector('img')) {
+                    tile.domElement.querySelector('img').src = tile.imageSrc;
+                }
+            });
+            
+            // Clear selection
+            if (selectedTile) {
+                selectedTile.domElement.classList.remove('selected');
+                selectedTile = null;
+            }
+            
+            updateGameInfo();
+            messageArea.textContent = `Shuffled! ${3 - shufflesUsed} shuffles remaining.`;
+        }
+
+        // Update game info display
+        function updateGameInfo() {
+            tilesRemainingEl.textContent = remainingTilesCount;
+            const moves = calculatePossibleMoves();
+            possibleMovesEl.textContent = moves.length;
+        }
+
+        // Update timer
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            gameTimeEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // End game
+        function endGame(won) {
+            if (gameTimer) {
+                clearInterval(gameTimer);
+            }
+            
+            const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+            
+            if (won) {
+                const winMessage = document.createElement('div');
+                winMessage.className = 'win-message';
+                winMessage.innerHTML = `
+                    <h2>Congratulations!</h2>
+                    <p>You completed the puzzle!</p>
+                    <p>Time: ${gameTimeEl.textContent}</p>
+                    <p>Hints used: ${hintsUsed}</p>
+                    <p>Shuffles used: ${shufflesUsed}</p>
+                    <button onclick="this.parentElement.remove(); startNewGame();">Play Again</button>
+                `;
+                document.body.appendChild(winMessage);
+            } else {
+                const loseMessage = document.createElement('div');
+                loseMessage.className = 'lose-message';
+                loseMessage.innerHTML = `
+                    <h2>No More Moves!</h2>
+                    <p>Try shuffling or start a new game.</p>
+                    <button onclick="this.parentElement.remove(); startNewGame();">New Game</button>
+                    <button onclick="this.parentElement.remove(); shuffleTiles();">Shuffle</button>
+                `;
+                document.body.appendChild(loseMessage);
+            }
+        }
+
+        // Initialize the game when the page loads
+        window.addEventListener('load', initGame);
+    </script>
+</body>
+</html> 

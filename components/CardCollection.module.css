@@ -1,0 +1,664 @@
+.container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: #121212;
+  color: #e0e0e0;
+}
+
+.title {
+  color: #e0e0e0;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+  text-align: center;
+}
+
+.filtersContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  background: #1a1a1a;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+  background-color: #252525;
+  color: #e0e0e0;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #0077cc;
+  box-shadow: 0 0 0 2px rgba(0, 119, 204, 0.25);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filterLabel {
+  font-weight: 500;
+  color: #bbb;
+}
+
+.filterSelect {
+  padding: 0.5rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background-color: #252525;
+  color: #e0e0e0;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+}
+
+.filterSelect:focus {
+  outline: none;
+  border-color: #0077cc;
+  box-shadow: 0 0 0 2px rgba(0, 119, 204, 0.25);
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.cardWrapper {
+  width: 180px;
+  flex: 0 0 auto;
+  margin-bottom: 1rem;
+}
+
+.noCards {
+  text-align: center;
+  width: 100%;
+  padding: 2rem;
+  color: #aaa;
+  font-size: 1.1rem;
+}
+
+.collectionGroup {
+  margin-bottom: 3rem;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #1a1a1a;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.collectionTitle {
+  padding: 1rem;
+  margin: 0;
+  background-color: #0077cc;
+  color: white;
+  border-radius: 8px 8px 0 0;
+  font-size: 1.25rem;
+}
+
+.collectionGroup .grid {
+  padding: 1.5rem;
+  background-color: #1a1a1a;
+  margin-bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.paginationButton {
+  padding: 0.5rem 1rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background-color: #252525;
+  color: #e0e0e0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.paginationButton:hover:not(:disabled) {
+  background-color: #333;
+  border-color: #0077cc;
+}
+
+.paginationButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.paginationText {
+  color: #aaa;
+}
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #333;
+  border-top: 4px solid #0077cc;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+
+  .filters {
+    flex-direction: column;
+  }
+  
+  .grid {
+    justify-content: center;
+  }
+}
+
+/* NFT Mahjong Game Styles */
+.mahjongContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  perspective: 800px;
+  margin: 20px auto;
+  width: 100%;
+  max-width: 1000px;
+  height: 80vh;
+  max-height: 750px;
+  transform-style: preserve-3d;
+}
+
+.mahjongContainer.easy {
+  max-width: 800px;
+}
+
+.mahjongContainer.medium {
+  max-width: 900px;
+}
+
+.mahjongContainer.hard {
+  max-width: 1000px;
+}
+
+.mahjongLayer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transform-style: preserve-3d;
+}
+
+.mahjongRow {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  margin: 0;
+  transform-style: preserve-3d;
+}
+
+.mahjongTile {
+  width: 70px;
+  height: 90px;
+  margin: 2px;
+  perspective: 1000px;
+  cursor: pointer;
+  position: relative;
+  border-radius: 5px;
+  transform-style: preserve-3d;
+  user-select: none;
+}
+
+.mahjongTile.empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.mahjongTile.blocked {
+  cursor: not-allowed;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.mahjongTile.available {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mahjongTile.available:hover {
+  transform: translateY(-5px) translateZ(10px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.mahjongTile.selected {
+  transform: translateY(-10px) translateZ(20px);
+  box-shadow: 0 0 20px rgba(255, 152, 0, 0.8);
+  z-index: 10;
+}
+
+.tileInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+  border-radius: 4px;
+}
+
+.tileFront, .tileBack {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.tileFront {
+  background: linear-gradient(135deg, #444 0%, #222 100%);
+  transform: rotateY(0deg);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.tileBack {
+  background-color: #333;
+  color: #fff;
+  transform: rotateY(0deg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+}
+
+.tileImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 3px;
+}
+
+.tileHighlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 2;
+  transition: border-color 0.3s ease;
+}
+
+.mahjongTile.selected .tileHighlight {
+  border-color: #ff9800;
+  animation: pulse 1.5s infinite;
+}
+
+.gameControls {
+  display: flex;
+  gap: 10px;
+}
+
+.hintButton {
+  background-color: #8e44ad;
+  color: #fff;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.hintButton:hover {
+  background-color: #9b59b6;
+}
+
+.hintButton.disabled {
+  background-color: #555;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.gameResult {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 40%;
+  transform: translateY(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  z-index: 100;
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 152, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-60%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+}
+
+/* Responsive styles for the mahjong game */
+@media (max-width: 768px) {
+  .mahjongTile {
+    width: 50px;
+    height: 70px;
+  }
+  
+  .tileImage {
+    max-height: 50px;
+  }
+  
+  .mahjongContainer {
+    height: 60vh;
+  }
+}
+
+.errorMessage {
+  padding: 10px 15px;
+  margin: 10px 0;
+  background-color: rgba(255, 0, 0, 0.2);
+  border-left: 4px solid #ff3333;
+  border-radius: 4px;
+  color: #ff9999;
+  font-size: 14px;
+  text-align: left;
+}
+
+.cardCount {
+  background-color: #333;
+  padding: 10px;
+  border-radius: 5px;
+  margin-top: 10px;
+  color: #ddd;
+  text-align: center;
+}
+
+.cardCount strong {
+  color: #4fc3f7;
+  font-size: 18px;
+}
+
+/* NFT Mahjong Solitaire styles */
+.mahjongGame {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gameControls {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+}
+
+.gameInfo {
+  display: flex;
+  gap: 20px;
+}
+
+.infoItem {
+  font-size: 16px;
+}
+
+.infoItem span {
+  font-weight: bold;
+  color: #ff9800;
+  margin-right: 5px;
+}
+
+.gameActions {
+  display: flex;
+  gap: 10px;
+}
+
+.gameOverMessage {
+  font-size: 32px;
+  font-weight: bold;
+  color: #ff9800;
+  margin: 20px 0;
+  text-align: center;
+  animation: pulse 1.5s infinite;
+  padding: 15px 30px;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  border: 2px solid #ff9800;
+}
+
+.mahjongBoard {
+  position: relative;
+  width: 100%;
+  height: 800px;
+  margin: 20px auto;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 20px;
+  overflow: visible;
+}
+
+.mahjongBoard.easy {
+  height: 700px;
+}
+
+.mahjongBoard.medium {
+  height: 800px;
+}
+
+.mahjongBoard.hard {
+  height: 900px;
+}
+
+.mahjongTile {
+  position: absolute;
+  width: 80px;
+  height: 100px;
+  border: 1px solid #555;
+  border-top-color: #eee;
+  border-left-color: #ddd;
+  border-bottom-color: #333;
+  border-right-color: #444;
+  border-radius: 4px;
+  background-color: #f0f0dc;
+  box-shadow: 2px 3px 0px rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.1s ease-out, opacity 0.2s;
+}
+
+.mahjongTile.selected {
+  border: 2px solid #4a90e2;
+  transform: translateY(-3px);
+  z-index: 999 !important;
+}
+
+.mahjongTile.hinted {
+  border: 2px solid #f5a623;
+  z-index: 998 !important;
+}
+
+.mahjongTile.blocked {
+  filter: brightness(0.65) saturate(0.5);
+  cursor: not-allowed;
+  box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+.mahjongTile.removed {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease-out;
+  transform: scale(0.7) rotate(15deg);
+}
+
+.tileInner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border-radius: 3px;
+  background-color: #fff;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.tileImage {
+  width: 90%;
+  height: 90%;
+  object-fit: cover;
+  border-radius: 3px;
+}
+
+.errorMessage {
+  background-color: rgba(255, 0, 0, 0.2);
+  color: #ff6b6b;
+  padding: 10px;
+  border-radius: 5px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.radioGroup label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.radioGroup input[type="radio"] {
+  margin: 0;
+}
+
+.cardCount {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+.actionButton {
+  background-color: #ff9800;
+  color: #000;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 16px;
+  margin-top: 15px;
+  transition: background-color 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.actionButton:hover {
+  background-color: #f57c00;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.actionButton:disabled {
+  background-color: #777;
+  cursor: not-allowed;
+  opacity: 0.7;
+  box-shadow: none;
+  transform: none;
+} 

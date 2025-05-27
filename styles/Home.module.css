@@ -1,0 +1,1612 @@
+.container {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #111;
+  color: #fff;
+  min-height: 100vh;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  border-bottom: 1px solid var(--tg-theme-hint-color, #e0e0e0);
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--tg-theme-text-color, #000);
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.tabs {
+  display: flex;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #333;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.tab {
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  font-weight: 500;
+}
+
+.tab.active {
+  border-bottom: 2px solid #ff9800;
+  color: #ff9800;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.card {
+  background: #222;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  perspective: 1000px;
+  height: 350px;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+.cardInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+
+.card:hover .cardInner {
+  transform: rotateY(180deg);
+}
+
+.cardFront,
+.cardBack {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+}
+
+.cardBack {
+  transform: rotateY(180deg);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  background: #222;
+}
+
+.cardImage {
+  width: 100%;
+  height: 70%;
+  background-color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.cardImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cardContent {
+  padding: 1rem;
+}
+
+.cardTitle {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.cardRarity {
+  display: inline-block;
+  background-color: #ff9800;
+  color: #000;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.cardDescription {
+  color: #aaa;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.packContainer {
+  display: flex;
+  justify-content: center;
+  margin: 2rem 0;
+}
+
+.pack {
+  background: linear-gradient(135deg, #333 0%, #111 100%);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  width: 280px;
+}
+
+.pack:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+}
+
+.packImage {
+  font-size: 6rem;
+  margin-bottom: 1rem;
+}
+
+.packTitle {
+  color: #ff9800;
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+}
+
+.packDescription {
+  color: #aaa;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modalContent {
+  position: relative;
+  background: #222;
+  padding: 2rem;
+  border-radius: 12px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow: auto;
+}
+
+.closeModal {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  color: #fff;
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+.filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.searchInput,
+.rarityFilter {
+  padding: 0.75rem;
+  border-radius: 5px;
+  border: 1px solid #333;
+  background: #222;
+  color: #fff;
+  flex: 1;
+}
+
+.actionBtn {
+  background-color: #ff9800;
+  color: black;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 5px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.actionBtn:hover {
+  background-color: #f57c00;
+}
+
+.loading {
+  display: inline-block;
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(255, 152, 0, 0.3);
+  border-radius: 50%;
+  border-top-color: #ff9800;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.packOpening {
+  position: relative;
+  width: 300px;
+  height: 400px;
+  perspective: 1500px;
+  margin: 0 auto 2rem;
+}
+
+.packWrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.packWrapper.opened {
+  transform: rotateY(180deg) scale(1.1);
+}
+
+.packWrapper.revealed {
+  transform: rotateY(180deg) scale(1);
+}
+
+.packFront,
+.packBack {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  transition: all 0.5s ease;
+}
+
+.packFront {
+  background: linear-gradient(135deg, #ff9800 0%, #f44336 100%);
+  box-shadow: 0 10px 30px rgba(255, 152, 0, 0.3);
+  transform: scale(1) rotateY(0);
+}
+
+.packFront::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-25deg);
+  animation: shine 3s infinite;
+}
+
+.packBack {
+  transform: rotateY(180deg);
+  background: #222;
+  overflow: hidden;
+}
+
+.packImage {
+  width: 80%;
+  height: 80%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8rem;
+  color: white;
+  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.5s ease;
+}
+
+.packImage.revealed {
+  transform: scale(1.1);
+}
+
+.revealedCards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.revealedCard {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.5s ease;
+}
+
+.revealedCard.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.cardGlow {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, rgba(255, 152, 0, 0.2) 0%, transparent 70%);
+  animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes shine {
+  0% {
+    left: -100%;
+  }
+  20% {
+    left: 100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+.statusMessage {
+  text-align: center;
+  margin: 1rem 0;
+  color: #ff9800;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(255, 152, 0, 0.3);
+}
+
+.walletSection {
+  display: flex;
+  align-items: center;
+}
+
+.walletConnector {
+  background: #222;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  min-width: 300px;
+}
+
+.walletConnector h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #fff;
+  font-size: 1.2rem;
+}
+
+.walletList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.walletOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #333;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 15px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.walletOption:hover {
+  background: #444;
+  transform: translateY(-2px);
+}
+
+.walletOption.connecting {
+  background: #555;
+  pointer-events: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.walletOption.connecting::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 100%
+  );
+  animation: connecting 1.5s infinite;
+}
+
+@keyframes connecting {
+  from {
+    left: -100%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+.walletOption img {
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+}
+
+.noWalletMessage {
+  color: #aaa;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.noWalletMessage a {
+  display: block;
+  margin-top: 15px;
+  color: #ff9800;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.noWalletMessage a:hover {
+  text-decoration: underline;
+}
+
+.errorMessage {
+  background: #2d1b1b;
+  border: 1px solid #d32f2f;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  color: #ffcdd2;
+}
+
+.errorMessage p {
+  margin: 0 0 0.5rem 0;
+}
+
+.retryButton {
+  background: #d32f2f;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.retryButton:hover {
+  background: #b71c1c;
+}
+
+.emptyCollection {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: #1a1a1a;
+  border-radius: 12px;
+  border: 2px dashed #333;
+}
+
+.emptyCollection p {
+  color: #aaa;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.emptyCollection p:first-child {
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.hexIndicator {
+  font-size: 0.7rem;
+  color: #888;
+  margin-left: 0.5rem;
+  font-style: italic;
+}
+
+.walletInfo {
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  background: #222;
+  border-radius: 10px;
+  min-width: 300px;
+}
+
+.walletStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.connectedDot {
+  width: 10px;
+  height: 10px;
+  background-color: #4CAF50;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.networkBadge {
+  background-color: #5252e8;
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+.walletAddress {
+  font-family: monospace;
+  background: #333;
+  border-radius: 5px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  color: #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.walletBalance {
+  font-family: monospace;
+  background: #333;
+  border-radius: 5px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  color: #ddd;
+}
+
+.copyButton {
+  background: none;
+  border: none;
+  color: #ddd;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 6px;
+  margin-left: 8px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.copyButton:hover {
+  opacity: 1;
+}
+
+.disconnectButton {
+  background: #444;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 8px 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+  align-self: flex-end;
+}
+
+.disconnectButton:hover {
+  background: #555;
+}
+
+.walletLinks {
+  margin-top: 15px;
+  margin-bottom: 10px;
+  color: #ddd;
+}
+
+.walletOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 15px;
+}
+
+.walletOptions a {
+  display: inline-block;
+  color: #ff9800;
+  text-decoration: none;
+  font-weight: 500;
+  background: #333;
+  padding: 8px 15px;
+  border-radius: 5px;
+  transition: all 0.2s;
+}
+
+.walletOptions a:hover {
+  background: #444;
+  transform: translateY(-2px);
+}
+
+.walletHelp {
+  color: #aaa;
+  font-size: 0.85rem;
+  margin-top: 5px;
+}
+
+.loadingState {
+  color: #ddd;
+  margin: 10px 0;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.walletPlaceholder {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  color: white;
+}
+
+.connectingSpinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+  margin-left: 10px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: #333;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  opacity: 0;
+  transition: transform 0.3s, opacity 0.3s;
+}
+
+.toastVisible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.toastSuccess {
+  border-left: 4px solid #4CAF50;
+}
+
+.toastError {
+  border-left: 4px solid #f44336;
+}
+
+.teamsTab {
+  padding: 2rem 0;
+}
+
+.teamsTab h2 {
+  color: var(--tg-theme-text-color, #fff);
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+/* Games Tab */
+.gamesTab {
+  padding: 2rem 0;
+}
+
+.gameOptions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.gameCard {
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gameCard:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+.gameCard h3 {
+  color: #ff9800;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  font-size: 1.5rem;
+}
+
+.gameCard p {
+  color: #bbb;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.gameIcon {
+  font-size: 3.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.playButton {
+  background-color: #ff9800;
+  color: #111;
+  border: none;
+  border-radius: 30px;
+  padding: 0.6rem 2rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: auto;
+}
+
+.playButton:hover {
+  background-color: #ffb74d;
+  transform: scale(1.05);
+}
+
+/* New styles for the enhanced Games tab */
+.gameHeader {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #333;
+  padding-bottom: 1rem;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  color: #ff9800;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.5rem 1rem;
+  margin-right: 1rem;
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s ease;
+}
+
+.backButton:hover {
+  transform: translateX(-5px);
+}
+
+.gameResults {
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.gameResults h3 {
+  color: #ff9800;
+  margin-bottom: 1.5rem;
+  font-size: 1.8rem;
+}
+
+.resultsContent {
+  margin-bottom: 2rem;
+}
+
+.resultsContent p {
+  margin: 0.8rem 0;
+  font-size: 1.1rem;
+  color: #ddd;
+}
+
+.resultsContent strong {
+  color: #ff9800;
+  font-size: 1.2rem;
+}
+
+.noCardsWarning {
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  margin: 2rem 0;
+  border: 1px solid #ff9800;
+}
+
+.noCardsWarning p {
+  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+  color: #ddd;
+}
+
+.rewardPointsDisplay {
+  margin-top: 2rem;
+  text-align: center;
+  padding: 1rem;
+  background: linear-gradient(145deg, #333, #222);
+  border-radius: 12px;
+  border: 1px dashed #ff9800;
+  display: inline-block;
+}
+
+.rewardPointsDisplay p {
+  font-size: 1.1rem;
+  color: #ddd;
+}
+
+.rewardPointsDisplay strong {
+  color: #ff9800;
+  font-size: 1.3rem;
+}
+
+/* Game Tabs */
+.gameTabs {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #333;
+}
+
+.gameTab {
+  padding: 10px 20px;
+  background-color: #222;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  color: #eee;
+  transition: background-color 0.2s ease;
+}
+
+.gameTab.active {
+  background-color: #ff9800;
+  color: #000;
+}
+
+.gameContainer {
+  background-color: #222;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  padding: 20px;
+}
+
+/* Loading and Error States */
+.loading, .error {
+  text-align: center;
+  padding: 50px;
+  background-color: #222;
+  border-radius: 8px;
+}
+
+.loading p {
+  color: #ddd;
+  margin-bottom: 15px;
+}
+
+.error p {
+  color: #f44336;
+  margin-bottom: 10px;
+}
+
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  border-top: 4px solid #ff9800;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 20px auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Mahjong styles */
+.mahjongSetup, .battleSetup, .puzzleSetup {
+  background-color: #222;
+  color: #eee;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.optionGroup, .difficultySelect {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #333;
+  border-radius: 8px;
+}
+
+.setupOptions, .difficultyOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  color: #ddd;
+  padding: 10px;
+}
+
+.radioGroup label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.actionButton, .difficultyButton {
+  background-color: #ff9800;
+  color: #000;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 15px;
+  transition: background-color 0.2s ease;
+}
+
+.actionButton:hover, .difficultyButton:hover {
+  background-color: #f57c00;
+}
+
+.difficultyButton.selected {
+  background-color: #f57c00;
+  box-shadow: 0 0 0 2px #ff9800;
+}
+
+.difficultyInfo {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: normal;
+  margin-top: 5px;
+  color: #bbb;
+}
+
+.mahjongGrid, .teamGrid, .puzzleGrid {
+  display: grid;
+  gap: 10px;
+  margin: 20px auto;
+  background-color: #222;
+}
+
+.mahjongGrid.easy {
+  grid-template-columns: repeat(4, 1fr);
+  max-width: 800px;
+}
+
+.mahjongGrid.medium, .mahjongGrid.hard {
+  grid-template-columns: repeat(6, 1fr);
+  max-width: 900px;
+}
+
+.mahjongCard, .puzzleCell {
+  perspective: 1000px;
+  aspect-ratio: 3/4;
+  cursor: pointer;
+  background-color: #333;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.mahjongCard.flipped .cardInner {
+  transform: rotateY(180deg);
+}
+
+.mahjongCard.matched .cardInner {
+  box-shadow: 0 0 15px rgba(255, 152, 0, 0.8);
+}
+
+.cardInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.cardFront, .cardBack {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cardFront {
+  background-color: #444;
+}
+
+.cardBackImage, .cardImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cardBack {
+  background-color: #333;
+  transform: rotateY(180deg);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+}
+
+.cardName {
+  margin-top: 5px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.gameHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  background-color: #333;
+  padding: 10px 15px;
+  border-radius: 8px;
+}
+
+.gameInfo {
+  display: flex;
+  gap: 20px;
+}
+
+.infoItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.infoLabel {
+  font-size: 0.8rem;
+  color: #bbb;
+}
+
+.infoValue {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.infoValue.lowTime {
+  color: #f44336;
+  animation: pulse 1s infinite;
+}
+
+.restartButton {
+  background-color: #555;
+  color: #fff;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.restartButton:hover {
+  background-color: #666;
+}
+
+.mahjongBoard {
+  background-color: #222;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+/* Battle Arena styles */
+.battleArena, .mahjongGame, .puzzleGame, .resultsContent {
+  background-color: #222;
+  color: #eee;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.battleInfo {
+  background-color: #333;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.turnIndicator {
+  font-weight: bold;
+  color: #ff9800;
+}
+
+.battleField {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.teamSide {
+  padding: 15px;
+  background-color: #333;
+  border-radius: 8px;
+}
+
+.teamGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.cardWrapper {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cardWrapper.selected {
+  transform: translateY(-5px);
+  box-shadow: 0 0 0 3px #ff9800;
+}
+
+.cardWrapper.defeated {
+  opacity: 0.5;
+  filter: grayscale(0.8);
+}
+
+.cardWrapper.targeted {
+  animation: targetPulse 1s infinite;
+}
+
+.emptySlot {
+  background-color: #333;
+  border: 2px dashed #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #777;
+  font-size: 0.9rem;
+  min-height: 150px;
+}
+
+.battleLog {
+  padding: 15px;
+  background-color: #333;
+  border-radius: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  color: #ddd;
+}
+
+.logEntries {
+  margin-top: 10px;
+}
+
+.logEntry {
+  padding: 5px 0;
+  border-bottom: 1px solid #444;
+}
+
+.healthBar {
+  height: 10px;
+  background-color: #555;
+  border-radius: 5px;
+  margin-top: 5px;
+  position: relative;
+  overflow: hidden;
+}
+
+.healthFill {
+  height: 100%;
+  background-color: #ff9800;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.battleResults, .puzzleComplete {
+  background-color: #222;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  color: #eee;
+}
+
+.resultsSummary {
+  font-size: 1.2rem;
+  margin: 20px 0;
+}
+
+.rewardsInfo {
+  background-color: #333;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+/* Elemental Puzzler styles */
+.puzzleGame {
+  position: relative;
+}
+
+.scoreContainer {
+  display: flex;
+  gap: 20px;
+}
+
+.scoreItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.scoreLabel {
+  font-size: 0.8rem;
+  color: #bbb;
+}
+
+.scoreValue {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.timerContainer {
+  width: 200px;
+  background-color: #444;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.timer {
+  position: relative;
+  height: 20px;
+}
+
+.timerBar {
+  height: 100%;
+  background-color: #ff9800;
+  border-radius: 10px;
+  transition: width 1s linear;
+}
+
+.timerText {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #000;
+  font-weight: 600;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.puzzleGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 5px;
+  margin: 20px auto;
+  max-width: 600px;
+}
+
+.puzzleCell {
+  aspect-ratio: 1/1;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.puzzleCell.selected {
+  box-shadow: 0 0 0 3px #ff9800;
+  transform: scale(1.05);
+}
+
+.puzzleCardContainer {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.puzzleCardImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.puzzleCardOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+}
+
+.cardRarityIndicator {
+  width: 100%;
+  height: 5px;
+}
+
+.resultsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background-color: #333;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.resultItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #444;
+}
+
+.resultLabel {
+  color: #bbb;
+}
+
+.resultValue {
+  color: #fff;
+  font-weight: bold;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes targetPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.7); }
+  50% { box-shadow: 0 0 0 10px rgba(255, 152, 0, 0); }
+}
+
+/* Wallet Connect Banner */
+.walletConnectBanner {
+  background-color: #333;
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.walletConnectBanner p {
+  margin: 0;
+  color: #ccc;
+}
+
+.smallActionBtn {
+  background-color: #ff9800;
+  color: black;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  font-weight: bold;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.smallActionBtn:hover {
+  background-color: #f57c00;
+}
+
+/* Wallet Connect Modal */
+.walletConnectModal {
+  background-color: #222;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.walletConnectModal h2 {
+  color: #ff9800;
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.walletOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.walletOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #333;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 15px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.walletOption:hover {
+  background: #444;
+  transform: translateY(-2px);
+}
+
+.walletOption img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: contain;
+}
+
+/* Collection tab styles */
+.collectionInfo {
+  background: #222;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-left: 4px solid #ff9800;
+}
+
+.collectionInfo p {
+  margin: 0.25rem 0;
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
+.collectionInfo p:first-child {
+  font-weight: 600;
+  color: #fff;
+}
+
+.statusMessage {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: #ff9800;
+  font-weight: 500;
+}
+
+.errorMessage {
+  background: #2d1b1b;
+  border: 1px solid #d32f2f;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  color: #ffcdd2;
+}
+
+.errorMessage p {
+  margin: 0 0 0.5rem 0;
+}
+
+.retryButton {
+  background: #d32f2f;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.retryButton:hover {
+  background: #b71c1c;
+}
+
+.emptyCollection {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: #1a1a1a;
+  border-radius: 12px;
+  border: 2px dashed #333;
+}
+
+.emptyCollection p {
+  color: #aaa;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.emptyCollection p:first-child {
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.hexIndicator {
+  font-size: 0.7rem;
+  color: #888;
+  margin-left: 0.5rem;
+  font-style: italic;
+}

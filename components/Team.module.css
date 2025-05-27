@@ -1,0 +1,280 @@
+.team {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  width: 100%;
+}
+
+.header {
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.teamName {
+  font-size: 1.2rem;
+  color: #fff;
+  margin: 0;
+  padding: 0.5rem;
+  background: #121212;
+  border: 1px solid #333;
+  border-radius: 4px;
+  width: 200px;
+}
+
+.nameInput {
+  font-size: 1.2rem;
+  padding: 0.5rem;
+  border: 1px solid #444;
+  border-radius: 4px;
+  width: 250px;
+  background: #252525;
+  color: #fff;
+}
+
+.nameInput:focus {
+  outline: none;
+  border-color: #0077cc;
+  box-shadow: 0 0 0 2px rgba(0, 119, 204, 0.25);
+}
+
+.saveButton {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.saveButton:hover {
+  background-color: #218838;
+}
+
+.error {
+  color: #dc3545;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.cardList {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  margin: 1rem 0;
+  justify-content: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.cardWrapper {
+  position: relative;
+  width: 180px;
+  height: 260px;
+  border-radius: 8px;
+  background: #121212;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.cardStats {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.statLine {
+  margin: 2px 0;
+  color: #ccc;
+}
+
+.removeButton {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  z-index: 10;
+}
+
+.addCard {
+  width: 180px;
+  height: 260px;
+  border: 2px dashed #333;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: #121212;
+}
+
+.addButton {
+  color: #666;
+  font-size: 1.1rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.teamActions {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.editButton,
+.deleteButton {
+  padding: 0.25rem 0.75rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.editButton {
+  background-color: #ffc107;
+  color: #000;
+}
+
+.deleteButton {
+  background-color: #dc3545;
+  color: white;
+}
+
+.stats {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #252525;
+  border-radius: 6px;
+  color: #ccc;
+}
+
+.statLine {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+}
+
+.statLine span {
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  background: #333;
+  margin: 0 0.25rem;
+  text-align: center;
+}
+
+.synergies {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #252525;
+  border-radius: 6px;
+  color: #ccc;
+}
+
+.synergies h4 {
+  margin-top: 0;
+  color: #fff;
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.synergies ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.synergy {
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: #333;
+  border-radius: 4px;
+  border-left: 3px solid #0077cc;
+}
+
+.synergy strong {
+  color: #fff;
+}
+
+.synergyBonus {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.synergyBonus span {
+  background: #252525;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.synergyBonus span:nth-child(1) {
+  color: #ff7c7c; /* Attack */
+}
+
+.synergyBonus span:nth-child(2) {
+  color: #7cff7c; /* Health */
+}
+
+.synergyBonus span:nth-child(3) {
+  color: #7c7cff; /* Speed */
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .cardList {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .statLine {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .statLine span {
+    margin: 0.25rem 0;
+  }
+  
+  .synergyBonus {
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .cardList {
+    justify-content: center;
+  }
+} 

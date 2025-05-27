@@ -1,0 +1,165 @@
+.container {
+  padding: 2rem;
+  border-radius: 10px;
+  background-color: #f5f5f5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.price {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #0070f3;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.error {
+  background-color: #ffe6e6;
+  color: #d32f2f;
+  padding: 0.75rem;
+  border-radius: 5px;
+  margin-bottom: 1rem;
+}
+
+.button {
+  background-color: #0070f3;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  width: 100%;
+}
+
+.button:hover {
+  background-color: #0051a8;
+}
+
+.button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.paymentDetails {
+  margin-top: 1.5rem;
+}
+
+.paymentDetails h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.addressContainer {
+  background-color: #fff;
+  border-radius: 5px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #e0e0e0;
+}
+
+.label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #666;
+}
+
+.address {
+  font-family: monospace;
+  background-color: #f0f0f0;
+  padding: 0.75rem;
+  border-radius: 5px;
+  word-break: break-all;
+  margin-bottom: 0.75rem;
+  border: 1px dashed #ccc;
+}
+
+.copyButton {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.copyButton:hover {
+  background-color: #218838;
+}
+
+.status {
+  margin-bottom: 1.5rem;
+}
+
+.statusValue {
+  font-weight: 600;
+  color: #0070f3;
+}
+
+.openPackSection {
+  background-color: #fff;
+  border-radius: 5px;
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+}
+
+.txHashInput {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-family: monospace;
+  margin-bottom: 1rem;
+}
+
+.openButton {
+  background-color: #f50057;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  width: 100%;
+}
+
+.openButton:hover {
+  background-color: #c51162;
+}
+
+.openButton:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 1.5rem;
+  }
+  
+  .title {
+    font-size: 1.5rem;
+  }
+  
+  .price {
+    font-size: 1.1rem;
+  }
+} 
