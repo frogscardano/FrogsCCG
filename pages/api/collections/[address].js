@@ -1,5 +1,22 @@
 import { PrismaClient } from '@prisma/client';
-import { getFrogStats } from '../../../utils/frogData';
+
+let getFrogStats;
+try {
+  const frogData = require('../../../utils/frogData');
+  getFrogStats = frogData.getFrogStats;
+} catch (importError) {
+  console.error('Failed to import getFrogStats:', importError);
+  // Fallback function if import fails
+  getFrogStats = (frogNumber, rarity) => {
+    const baseStats = {
+      'Legendary': { attack: 80, health: 80, speed: 80 },
+      'Epic': { attack: 65, health: 65, speed: 65 },
+      'Rare': { attack: 50, health: 50, speed: 50 },
+      'Common': { attack: 30, health: 30, speed: 30 }
+    };
+    return baseStats[rarity] || baseStats['Common'];
+  };
+}
 
 let prisma;
 
@@ -20,7 +37,10 @@ try {
 
 // Function to check if database is available
 async function isDatabaseAvailable() {
-  if (!prisma) return false;
+  if (!prisma) {
+    console.log('Prisma client not initialized');
+    return false;
+  }
   
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -33,93 +53,114 @@ async function isDatabaseAvailable() {
 
 // Function to calculate game stats based on NFT data
 function calculateGameStats(nftData) {
-  const rarity = nftData.rarity || 'Common';
-  
-  // Extract number from NFT name or use a default
-  let nftNumber = 1;
-  
-  // Try to extract number from name (e.g., "Frogs #123", "Snekkies #4267")
-  const nameMatch = nftData.name?.match(/#(\d+)/);
-  if (nameMatch) {
-    nftNumber = parseInt(nameMatch[1]);
-  } else {
-    // Try to extract from attributes
-    const numberAttr = nftData.attributes?.find(attr => 
-      attr.trait_type === "Number" || attr.trait_type === "Asset Name"
-    );
-    if (numberAttr && numberAttr.value) {
-      const numMatch = numberAttr.value.toString().match(/\d+/);
-      if (numMatch) {
-        nftNumber = parseInt(numMatch[0]);
+  try {
+    const rarity = nftData.rarity || 'Common';
+    
+    // Extract number from NFT name or use a default
+    let nftNumber = 1;
+    
+    // Try to extract number from name (e.g., "Frogs #123", "Snekkies #4267")
+    const nameMatch = nftData.name?.match(/#(\d+)/);
+    if (nameMatch) {
+      nftNumber = parseInt(nameMatch[1]);
+    } else {
+      // Try to extract from attributes
+      const numberAttr = nftData.attributes?.find(attr => 
+        attr.trait_type === "Number" || attr.trait_type === "Asset Name"
+      );
+      if (numberAttr && numberAttr.value) {
+        const numMatch = numberAttr.value.toString().match(/\d+/);
+        if (numMatch) {
+          nftNumber = parseInt(numMatch[0]);
+        }
       }
     }
+    
+    console.log(`🎮 Calculating stats for NFT #${nftNumber} with rarity ${rarity}`);
+    
+    // Use getFrogStats for now - can be extended for other collections
+    const stats = getFrogStats(nftNumber, rarity);
+    
+    // Add some collection-specific bonuses
+    const collection = nftData.attributes?.find(attr => attr.trait_type === "Collection")?.value || 'Unknown';
+    let bonus = { attack: 0, health: 0, speed: 0 };
+    
+    switch (collection.toLowerCase()) {
+      case 'snekkies':
+        bonus = { attack: 5, health: 0, speed: 10 }; // Snekkies are fast
+        break;
+      case 'titans':
+        bonus = { attack: 10, health: 15, speed: -5 }; // Titans are strong but slow
+        break;
+      case 'frogs':
+      default:
+        bonus = { attack: 0, health: 5, speed: 5 }; // Frogs are balanced
+        break;
+    }
+    
+    return {
+      attack: Math.max(1, stats.attack + bonus.attack),
+      health: Math.max(1, stats.health + bonus.health),
+      speed: Math.max(1, stats.speed + bonus.speed),
+      special: stats.special
+    };
+  } catch (error) {
+    console.error('Error calculating game stats:', error);
+    // Return default stats if calculation fails
+    return {
+      attack: 10,
+      health: 10,
+      speed: 10,
+      special: 'None'
+    };
   }
-  
-  console.log(`🎮 Calculating stats for NFT #${nftNumber} with rarity ${rarity}`);
-  
-  // Use getFrogStats for now - can be extended for other collections
-  const stats = getFrogStats(nftNumber, rarity);
-  
-  // Add some collection-specific bonuses
-  const collection = nftData.attributes?.find(attr => attr.trait_type === "Collection")?.value || 'Unknown';
-  let bonus = { attack: 0, health: 0, speed: 0 };
-  
-  switch (collection.toLowerCase()) {
-    case 'snekkies':
-      bonus = { attack: 5, health: 0, speed: 10 }; // Snekkies are fast
-      break;
-    case 'titans':
-      bonus = { attack: 10, health: 15, speed: -5 }; // Titans are strong but slow
-      break;
-    case 'frogs':
-    default:
-      bonus = { attack: 0, health: 5, speed: 5 }; // Frogs are balanced
-      break;
-  }
-  
-  return {
-    attack: Math.max(1, stats.attack + bonus.attack),
-    health: Math.max(1, stats.health + bonus.health),
-    speed: Math.max(1, stats.speed + bonus.speed),
-    special: stats.special
-  };
 }
 
 export default async function handler(req, res) {
-  const { address } = req.query;
-  
-  console.log(`🔍 Collections API called with address: ${address}, method: ${req.method}`);
+  console.log(`🔍 Collections API called with method: ${req.method}`);
+  console.log(`🔍 Request URL: ${req.url}`);
+  console.log(`🔍 Query params:`, req.query);
 
-  if (!address) {
-    console.log('❌ No address provided');
-    return res.status(400).json({ error: 'Wallet address is required' });
-  }
-
-  // Check if database is available
-  const dbAvailable = await isDatabaseAvailable();
-  
-  if (!dbAvailable) {
-    console.log('⚠️ Database not available, returning empty collection');
-    if (req.method === 'GET') {
-      return res.status(200).json([]);
-    } else if (req.method === 'POST') {
-      return res.status(503).json({ error: 'Database temporarily unavailable. Please try again later.' });
-    }
-  }
-
-  let user;
   try {
-    user = await prisma.user.upsert({
-      where: { address: address },
-      update: {
-        updatedAt: new Date(),
-      },
-      create: {
-        address: address,
-      },
-    });
+    const { address } = req.query;
     
-    console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
+    if (!address) {
+      console.log('❌ No address provided');
+      return res.status(400).json({ error: 'Wallet address is required' });
+    }
+
+    console.log(`🔍 Processing request for address: ${address}`);
+
+    // Check if database is available
+    const dbAvailable = await isDatabaseAvailable();
+    console.log(`📊 Database available: ${dbAvailable}`);
+    
+    if (!dbAvailable) {
+      console.log('⚠️ Database not available, returning empty collection');
+      if (req.method === 'GET') {
+        return res.status(200).json([]);
+      } else if (req.method === 'POST') {
+        return res.status(503).json({ error: 'Database temporarily unavailable. Please try again later.' });
+      }
+    }
+
+    let user;
+    try {
+      user = await prisma.user.upsert({
+        where: { address: address },
+        update: {
+          updatedAt: new Date(),
+        },
+        create: {
+          address: address,
+        },
+      });
+      
+      console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
+    } catch (userError) {
+      console.error('❌ Error with user operations:', userError);
+      return res.status(500).json({ error: 'Database user operation failed' });
+    }
 
     switch (req.method) {
       case 'GET':
@@ -130,10 +171,6 @@ export default async function handler(req, res) {
           });
           
           console.log(`📊 Found ${userNfts.length} NFTs for user ${address}`);
-          userNfts.forEach((nft, index) => {
-            console.log(`  ${index + 1}. ${nft.name} (${nft.rarity}) - ATK:${nft.attack} HP:${nft.health} SPD:${nft.speed}`);
-            console.log(`     Metadata:`, nft.metadata);
-          });
           
           // Process NFTs to ensure proper structure for frontend
           const collection = userNfts.map(nft => ({
@@ -152,7 +189,6 @@ export default async function handler(req, res) {
           }));
           
           console.log(`✅ Returning collection with ${collection.length} items`);
-          console.log(`📋 Sample processed NFT:`, collection[0]);
           return res.status(200).json(collection);
         } catch (error) {
           console.error('❌ Error fetching collection:', error);
@@ -162,7 +198,7 @@ export default async function handler(req, res) {
       case 'POST':
         try {
           const newNftsData = req.body;
-          console.log(`📥 Received POST data:`, JSON.stringify(newNftsData, null, 2));
+          console.log(`📥 Received POST data with ${Array.isArray(newNftsData) ? newNftsData.length : 0} items`);
           
           if (!Array.isArray(newNftsData) || newNftsData.length === 0) {
             console.log('❌ Invalid or empty NFT data');
@@ -170,62 +206,68 @@ export default async function handler(req, res) {
           }
 
           for (const newNftData of newNftsData) {
-            const uniqueTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
+            try {
+              const uniqueTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
 
-            if (!uniqueTokenId) {
-              console.warn('⚠️ Skipping NFT with no unique identifier (tokenId):', newNftData);
-              continue;
-            }
-            
-            const contractAddress = newNftData.policyId || (newNftData.attributes?.find(attr => attr.trait_type === "Policy ID")?.value);
-            if (!contractAddress) {
-              console.warn('⚠️ Skipping NFT due to missing contract address / policy ID:', newNftData);
-              continue;
-            }
-
-            if (!newNftData.name || !newNftData.rarity || !newNftData.image) {
-              console.warn('⚠️ Skipping NFT with missing essential data (name, rarity, image):', newNftData);
-              continue;
-            }
-            
-            console.log(`🔄 Processing NFT. Token ID: ${uniqueTokenId}, Name: ${newNftData.name}`);
-            
-            // Calculate game stats for this NFT
-            const gameStats = calculateGameStats(newNftData);
-
-            await prisma.$transaction(async (tx) => {
-              const nftDataForUpsert = {
-                tokenId: uniqueTokenId,
-                contractAddress: contractAddress,
-                name: newNftData.name,
-                rarity: newNftData.rarity,
-                imageUrl: newNftData.image,
-                description: newNftData.description || '',
-                attack: gameStats.attack,
-                health: gameStats.health,
-                speed: gameStats.speed,
-                special: gameStats.special,
-                metadata: newNftData.attributes || {},
-                ownerId: user.id,
-              };
-
-              const nftRecord = await tx.nFT.upsert({
-                where: { 
-                  tokenId_contractAddress: {
-                    tokenId: uniqueTokenId,
-                    contractAddress: contractAddress 
-                  } 
-                },
-                update: { ...nftDataForUpsert, updatedAt: new Date() },
-                create: nftDataForUpsert,
-              });
-              
-              if (!nftRecord || !nftRecord.id) {
-                console.error('❌ Failed to upsert NFT within transaction, nftRecord is invalid:', nftRecord);
-                throw new Error(`Failed to obtain valid NFT record for tokenId: ${uniqueTokenId}`);
+              if (!uniqueTokenId) {
+                console.warn('⚠️ Skipping NFT with no unique identifier (tokenId):', newNftData);
+                continue;
               }
-              console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
-            });
+              
+              const contractAddress = newNftData.policyId || (newNftData.attributes?.find(attr => attr.trait_type === "Policy ID")?.value);
+              if (!contractAddress) {
+                console.warn('⚠️ Skipping NFT due to missing contract address / policy ID:', newNftData);
+                continue;
+              }
+
+              if (!newNftData.name || !newNftData.rarity || !newNftData.image) {
+                console.warn('⚠️ Skipping NFT with missing essential data (name, rarity, image):', newNftData);
+                continue;
+              }
+              
+              console.log(`🔄 Processing NFT. Token ID: ${uniqueTokenId}, Name: ${newNftData.name}`);
+              
+              // Calculate game stats for this NFT
+              const gameStats = calculateGameStats(newNftData);
+
+              await prisma.$transaction(async (tx) => {
+                const nftDataForUpsert = {
+                  tokenId: uniqueTokenId,
+                  contractAddress: contractAddress,
+                  name: newNftData.name,
+                  rarity: newNftData.rarity,
+                  imageUrl: newNftData.image,
+                  description: newNftData.description || '',
+                  attack: gameStats.attack,
+                  health: gameStats.health,
+                  speed: gameStats.speed,
+                  special: gameStats.special,
+                  metadata: newNftData.attributes || {},
+                  ownerId: user.id,
+                };
+
+                const nftRecord = await tx.nFT.upsert({
+                  where: { 
+                    tokenId_contractAddress: {
+                      tokenId: uniqueTokenId,
+                      contractAddress: contractAddress 
+                    } 
+                  },
+                  update: { ...nftDataForUpsert, updatedAt: new Date() },
+                  create: nftDataForUpsert,
+                });
+                
+                if (!nftRecord || !nftRecord.id) {
+                  console.error('❌ Failed to upsert NFT within transaction, nftRecord is invalid:', nftRecord);
+                  throw new Error(`Failed to obtain valid NFT record for tokenId: ${uniqueTokenId}`);
+                }
+                console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
+              });
+            } catch (nftError) {
+              console.error('❌ Error processing individual NFT:', nftError);
+              // Continue with next NFT instead of failing entire request
+              continue;
+            }
           }
           
           const updatedUserNfts = await prisma.nFT.findMany({
@@ -239,7 +281,6 @@ export default async function handler(req, res) {
           return res.status(200).json(finalCollection);
         } catch (error) {
           console.error('❌ Error adding NFTs to collection:', error);
-          console.error('❌ Error adding NFTs to collection (full details):', JSON.stringify(error, null, 2));
           return res.status(500).json({ error: `Failed to add NFTs to collection: ${error.message}` });
         }
 
@@ -248,11 +289,16 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (e) {
-    console.error('❌ Error processing user or NFT data:', e);
-    return res.status(500).json({ error: `Failed to process request: ${e.message}` });
+    console.error('❌ Critical error in collections API:', e);
+    console.error('❌ Error stack:', e.stack);
+    return res.status(500).json({ error: `Internal server error: ${e.message}` });
   } finally {
     if (prisma) {
-      await prisma.$disconnect();
+      try {
+        await prisma.$disconnect();
+      } catch (disconnectError) {
+        console.error('❌ Error disconnecting Prisma:', disconnectError);
+      }
     }
   }
 } 
