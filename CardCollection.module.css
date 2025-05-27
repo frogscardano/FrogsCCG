@@ -1,0 +1,343 @@
+/* Add these styles at the end of the file */
+
+/* Trading styles */
+.tradingTabs {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #ddd;
+}
+
+.tab {
+  padding: 10px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.activeTab {
+  border-bottom: 2px solid #4CAF50;
+  color: #4CAF50;
+  font-weight: bold;
+}
+
+.createTradeForm {
+  margin-top: 20px;
+}
+
+.formGroup {
+  margin-bottom: 15px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.formGroup input, .formGroup textarea, .formGroup select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.selectedCard {
+  border: 3px solid #4CAF50;
+  border-radius: 8px;
+}
+
+.tradesList {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.tradeItem {
+  padding: 15px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.tradeDetails {
+  margin-bottom: 10px;
+}
+
+.tradeActions {
+  display: flex;
+  gap: 10px;
+}
+
+.acceptButton, .rejectButton, .cancelButton {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: white;
+}
+
+.acceptButton {
+  background-color: #4CAF50;
+}
+
+.rejectButton {
+  background-color: #f44336;
+}
+
+.cancelButton {
+  background-color: #ff9800;
+}
+
+.accepted { color: #4CAF50; }
+.rejected { color: #f44336; }
+.canceled { color: #ff9800; }
+
+.actionButton {
+  padding: 10px 20px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-top: 15px;
+}
+
+.errorMessage {
+  padding: 10px;
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+/* Memory Game styles */
+.gameSetup {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.gameContainer {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.gameInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.gameStats {
+  display: flex;
+  gap: 20px;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.restartButton {
+  padding: 8px 15px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.memoryGrid {
+  display: grid;
+  gap: 10px;
+  margin: 0 auto;
+}
+
+.memoryGrid.easy {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.memoryGrid.medium {
+  grid-template-columns: repeat(6, 1fr);
+}
+
+.memoryGrid.hard {
+  grid-template-columns: repeat(6, 1fr);
+}
+
+.memoryCard {
+  height: 150px;
+  perspective: 1000px;
+  cursor: pointer;
+}
+
+.cardInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.memoryCard.flipped .cardInner {
+  transform: rotateY(180deg);
+}
+
+.cardFront, .cardBack {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cardFront {
+  background-color: #444;
+  background-image: url('/card-back.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.cardBack {
+  background-color: #333;
+  transform: rotateY(180deg);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+}
+
+.cardName {
+  margin-top: 5px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.8rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Animation for low time warning */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.lowTime {
+  color: #f44336 !important;
+  animation: pulse 1s infinite;
+}
+
+.memoryCard.matched {
+  opacity: 0.8;
+}
+
+/* Additional Mahjong styles for smaller NFT images */
+.mahjongGrid {
+  display: grid;
+  gap: 10px;
+  margin: 20px auto;
+  justify-content: center;
+}
+
+.mahjongGrid.easy {
+  grid-template-columns: repeat(4, 120px);
+  max-width: 520px;
+}
+
+.mahjongGrid.medium {
+  grid-template-columns: repeat(6, 100px);
+  max-width: 640px;
+}
+
+.mahjongGrid.hard {
+  grid-template-columns: repeat(6, 100px);
+  max-width: 640px;
+}
+
+.mahjongCard {
+  width: 100%;
+  height: 150px;
+  perspective: 1000px;
+  cursor: pointer;
+  background-color: #333;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.mahjongCard.flipped .cardInner {
+  transform: rotateY(180deg);
+}
+
+.mahjongCard.matched .cardInner {
+  box-shadow: 0 0 15px rgba(255, 152, 0, 0.8);
+}
+
+.mahjongSetup {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #222;
+  color: #fff;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.cardBackImage {
+  width: 100%;
+  max-width: 120px;
+  height: auto;
+  max-height: 120px;
+  object-fit: contain;
+  margin: 0 auto;
+}
+
+.mahjongBoard {
+  background-color: #222;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Game setup styles */
+.setupOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.optionGroup {
+  text-align: left;
+  background: #333;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.actionButton {
+  background-color: #ff9800;
+  color: #000;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 15px;
+  transition: background-color 0.2s ease;
+}
+
+.actionButton:hover {
+  background-color: #f57c00;
+} 

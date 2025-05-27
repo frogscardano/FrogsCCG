@@ -12,8 +12,8 @@ const nextConfig = {
   },
   // Add trailing slashes to help with routing
   trailingSlash: true,
-  // Ensure static exports work properly
-  output: 'standalone',
+  // Remove standalone output for Vercel compatibility
+  // output: 'standalone',
 }
 
 module.exports = nextConfig

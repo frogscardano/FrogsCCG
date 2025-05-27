@@ -1,14 +1,35 @@
 import { PrismaClient } from '@prisma/client';
 import { getFrogStats } from '../../../utils/frogData';
 
-const prisma = new PrismaClient({
-  log: [
-    { emit: 'stdout', level: 'query' },
-    { emit: 'stdout', level: 'info' },
-    { emit: 'stdout', level: 'warn' },
-    { emit: 'stdout', level: 'error' },
-  ],
-});
+let prisma;
+
+// Initialize Prisma with better error handling
+try {
+  prisma = new PrismaClient({
+    log: [
+      { emit: 'stdout', level: 'query' },
+      { emit: 'stdout', level: 'info' },
+      { emit: 'stdout', level: 'warn' },
+      { emit: 'stdout', level: 'error' },
+    ],
+  });
+} catch (error) {
+  console.error('Failed to initialize Prisma client:', error);
+  prisma = null;
+}
+
+// Function to check if database is available
+async function isDatabaseAvailable() {
+  if (!prisma) return false;
+  
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return true;
+  } catch (error) {
+    console.error('Database connection failed:', error);
+    return false;
+  }
+}
 
 // Function to calculate game stats based on NFT data
 function calculateGameStats(nftData) {
@@ -72,6 +93,18 @@ export default async function handler(req, res) {
   if (!address) {
     console.log('❌ No address provided');
     return res.status(400).json({ error: 'Wallet address is required' });
+  }
+
+  // Check if database is available
+  const dbAvailable = await isDatabaseAvailable();
+  
+  if (!dbAvailable) {
+    console.log('⚠️ Database not available, returning empty collection');
+    if (req.method === 'GET') {
+      return res.status(200).json([]);
+    } else if (req.method === 'POST') {
+      return res.status(503).json({ error: 'Database temporarily unavailable. Please try again later.' });
+    }
   }
 
   let user;
@@ -218,6 +251,8 @@ export default async function handler(req, res) {
     console.error('❌ Error processing user or NFT data:', e);
     return res.status(500).json({ error: `Failed to process request: ${e.message}` });
   } finally {
-    await prisma.$disconnect();
+    if (prisma) {
+      await prisma.$disconnect();
+    }
   }
 } 

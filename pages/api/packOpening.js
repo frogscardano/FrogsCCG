@@ -8,13 +8,45 @@ import {
   recordPackOpening 
 } from './cardanoTransactions';
 
-const prisma = new PrismaClient();
+let prisma;
+
+// Initialize Prisma with error handling
+try {
+  prisma = new PrismaClient();
+} catch (error) {
+  console.error('Failed to initialize Prisma client:', error);
+  prisma = null;
+}
+
+// Function to check if database is available
+async function isDatabaseAvailable() {
+  if (!prisma) return false;
+  
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return true;
+  } catch (error) {
+    console.error('Database connection failed:', error);
+    return false;
+  }
+}
 
 // Pack opening handler
 export default async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
+  }
+
+  // Check if database is available
+  const dbAvailable = await isDatabaseAvailable();
+  
+  if (!dbAvailable) {
+    console.log('⚠️ Database not available for pack opening');
+    return res.status(503).json({ 
+      success: false, 
+      message: 'Pack opening service temporarily unavailable. Please try again later.' 
+    });
   }
 
   // Get environment variables
@@ -141,6 +173,8 @@ export default async function handler(req, res) {
     });
   } finally {
     // Clean up Prisma connection
-    await prisma.$disconnect();
+    if (prisma) {
+      await prisma.$disconnect();
+    }
   }
 } 
