@@ -1,4 +1,3 @@
-@@ -0,0 +1,880 @@
 import { useState, useEffect } from 'react';
 import { fetchFromIpfs, fetchCardanoAsset } from '../utils/ipfs';
 import { showAlert, isTelegramWebApp } from '../utils/telegram';
