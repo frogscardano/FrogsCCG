@@ -1,0 +1,14 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Ignore large directories when calculating repository language stats
+node_modules/* linguist-vendored
+.next/* linguist-vendored
+
+# Specify files to be treated as binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary

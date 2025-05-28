@@ -5,11 +5,11 @@
   "main": "index.js",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "export": "next build && next export",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate || echo 'Prisma generation failed, continuing...'"
   },
   "keywords": [
     "telegram",
