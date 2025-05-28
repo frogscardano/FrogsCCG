@@ -1,6 +1,6 @@
-# Frogs Card Collection Telegram Mini App
+# Frogs Card Collection Mini App
 
-A Telegram mini app for frogs card collection that displays cards from an IPFS-based collection.
+A mini app for frogs card collection that displays cards from an IPFS-based collection.
 
 ## Getting Started
 
