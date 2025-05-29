@@ -10,7 +10,7 @@
     "export": "next build && next export",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "build:vercel": "prisma db push --accept-data-loss && prisma generate && next build"
+    "vercel-build": "prisma db push && prisma generate && next build"
   },
   "keywords": [
     "telegram",
