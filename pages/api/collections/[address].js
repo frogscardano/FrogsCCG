@@ -172,7 +172,7 @@ export default async function handler(req, res) {
                 health: gameStats.health,
                 speed: gameStats.speed,
                 special: gameStats.special,
-                metadata: newNftData.attributes || {},
+                metadata: newNftData.attributes,
                 ownerId: user.id,
               };
 
