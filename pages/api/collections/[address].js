@@ -161,20 +161,36 @@ export default async function handler(req, res) {
             const gameStats = calculateGameStats(newNftData);
 
             await prisma.$transaction(async (tx) => {
-              const nftDataForUpsert = {
-                tokenId: uniqueTokenId,
-                contractAddress: contractAddress,
-                name: newNftData.name,
-                rarity: newNftData.rarity,
-                imageUrl: newNftData.image,
-                description: newNftData.description || '',
-                attack: gameStats.attack,
-                health: gameStats.health,
-                speed: gameStats.speed,
-                special: gameStats.special,
-                metadata: newNftData.attributes,
-                ownerId: user.id,
-              };
+              // Defensive: ensure attributes is not a string for metadata/jsonb field
+let safeMetadata = newNftData.attributes;
+if (typeof safeMetadata === "string") {
+  try {
+    safeMetadata = JSON.parse(safeMetadata);
+  } catch {
+    safeMetadata = {};
+  }
+}
+if (!safeMetadata || typeof safeMetadata !== "object") {
+  safeMetadata = {};
+}
+
+// Defensive: ensure stats are numbers
+const parseOrZero = (x) => (typeof x === "number" ? x : parseInt(x, 10) || 0);
+
+const nftDataForUpsert = {
+  tokenId: uniqueTokenId,
+  contractAddress: contractAddress,
+  name: newNftData.name,
+  rarity: newNftData.rarity,
+  imageUrl: newNftData.image,
+  description: newNftData.description || '',
+  attack: parseOrZero(gameStats.attack),
+  health: parseOrZero(gameStats.health),
+  speed: parseOrZero(gameStats.speed),
+  special: gameStats.special,
+  metadata: safeMetadata,
+  ownerId: user.id,
+};
 
               const nftRecord = await tx.nFT.upsert({
                 where: { 
