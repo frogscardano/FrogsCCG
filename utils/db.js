@@ -1,5 +1,5 @@
-import { prisma } from '../../utils/db';
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 
 // User related functions (replacing wallet functions)
 export async function getWalletByAddress(address) {
