@@ -1,14 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../../utils/db';
 import { getFrogStats } from '../../../utils/frogData';
-
-const prisma = new PrismaClient({
-  log: [
-    { emit: 'stdout', level: 'query' },
-    { emit: 'stdout', level: 'info' },
-    { emit: 'stdout', level: 'warn' },
-    { emit: 'stdout', level: 'error' },
-  ],
-});
 
 // Function to calculate game stats based on NFT data
 function calculateGameStats(nftData) {
@@ -74,9 +65,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Wallet address is required' });
   }
 
-  let user;
   try {
-    user = await prisma.user.upsert({
+    // Use upsert to create or find user
+    const user = await prisma.user.upsert({
       where: { address: address },
       update: {
         updatedAt: new Date(),
@@ -94,13 +85,10 @@ export default async function handler(req, res) {
           console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
           const userNfts = await prisma.nFT.findMany({
             where: { ownerId: user.id },
+            orderBy: { createdAt: 'desc' }
           });
           
           console.log(`📊 Found ${userNfts.length} NFTs for user ${address}`);
-          userNfts.forEach((nft, index) => {
-            console.log(`  ${index + 1}. ${nft.name} (${nft.rarity}) - ATK:${nft.attack} HP:${nft.health} SPD:${nft.speed}`);
-            console.log(`     Metadata:`, nft.metadata);
-          });
           
           // Process NFTs to ensure proper structure for frontend
           const collection = userNfts.map(nft => ({
@@ -119,7 +107,6 @@ export default async function handler(req, res) {
           }));
           
           console.log(`✅ Returning collection with ${collection.length} items`);
-          console.log(`📋 Sample processed NFT:`, collection[0]);
           return res.status(200).json(collection);
         } catch (error) {
           console.error('❌ Error fetching collection:', error);
@@ -129,12 +116,14 @@ export default async function handler(req, res) {
       case 'POST':
         try {
           const newNftsData = req.body;
-          console.log(`📥 Received POST data:`, JSON.stringify(newNftsData, null, 2));
+          console.log(`📥 Received POST data for ${newNftsData?.length || 0} NFTs`);
           
           if (!Array.isArray(newNftsData) || newNftsData.length === 0) {
             console.log('❌ Invalid or empty NFT data');
             return res.status(400).json({ error: 'Invalid or empty NFT data' });
           }
+
+          const savedNfts = [];
 
           for (const newNftData of newNftsData) {
             const uniqueTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
@@ -160,69 +149,48 @@ export default async function handler(req, res) {
             // Calculate game stats for this NFT
             const gameStats = calculateGameStats(newNftData);
 
-            await prisma.$transaction(async (tx) => {
-              // Defensive: ensure attributes is not a string for metadata/jsonb field
-let safeMetadata = newNftData.attributes;
-if (typeof safeMetadata === "string") {
-  try {
-    safeMetadata = JSON.parse(safeMetadata);
-  } catch {
-    safeMetadata = {};
-  }
-}
-if (!safeMetadata || typeof safeMetadata !== "object") {
-  safeMetadata = {};
-}
+            try {
+              const nftDataForUpsert = {
+                tokenId: uniqueTokenId,
+                contractAddress: contractAddress,
+                name: newNftData.name,
+                rarity: newNftData.rarity,
+                imageUrl: newNftData.image,
+                description: newNftData.description || '',
+                attack: gameStats.attack,
+                health: gameStats.health,
+                speed: gameStats.speed,
+                special: gameStats.special,
+                metadata: newNftData.attributes || {},
+                ownerId: user.id,
+              };
 
-// Defensive: ensure stats are numbers
-const parseOrZero = (x) => (typeof x === "number" ? x : parseInt(x, 10) || 0);
-
-const nftDataForUpsert = {
-  tokenId: uniqueTokenId,
-  contractAddress: contractAddress,
-  name: newNftData.name,
-  rarity: newNftData.rarity,
-  imageUrl: newNftData.image,
-  description: newNftData.description || '',
-  attack: parseOrZero(gameStats.attack),
-  health: parseOrZero(gameStats.health),
-  speed: parseOrZero(gameStats.speed),
-  special: gameStats.special,
-  metadata: safeMetadata,
-  ownerId: user.id,
-};
-
-              const nftRecord = await tx.nFT.upsert({
+              const nftRecord = await prisma.nFT.upsert({
                 where: { 
                   tokenId_contractAddress: {
                     tokenId: uniqueTokenId,
                     contractAddress: contractAddress 
                   } 
                 },
-                update: { ...nftDataForUpsert, updatedAt: new Date() },
+                update: { 
+                  ...nftDataForUpsert, 
+                  updatedAt: new Date() 
+                },
                 create: nftDataForUpsert,
               });
               
-              if (!nftRecord || !nftRecord.id) {
-                console.error('❌ Failed to upsert NFT within transaction, nftRecord is invalid:', nftRecord);
-                throw new Error(`Failed to obtain valid NFT record for tokenId: ${uniqueTokenId}`);
-              }
               console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
-            });
+              savedNfts.push(nftRecord);
+            } catch (nftError) {
+              console.error(`❌ Failed to save NFT ${uniqueTokenId}:`, nftError);
+              // Continue with other NFTs
+            }
           }
           
-          const updatedUserNfts = await prisma.nFT.findMany({
-            where: { ownerId: user.id },
-          });
-          const finalCollection = updatedUserNfts.map(nft => ({
-            ...nft,
-          }));
-
-          console.log(`✅ POST complete. Returning ${finalCollection.length} NFTs`);
-          return res.status(200).json(finalCollection);
+          console.log(`✅ POST complete. Successfully saved ${savedNfts.length} NFTs`);
+          return res.status(200).json(savedNfts);
         } catch (error) {
           console.error('❌ Error adding NFTs to collection:', error);
-          console.error('❌ Error adding NFTs to collection (full details):', JSON.stringify(error, null, 2));
           return res.status(500).json({ error: `Failed to add NFTs to collection: ${error.message}` });
         }
 
@@ -233,7 +201,5 @@ const nftDataForUpsert = {
   } catch (e) {
     console.error('❌ Error processing user or NFT data:', e);
     return res.status(500).json({ error: `Failed to process request: ${e.message}` });
-  } finally {
-    await prisma.$disconnect();
   }
 } 
