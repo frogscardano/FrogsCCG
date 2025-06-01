@@ -26,7 +26,9 @@ model NFT {
   metadata        Json?
   User            User     @relation(fields: [ownerId], references: [id])
 
-  @@unique([tokenId, contractAddress])
+  @@index([tokenId])
+  @@index([contractAddress])
+  @@index([ownerId])
 }
 
 model User {
