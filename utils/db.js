@@ -1,10 +1,4 @@
 import { prisma } from '../../utils/db';
-
-// Avoid multiple instances of Prisma Client in development
-const globalForPrisma = global;
-
-export const prisma = globalForPrisma.prisma || new PrismaClient();
-
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 // User related functions (replacing wallet functions)
