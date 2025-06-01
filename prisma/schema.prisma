@@ -29,6 +29,7 @@ model NFT {
   @@index([tokenId])
   @@index([contractAddress])
   @@index([ownerId])
+  @@unique([tokenId, contractAddress])
 }
 
 model User {
