@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../utils/db';
 
 // Avoid multiple instances of Prisma Client in development
 const globalForPrisma = global;
