@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
-// User related functions (replacing wallet functions)
+// User related functions
 export async function getWalletByAddress(address) {
   if (!address) throw new Error('Address is required');
 
@@ -16,35 +16,26 @@ export async function getWalletByAddress(address) {
 export async function createOrUpdateWallet(address, data = {}) {
   if (!address) throw new Error('Address is required');
 
-  // First check if user exists
-  const existingUser = await prisma.user.findUnique({
-    where: { address }
+  return prisma.user.upsert({
+    where: { address },
+    update: {
+      ...data,
+      updatedAt: new Date()
+    },
+    create: {
+      address,
+      ...data
+    }
   });
-
-  if (existingUser) {
-    // Update existing user
-    return prisma.user.update({
-      where: { address },
-      data: {
-        ...data,
-        updatedAt: new Date()
-      }
-    });
-  } else {
-    // Create new user
-    return prisma.user.create({
-      data: {
-        address,
-        ...data
-      }
-    });
-  }
 }
 
-// NFT related functions (replacing card functions)
+// NFT related functions
 export async function getCards(filter = {}) {
   return prisma.nFT.findMany({
-    where: filter
+    where: filter,
+    include: {
+      User: true
+    }
   });
 }
 
@@ -52,18 +43,20 @@ export async function getCardById(cardId) {
   if (!cardId) throw new Error('Card ID is required');
 
   return prisma.nFT.findUnique({
-    where: { id: cardId }
+    where: { id: cardId },
+    include: {
+      User: true
+    }
   });
 }
 
-// User NFT collection functions (replacing user card functions)
+// User NFT collection functions
 export async function getUserCards(address) {
   if (!address) throw new Error('User address is required');
 
   try {
     console.log(`Fetching NFTs for user: ${address}`);
 
-    // Get user and their NFTs
     const user = await prisma.user.findUnique({
       where: { address },
       include: {
@@ -84,76 +77,62 @@ export async function getUserCards(address) {
   }
 }
 
-export async function getWalletCards(address) {
-  // Alias for getUserCards to maintain backward compatibility
-  return getUserCards(address);
-}
-
-export async function addCardToUserCollection(userId, tokenId, contractAddress, metadata = null, txHash = null) {
-  if (!userId || !tokenId || !contractAddress) {
-    throw new Error('User ID, token ID, and contract address are required');
+export async function addCardToUserCollection(address, tokenId, contractAddress, metadata = null) {
+  if (!address || !tokenId || !contractAddress) {
+    throw new Error('Address, token ID, and contract address are required');
   }
 
   try {
-    // Check if NFT already exists
-    const existingNFT = await prisma.nFT.findUnique({
+    // First ensure user exists and get their ID
+    const user = await prisma.user.upsert({
+      where: { address },
+      update: {},
+      create: { address }
+    });
+
+    // Then handle the NFT
+    return prisma.nFT.upsert({
       where: {
         tokenId_contractAddress: {
           tokenId,
           contractAddress
         }
+      },
+      update: {
+        ownerId: user.id,
+        updatedAt: new Date()
+      },
+      create: {
+        tokenId,
+        contractAddress,
+        ownerId: user.id,
+        metadata,
+        name: metadata?.name,
+        rarity: metadata?.rarity,
+        imageUrl: metadata?.image,
+        description: metadata?.description,
+        attack: metadata?.attack,
+        health: metadata?.health,
+        speed: metadata?.speed,
+        special: metadata?.special
       }
     });
-
-    if (existingNFT) {
-      // Update existing NFT owner if different
-      if (existingNFT.ownerId !== userId) {
-        return prisma.nFT.update({
-          where: { id: existingNFT.id },
-          data: {
-            ownerId: userId,
-            updatedAt: new Date()
-          }
-        });
-      }
-      return existingNFT;
-    } else {
-      // Create new NFT
-      return prisma.nFT.create({
-        data: {
-          tokenId,
-          contractAddress,
-          ownerId: userId,
-          metadata,
-          // Generate a unique ID
-          id: `${contractAddress}_${tokenId}_${Date.now()}`
-        }
-      });
-    }
   } catch (error) {
     console.error(`Error adding NFT to user collection:`, error);
     throw error;
   }
 }
 
-// Utility function to create user if not exists
 export async function ensureUserExists(address) {
   if (!address) throw new Error('Address is required');
 
-  let user = await prisma.user.findUnique({
-    where: { address }
+  return prisma.user.upsert({
+    where: { address },
+    update: {},
+    create: { address }
   });
-
-  if (!user) {
-    user = await prisma.user.create({
-      data: { address }
-    });
-  }
-
-  return user;
 }
 
-// Function to get user by address (alias for getWalletByAddress)
 export async function getUserByAddress(address) {
   return getWalletByAddress(address);
-} 
+}
