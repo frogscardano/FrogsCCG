@@ -1,5 +1,7 @@
-import { prisma } from '../../../utils/db';
+import { PrismaClient } from '@prisma/client';
 import { getFrogStats } from '../../../utils/frogData';
+
+const prisma = new PrismaClient();
 
 // Function to calculate game stats based on NFT data
 function calculateGameStats(nftData) {
