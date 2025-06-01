@@ -10,11 +10,11 @@ datasource db {
 
 model NFT {
   id              String   @id @default(cuid())
-  tokenId         String @unique
-  ownerId         String @unique
+  tokenId         String
+  ownerId         String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  contractAddress String @unique
+  contractAddress String
   name            String?
   rarity          String?
   imageUrl        String?
