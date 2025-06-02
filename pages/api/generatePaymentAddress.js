@@ -1,13 +1,11 @@
 // api/generatePaymentAddress.js
 // API route for generating payment addresses for pack purchases
 
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../utils/db.js';
 import { 
   initializeBlockfrostBackend, 
   generatePaymentAddress 
 } from './cardanoTransactions';
-
-const prisma = new PrismaClient();
 
 export default async function handler(req, res) {
   // Only allow POST requests
