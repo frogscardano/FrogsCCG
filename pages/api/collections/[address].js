@@ -1,20 +1,18 @@
 import { PrismaClient } from '@prisma/client';
 import { getFrogStats } from '../../../utils/frogData';
 
-// Initialize PrismaClient
-let prisma;
-if (process.env.NODE_ENV === 'production') {
-  prisma = new PrismaClient();
-} else {
-  if (!global.prisma) {
-    global.prisma = new PrismaClient();
-  }
-  prisma = global.prisma;
-}
+// Create a new PrismaClient with connection pooling configured
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL
+    }
+  },
+  connectionLimit: 1 // Force single connection
+});
 
-// Game stats calculation function remains the same
 function calculateGameStats(nftData) {
-  // ... (keep existing implementation)
+  // ... keep existing implementation
 }
 
 export default async function handler(req, res) {
@@ -27,31 +25,33 @@ export default async function handler(req, res) {
   const normalizedAddress = address.toLowerCase();
 
   try {
-    // Use a transaction for all database operations
-    const result = await prisma.$transaction(async (tx) => {
-      // Find or create user using a raw query to avoid prepared statement issues
-      const users = await tx.$queryRaw`
-        INSERT INTO "User" (address, "createdAt", "updatedAt")
-        VALUES (${normalizedAddress}, NOW(), NOW())
-        ON CONFLICT (address) 
-        DO UPDATE SET "updatedAt" = NOW()
-        RETURNING *;
-      `;
-      
-      const user = users[0];
-
-      if (!user) {
-        throw new Error('Failed to find or create user');
-      }
+    // Use a single transaction for all operations
+    const result = await prisma.$transaction(async (prisma) => {
+      // Find or create user
+      const user = await prisma.user.upsert({
+        where: {
+          address: normalizedAddress
+        },
+        update: {
+          updatedAt: new Date()
+        },
+        create: {
+          address: normalizedAddress,
+          id: `user_${Date.now()}`, // Ensure unique ID
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
 
       if (req.method === 'GET') {
-        // Use parameterized query for NFTs to avoid type casting issues
-        const nfts = await tx.$queryRaw`
-          SELECT n.*
-          FROM "NFT" n
-          WHERE n."ownerId" = ${user.id}::text
-          ORDER BY n."createdAt" DESC;
-        `;
+        const nfts = await prisma.nFT.findMany({
+          where: {
+            ownerId: user.id
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        });
 
         return nfts.map(nft => ({
           ...nft,
@@ -102,66 +102,52 @@ export default async function handler(req, res) {
             );
 
             const gameStats = calculateGameStats(nftData);
-            const metadata = JSON.stringify(
-              Array.isArray(nftData.attributes) 
-                ? nftData.attributes.map(attr => ({
-                    trait_type: String(attr.trait_type || ''),
-                    value: String(attr.value || '')
-                  }))
-                : []
-            );
+            const metadata = Array.isArray(nftData.attributes) 
+              ? nftData.attributes.map(attr => ({
+                  trait_type: String(attr.trait_type || ''),
+                  value: String(attr.value || '')
+                }))
+              : [];
 
-            // Use raw query for NFT upsert
-            const [nft] = await tx.$queryRaw`
-              INSERT INTO "NFT" (
-                "id",
-                "tokenId",
-                "contractAddress",
-                "name",
-                "rarity",
-                "imageUrl",
-                "description",
-                "attack",
-                "health",
-                "speed",
-                "special",
-                "metadata",
-                "ownerId",
-                "createdAt",
-                "updatedAt"
-              )
-              VALUES (
-                ${`${tokenId}_${contractAddress}`},
-                ${tokenId},
-                ${contractAddress},
-                ${String(nftData.name || 'Unnamed')},
-                ${String(nftData.rarity || 'Common')},
-                ${String(nftData.image || '')},
-                ${String(nftData.description || '')},
-                ${gameStats.attack},
-                ${gameStats.health},
-                ${gameStats.speed},
-                ${String(gameStats.special || '')},
-                ${metadata}::jsonb,
-                ${user.id},
-                NOW(),
-                NOW()
-              )
-              ON CONFLICT ("tokenId", "contractAddress")
-              DO UPDATE SET
-                "name" = EXCLUDED."name",
-                "rarity" = EXCLUDED."rarity",
-                "imageUrl" = EXCLUDED."imageUrl",
-                "description" = EXCLUDED."description",
-                "attack" = EXCLUDED."attack",
-                "health" = EXCLUDED."health",
-                "speed" = EXCLUDED."speed",
-                "special" = EXCLUDED."special",
-                "metadata" = EXCLUDED."metadata",
-                "ownerId" = EXCLUDED."ownerId",
-                "updatedAt" = NOW()
-              RETURNING *;
-            `;
+            // Use upsert for NFTs
+            const nft = await prisma.nFT.upsert({
+              where: {
+                tokenId_contractAddress: {
+                  tokenId,
+                  contractAddress
+                }
+              },
+              update: {
+                name: String(nftData.name || 'Unnamed'),
+                rarity: String(nftData.rarity || 'Common'),
+                imageUrl: String(nftData.image || ''),
+                description: String(nftData.description || ''),
+                attack: gameStats.attack,
+                health: gameStats.health,
+                speed: gameStats.speed,
+                special: String(gameStats.special || ''),
+                metadata: metadata,
+                ownerId: user.id,
+                updatedAt: new Date()
+              },
+              create: {
+                id: `nft_${tokenId}_${contractAddress}_${Date.now()}`, // Ensure unique ID
+                tokenId,
+                contractAddress,
+                name: String(nftData.name || 'Unnamed'),
+                rarity: String(nftData.rarity || 'Common'),
+                imageUrl: String(nftData.image || ''),
+                description: String(nftData.description || ''),
+                attack: gameStats.attack,
+                health: gameStats.health,
+                speed: gameStats.speed,
+                special: String(gameStats.special || ''),
+                metadata: metadata,
+                ownerId: user.id,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }
+            });
 
             if (nft) {
               savedNfts.push(nft);
@@ -176,9 +162,11 @@ export default async function handler(req, res) {
       }
 
       throw new Error(`Method ${req.method} Not Allowed`);
+    }, {
+      maxWait: 5000, // 5 seconds max wait time
+      timeout: 10000 // 10 seconds timeout
     });
 
-    // Send response based on the transaction result
     return res.status(200).json(result);
 
   } catch (error) {
@@ -187,5 +175,8 @@ export default async function handler(req, res) {
       error: 'Internal server error', 
       details: error.message 
     });
+  } finally {
+    // Ensure we disconnect from the database
+    await prisma.$disconnect();
   }
 }
