@@ -27,7 +27,7 @@ model NFT {
   User            User     @relation(fields: [ownerId], references: [id])
 
   @@unique([tokenId, contractAddress])
-  @@index([ownerId])
+  @@map("NFT")
 }
 
 model User {
