@@ -2,9 +2,7 @@
 // Handles Cardano transactions for NFT pack openings
 
 import { BlockFrostAPI } from '@blockfrost/blockfrost-js';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../utils/db.js';
 
 // Initialize Blockfrost API for Cardano
 const initializeBlockfrostBackend = (projectId, network = 'mainnet') => {
