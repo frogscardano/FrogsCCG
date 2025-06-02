@@ -40,4 +40,5 @@ model User {
   assets      String?
   lastUpdated DateTime?
   NFT         NFT[]
+  @@map("User")
 }
