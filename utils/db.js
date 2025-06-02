@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 export async function getWalletByAddress(address) {
   if (!address) throw new Error('Address is required');
 
-  return prisma.user.findUnique({
+  return prisma.User.findUnique({
     where: { address },
     include: {
       NFT: true
@@ -16,7 +16,7 @@ export async function getWalletByAddress(address) {
 export async function createOrUpdateWallet(address, data = {}) {
   if (!address) throw new Error('Address is required');
 
-  return prisma.user.upsert({
+  return prisma.User.upsert({
     where: { address },
     update: {
       ...data,
@@ -57,7 +57,7 @@ export async function getUserCards(address) {
   try {
     console.log(`Fetching NFTs for user: ${address}`);
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.User.findUnique({
       where: { address },
       include: {
         NFT: true
@@ -84,7 +84,7 @@ export async function addCardToUserCollection(address, tokenId, contractAddress,
 
   try {
     // First ensure user exists and get their ID
-    const user = await prisma.user.upsert({
+    const user = await prisma.User.upsert({
       where: { address },
       update: {},
       create: { address }
@@ -126,7 +126,7 @@ export async function addCardToUserCollection(address, tokenId, contractAddress,
 export async function ensureUserExists(address) {
   if (!address) throw new Error('Address is required');
 
-  return prisma.user.upsert({
+  return prisma.User.upsert({
     where: { address },
     update: {},
     create: { address }
