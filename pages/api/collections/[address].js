@@ -19,7 +19,7 @@ export default async function handler(req, res) {
 
   try {
     // First get or create the user
-    const user = await prisma.user.upsert({
+    const user = await prisma.User.upsert({
       where: {
         address: normalizedAddress
       },
