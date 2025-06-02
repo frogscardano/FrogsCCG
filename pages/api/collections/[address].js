@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     });
 
     if (req.method === 'GET') {
-      const nfts = await prisma.nFT.findMany({
+      const nfts = await prisma.NFT.findMany({
         where: {
           ownerId: user.id
         },
@@ -98,7 +98,7 @@ export default async function handler(req, res) {
               }))
             : [];
 
-          const nft = await prisma.nFT.upsert({
+          const nft = await prisma.NFT.upsert({
             where: {
               tokenId_contractAddress: {
                 tokenId,
