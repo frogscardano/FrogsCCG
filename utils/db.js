@@ -31,7 +31,7 @@ export async function createOrUpdateWallet(address, data = {}) {
 
 // NFT related functions
 export async function getCards(filter = {}) {
-  return prisma.nFT.findMany({
+  return prisma.NFT.findMany({
     where: filter,
     include: {
       User: true
@@ -42,7 +42,7 @@ export async function getCards(filter = {}) {
 export async function getCardById(cardId) {
   if (!cardId) throw new Error('Card ID is required');
 
-  return prisma.nFT.findUnique({
+  return prisma.NFT.findUnique({
     where: { id: cardId },
     include: {
       User: true
@@ -91,7 +91,7 @@ export async function addCardToUserCollection(address, tokenId, contractAddress,
     });
 
     // Then handle the NFT
-    return prisma.nFT.upsert({
+    return prisma.NFT.upsert({
       where: {
         tokenId_contractAddress: {
           tokenId,
