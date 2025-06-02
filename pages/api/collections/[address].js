@@ -1,5 +1,7 @@
-import { prisma } from '../../../utils/db';
+import { PrismaClient } from '@prisma/client';
 import { getFrogStats } from '../../../utils/frogData';
+
+const prisma = new PrismaClient();
 
 // Function to calculate game stats based on NFT data
 function calculateGameStats(nftData) {
@@ -59,6 +61,7 @@ export default async function handler(req, res) {
   const { address } = req.query;
   
   console.log(`🔍 Collections API called with address: ${address}, method: ${req.method}`);
+  console.log(`🔍 Prisma client status:`, prisma ? 'OK' : 'UNDEFINED');
 
   if (!address) {
     console.log('❌ No address provided');
