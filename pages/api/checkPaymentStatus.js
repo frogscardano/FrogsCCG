@@ -1,13 +1,11 @@
 // api/checkPaymentStatus.js
 // API route for checking the status of a payment
 
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../utils/db.js';
 import { 
   initializeBlockfrostBackend, 
   checkWalletForPayment 
 } from './cardanoTransactions';
-
-const prisma = new PrismaClient();
 
 export default async function handler(req, res) {
   // Only allow GET requests
