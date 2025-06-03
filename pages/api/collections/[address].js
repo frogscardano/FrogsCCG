@@ -69,24 +69,37 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Generate a unique ID for new users
-    const generateId = () => {
-      const timestamp = Date.now().toString(36);
-      const randomStr = Math.random().toString(36).substr(2, 9);
-      return `user_${timestamp}_${randomStr}`;
+    // Try to find existing user first
+    let user = await prisma.user.findUnique({
+      where: { address: address }
+    });
+
+    if (!user) {
+      // Create new user if doesn't exist
+      const generateId = () => {
+        const timestamp = Date.now().toString(36);
+        const randomStr = Math.random().toString(36).substr(2, 9);
+        return `user_${timestamp}_${randomStr}`;
+      };
     };
 
-    // Use lowercase user - FIXED with manual ID
-    const user = await prisma.user.upsert({
-      where: { address: address },
-      update: {
-        updatedAt: new Date(),
-      },
-      create: {
-        id: generateId(), // Manually provide ID
-        address: address,
-      },
-    });
+    user = await prisma.user.create({
+        data: {
+          id: generateId(),
+          address: address,
+        }
+      });
+      console.log(`✅ Created new user: ${user.id}`);
+    } else {
+      // Update existing user
+      user = await prisma.user.update({
+        where: { address: address },
+        data: {
+          updatedAt: new Date(),
+        }
+      });
+      console.log(`✅ Updated existing user: ${user.id}`);
+    }
     
     console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
 
