@@ -77,22 +77,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Generate a unique ID for new users
-    const generateId = () => {
-      const timestamp = Date.now().toString(36);
-      const randomStr = Math.random().toString(36).substr(2, 9);
-      return `user_${timestamp}_${randomStr}`;
-    };
+    // Use lowercase address for consistency
+    const normalizedAddress = address.toLowerCase();
 
-    // Use lowercase user - FIXED with manual ID
+    // Find or create user - Fixed: Use User instead of user
     const user = await prisma.user.upsert({
-      where: { address: address },
+      where: { address: normalizedAddress },
       update: {
         updatedAt: new Date(),
       },
       create: {
-        id: generateId(), // Manually provide ID
-        address: address,
+        address: normalizedAddress,
       },
     });
     
@@ -194,20 +189,28 @@ export default async function handler(req, res) {
                   } 
                 },
                 update: { 
-                  ...nftDataForUpsert, 
+                  // Only update fields that might change
+                  name: nftDataForUpsert.name,
+                  rarity: nftDataForUpsert.rarity,
+                  imageUrl: nftDataForUpsert.imageUrl,
+                  description: nftDataForUpsert.description,
+                  attack: nftDataForUpsert.attack,
+                  health: nftDataForUpsert.health,
+                  speed: nftDataForUpsert.speed,
+                  special: nftDataForUpsert.special,
+                  metadata: nftDataForUpsert.metadata,
+                  ownerId: user.id, 
                   updatedAt: new Date() 
                 },
-                create: {
-                  ...nftDataForUpsert,
-                  id: generateNFTId(uniqueTokenId, contractAddress),
-                },
+                create: nftDataForUpsert,
               });
               
               console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
               savedNfts.push(nftRecord);
             } catch (nftError) {
               console.error(`❌ Failed to save NFT ${uniqueTokenId}:`, nftError);
-              // Continue with other NFTs
+              // Continue with other NFTs instead of failing completely
+              continue;
             }
           }
           
@@ -225,5 +228,8 @@ export default async function handler(req, res) {
   } catch (e) {
     console.error('❌ Error processing user or NFT data:', e);
     return res.status(500).json({ error: `Failed to process request: ${e.message}` });
+  } finally {
+    // Close Prisma connection
+    await prisma.$disconnect();
   }
-} 
+}
