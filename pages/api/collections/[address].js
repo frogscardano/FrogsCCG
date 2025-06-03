@@ -11,6 +11,13 @@ const generateNFTId = (tokenId, contractAddress) => {
   return `nft_${timestamp}_${randomStr}`;
 };
 
+// Add user ID generator
+const generateUserId = () => {
+  const timestamp = Date.now().toString(36);
+  const randomStr = Math.random().toString(36).substr(2, 9);
+  return `user_${timestamp}_${randomStr}`;
+};
+
 // Function to calculate game stats based on NFT data
 function calculateGameStats(nftData) {
   const rarity = nftData.rarity || 'Common';
@@ -87,6 +94,7 @@ export default async function handler(req, res) {
         updatedAt: new Date(),
       },
       create: {
+        id: generateUserId(),
         address: normalizedAddress,
       },
     });
@@ -199,7 +207,7 @@ export default async function handler(req, res) {
                   speed: nftDataForUpsert.speed,
                   special: nftDataForUpsert.special,
                   metadata: nftDataForUpsert.metadata,
-                  ownerId: user.id, 
+                  ownerId: user.id,
                   updatedAt: new Date() 
                 },
                 create: nftDataForUpsert,
