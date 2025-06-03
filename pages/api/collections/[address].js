@@ -69,13 +69,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Use uppercase User - CRITICAL FIX
+    // Generate a unique ID for new users
+    const generateId = () => {
+      const timestamp = Date.now().toString(36);
+      const randomStr = Math.random().toString(36).substr(2, 9);
+      return `user_${timestamp}_${randomStr}`;
+    };
+
+    // Use lowercase user - FIXED with manual ID
     const user = await prisma.user.upsert({
       where: { address: address },
       update: {
         updatedAt: new Date(),
       },
       create: {
+        id: generateId(), // Manually provide ID
         address: address,
       },
     });
