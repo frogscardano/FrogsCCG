@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { getFrogStats } from '../../../utils/frogData';
 
+// Create Prisma client directly
 const prisma = new PrismaClient();
 
 // Function to calculate game stats based on NFT data
@@ -69,37 +70,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Try to find existing user first
-    let user = await prisma.user.findUnique({
-      where: { address: address }
-    });
-
-    if (!user) {
-      // Create new user if doesn't exist
-      const generateId = () => {
-        const timestamp = Date.now().toString(36);
-        const randomStr = Math.random().toString(36).substr(2, 9);
-        return `user_${timestamp}_${randomStr}`;
-      };
+    // Generate a unique ID for new users
+    const generateId = () => {
+      const timestamp = Date.now().toString(36);
+      const randomStr = Math.random().toString(36).substr(2, 9);
+      return `user_${timestamp}_${randomStr}`;
     };
 
-    user = await prisma.user.create({
-        data: {
-          id: generateId(),
-          address: address,
-        }
-      });
-      console.log(`✅ Created new user: ${user.id}`);
-    } else {
-      // Update existing user
-      user = await prisma.user.update({
-        where: { address: address },
-        data: {
-          updatedAt: new Date(),
-        }
-      });
-      console.log(`✅ Updated existing user: ${user.id}`);
-    }
+    // Use lowercase user - FIXED with manual ID
+    const user = await prisma.user.upsert({
+      where: { address: address },
+      update: {
+        updatedAt: new Date(),
+      },
+      create: {
+        id: generateId(), // Manually provide ID
+        address: address,
+      },
+    });
     
     console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
 
@@ -107,7 +95,7 @@ export default async function handler(req, res) {
       case 'GET':
         try {
           console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
-          // Use uppercase NFT - CRITICAL FIX
+          // Use lowercase nFT - FIXED
           const userNfts = await prisma.nFT.findMany({
             where: { ownerId: user.id },
             orderBy: { createdAt: 'desc' }
@@ -190,7 +178,7 @@ export default async function handler(req, res) {
                 ownerId: user.id,
               };
 
-              // Use uppercase NFT and correct field names - CRITICAL FIX
+              // Use lowercase nFT - FIXED
               const nftRecord = await prisma.nFT.upsert({
                 where: { 
                   tokenId_contractAddress: {
