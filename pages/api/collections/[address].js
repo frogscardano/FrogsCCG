@@ -4,6 +4,13 @@ import { getFrogStats } from '../../../utils/frogData';
 // Create Prisma client directly
 const prisma = new PrismaClient();
 
+// Add this helper function at the top after imports
+const generateNFTId = (tokenId, contractAddress) => {
+  const timestamp = Date.now().toString(36);
+  const randomStr = Math.random().toString(36).substr(2, 5);
+  return `nft_${timestamp}_${randomStr}`;
+};
+
 // Function to calculate game stats based on NFT data
 function calculateGameStats(nftData) {
   const rarity = nftData.rarity || 'Common';
@@ -190,7 +197,10 @@ export default async function handler(req, res) {
                   ...nftDataForUpsert, 
                   updatedAt: new Date() 
                 },
-                create: nftDataForUpsert,
+                create: {
+                  ...nftDataForUpsert,
+                  id: generateNFTId(uniqueTokenId, contractAddress),
+                },
               });
               
               console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
