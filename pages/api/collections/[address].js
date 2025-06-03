@@ -210,7 +210,10 @@ export default async function handler(req, res) {
                   ownerId: user.id,
                   updatedAt: new Date() 
                 },
-                create: nftDataForUpsert,
+                create: {
+                  ...nftDataForUpsert,
+                  id: generateNFTId(uniqueTokenId, contractAddress),
+                },
               });
               
               console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
