@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { getFrogStats } from '../../../utils/frogData';
+import { v4 as uuid4 } from 'uuid';
 
 const prisma = new PrismaClient();
 
@@ -76,6 +77,7 @@ export default async function handler(req, res) {
         updatedAt: new Date(),
       },
       create: {
+        id: uuid4(),
         address: address,
       },
     });
