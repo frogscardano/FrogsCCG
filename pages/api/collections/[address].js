@@ -71,7 +71,7 @@ export default async function handler(req, res) {
 
   try {
     // Use uppercase User - CRITICAL FIX
-    const user = await prisma.User.upsert({
+    const user = await prisma.user.upsert({
       where: { address: address },
       update: {
         updatedAt: new Date(),
@@ -89,7 +89,7 @@ export default async function handler(req, res) {
         try {
           console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
           // Use uppercase NFT - CRITICAL FIX
-          const userNfts = await prisma.NFT.findMany({
+          const userNfts = await prisma.nFT.findMany({
             where: { ownerId: user.id },
             orderBy: { createdAt: 'desc' }
           });
@@ -173,7 +173,7 @@ export default async function handler(req, res) {
               };
 
               // Use uppercase NFT and correct field names - CRITICAL FIX
-              const nftRecord = await prisma.NFT.upsert({
+              const nftRecord = await prisma.nFT.upsert({
                 where: { 
                   tokenId_contractAddress: {
                     tokenId: uniqueTokenId,
