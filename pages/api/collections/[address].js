@@ -1,4 +1,4 @@
-import { prisma } from '../../utils/db.js';
+import { prisma } from 'utils/db.js';
 import { getFrogStats } from '../../../utils/frogData';
 import { v4 as uuid4 } from 'uuid';
 
