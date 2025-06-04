@@ -1,5 +1,3 @@
-import { PrismaClient } from '@prisma/client';
-
 // User related functions
 export async function getWalletByAddress(address) {
   if (!address) throw new Error('Address is required');
