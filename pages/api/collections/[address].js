@@ -3,13 +3,6 @@ import { getFrogStats } from '../../../utils/frogData';
 
 const prisma = new PrismaClient();
 
-// Add this function at the top of the file
-const generateUserId = () => {
-  const timestamp = Date.now().toString(36);
-  const randomStr = Math.random().toString(36).substr(2, 9);
-  return `user_${timestamp}_${randomStr}`;
-};
-
 // Function to calculate game stats based on NFT data
 function calculateGameStats(nftData) {
   const rarity = nftData.rarity || 'Common';
@@ -83,7 +76,6 @@ export default async function handler(req, res) {
         updatedAt: new Date(),
       },
       create: {
-        id: generateUserId(),
         address: address,
       },
     });
