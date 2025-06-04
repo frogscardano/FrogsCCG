@@ -3,6 +3,7 @@ import { getFrogStats } from '../../../utils/frogData';
 import { v4 as uuid4 } from 'uuid';
 
 const prisma = new PrismaClient();
+
 // Function to calculate game stats based on NFT data
 function calculateGameStats(nftData) {
   const rarity = nftData.rarity || 'Common';
@@ -70,7 +71,7 @@ export default async function handler(req, res) {
 
   try {
     // Use uppercase User - CRITICAL FIX
-    const user = await prisma.User.upsert({
+    const user = await prisma.user.upsert({
       where: { address: address },
       update: {
         updatedAt: new Date(),
