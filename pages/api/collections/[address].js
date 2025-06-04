@@ -1,6 +1,8 @@
-import { prisma } from '../../utils/db.js';
+import { PrismaClient } from '@prisma/client';
 import { getFrogStats } from '../../../utils/frogData';
 import { v4 as uuid4 } from 'uuid';
+
+const prisma = new PrismaClient();
 
 // Function to calculate game stats based on NFT data
 function calculateGameStats(nftData) {
