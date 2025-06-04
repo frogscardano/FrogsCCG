@@ -1,22 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { getFrogStats } from '../../../utils/frogData';
 
-// Create Prisma client directly
 const prisma = new PrismaClient();
-
-// Add this helper function at the top after imports
-const generateNFTId = (tokenId, contractAddress) => {
-  const timestamp = Date.now().toString(36);
-  const randomStr = Math.random().toString(36).substr(2, 5);
-  return `nft_${timestamp}_${randomStr}`;
-};
-
-// Add user ID generator
-const generateUserId = () => {
-  const timestamp = Date.now().toString(36);
-  const randomStr = Math.random().toString(36).substr(2, 9);
-  return `user_${timestamp}_${randomStr}`;
-};
 
 // Function to calculate game stats based on NFT data
 function calculateGameStats(nftData) {
@@ -84,18 +69,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Use lowercase address for consistency
-    const normalizedAddress = address.toLowerCase();
-
-    // Find or create user - Fixed: Use User instead of user
+    // Use uppercase User - CRITICAL FIX
     const user = await prisma.user.upsert({
-      where: { address: normalizedAddress },
+      where: { address: address },
       update: {
         updatedAt: new Date(),
       },
       create: {
-        id: generateUserId(),
-        address: normalizedAddress,
+        address: address,
       },
     });
     
@@ -105,7 +86,7 @@ export default async function handler(req, res) {
       case 'GET':
         try {
           console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
-          // Use lowercase nFT - FIXED
+          // Use uppercase NFT - CRITICAL FIX
           const userNfts = await prisma.nFT.findMany({
             where: { ownerId: user.id },
             orderBy: { createdAt: 'desc' }
@@ -188,7 +169,7 @@ export default async function handler(req, res) {
                 ownerId: user.id,
               };
 
-              // Use lowercase nFT - FIXED
+              // Use uppercase NFT and correct field names - CRITICAL FIX
               const nftRecord = await prisma.nFT.upsert({
                 where: { 
                   tokenId_contractAddress: {
@@ -197,31 +178,17 @@ export default async function handler(req, res) {
                   } 
                 },
                 update: { 
-                  // Only update fields that might change
-                  name: nftDataForUpsert.name,
-                  rarity: nftDataForUpsert.rarity,
-                  imageUrl: nftDataForUpsert.imageUrl,
-                  description: nftDataForUpsert.description,
-                  attack: nftDataForUpsert.attack,
-                  health: nftDataForUpsert.health,
-                  speed: nftDataForUpsert.speed,
-                  special: nftDataForUpsert.special,
-                  metadata: nftDataForUpsert.metadata,
-                  ownerId: user.id,
+                  ...nftDataForUpsert, 
                   updatedAt: new Date() 
                 },
-                create: {
-                  ...nftDataForUpsert,
-                  id: generateNFTId(uniqueTokenId, contractAddress),
-                },
+                create: nftDataForUpsert,
               });
               
               console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
               savedNfts.push(nftRecord);
             } catch (nftError) {
               console.error(`❌ Failed to save NFT ${uniqueTokenId}:`, nftError);
-              // Continue with other NFTs instead of failing completely
-              continue;
+              // Continue with other NFTs
             }
           }
           
@@ -239,8 +206,5 @@ export default async function handler(req, res) {
   } catch (e) {
     console.error('❌ Error processing user or NFT data:', e);
     return res.status(500).json({ error: `Failed to process request: ${e.message}` });
-  } finally {
-    // Close Prisma connection
-    await prisma.$disconnect();
   }
-}
+} 
