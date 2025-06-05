@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     }
 
     // Fetch NFTs associated with this pack opening
-    const nfts = await prisma.nFT.findMany({
+    const nfts = await prisma.NFT.findMany({
       where: { packOpeningId: packOpeningId },
       orderBy: {
         // Order by rarity (will need to map string rarities to numeric values in a real app)
