@@ -1,5 +1,5 @@
 import { prisma } from '../../../utils/db.js';
-import { getFrogStats } from '../../../utils/frogData';
+import { getFrogStats } from '../../../utils/frogData.js';
 import { v4 as uuid4 } from 'uuid';
 
 // Function to calculate game stats based on NFT data
