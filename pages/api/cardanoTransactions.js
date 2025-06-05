@@ -220,7 +220,7 @@ const recordPackOpening = async (paymentId, userId, walletAddress, txHash) => {
     // Get available NFTs for this pack type
     // In a real implementation, you would have logic to determine which NFTs are available
     // Here's a simplified version that gets a random sample of NFTs from the database
-    const availableNFTs = await prisma.nFT.findMany({
+    const availableNFTs = await prisma.NFT.findMany({
       where: {
         packOpeningId: null, // Only get NFTs that haven't been claimed yet
         // You might also filter by other properties specific to this pack
@@ -250,7 +250,7 @@ const recordPackOpening = async (paymentId, userId, walletAddress, txHash) => {
 
     // Update the selected NFTs to be associated with this pack opening
     for (const nft of selectedNFTs) {
-      await prisma.nFT.update({
+      await prisma.NFT.update({
         where: { id: nft.id },
         data: {
           userId: userId,
