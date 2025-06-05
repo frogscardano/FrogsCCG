@@ -69,7 +69,7 @@ export default async function handler(req, res) {
 
   try {
     // Use uppercase User - CRITICAL FIX
-    const user = await prisma.user.upsert({
+    const user = await prisma.User.upsert({
       where: { address: address },
       update: {
         updatedAt: new Date(),
