@@ -1,4 +1,15 @@
 {
   "version": 2,
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "functions": {
+    "pages/api/collections/[address].js": {
+      "maxDuration": 30
+    },
+    "pages/api/health.js": {
+      "maxDuration": 10
+    }
+  },
+  "env": {
+    "PRISMA_CLI_QUERY_ENGINE_TYPE": "binary"
+  }
 }
