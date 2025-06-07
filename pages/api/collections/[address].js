@@ -153,7 +153,23 @@ export default async function handler(req, res) {
             // Calculate game stats for this NFT
             const gameStats = calculateGameStats(newNftData);
 
-            try {
+            try {// Ensure metadata is properly serializable JSON
+              let metadata = {};
+              try {
+                if (newNftData.attributes && Array.isArray(newNftData.attributes)) {
+                  metadata = newNftData.attributes;
+                } else if (newNftData.attributes && typeof newNftData.attributes === 'object') {
+                  metadata = newNftData.attributes;
+                } else {
+                  metadata = {};
+                }
+                
+                // Test JSON serialization to catch any issues early
+                JSON.stringify(metadata);
+              } catch (jsonError) {
+                console.warn(`⚠️ Invalid metadata for NFT ${uniqueTokenId}, using empty object:`, jsonError);
+                metadata = {};
+              }
               const nftDataForUpsert = {
                 id: uuid4(), // :eyes:
                 tokenId: uniqueTokenId,
@@ -166,7 +182,7 @@ export default async function handler(req, res) {
                 health: gameStats.health,
                 speed: gameStats.speed,
                 special: gameStats.special,
-                metadata: newNftData.attributes || {},
+                metadata: metadata,
                 ownerId: user.id,
               };
 
