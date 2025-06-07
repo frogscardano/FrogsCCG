@@ -130,7 +130,17 @@ export default async function handler(req, res) {
           const savedNfts = [];
 
           for (const newNftData of newNftsData) {
-            const uniqueTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
+            // FIX: Ensure tokenId is always treated as a string, not binary data
+            let uniqueTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
+            
+            // Convert to string and sanitize to prevent binary interpretation
+            if (uniqueTokenId) {
+              uniqueTokenId = String(uniqueTokenId).trim();
+              // If it looks like hex, ensure it's treated as text
+              if (/^[0-9a-fA-F]+$/.test(uniqueTokenId)) {
+                uniqueTokenId = `hex_${uniqueTokenId}`;
+              }
+            }
 
             if (!uniqueTokenId) {
               console.warn('⚠️ Skipping NFT with no unique identifier (tokenId):', newNftData);
@@ -172,16 +182,16 @@ export default async function handler(req, res) {
               }
               const nftDataForUpsert = {
                 id: uuid4(), // :eyes:
-                tokenId: uniqueTokenId,
-                contractAddress: contractAddress,
-                name: newNftData.name,
-                rarity: newNftData.rarity,
-                imageUrl: newNftData.image,
-                description: newNftData.description || '',
-                attack: gameStats.attack,
-                health: gameStats.health,
-                speed: gameStats.speed,
-                special: gameStats.special,
+                tokenId: uniqueTokenId, // Now guaranteed to be a proper string
+                contractAddress: contractAddress, // Now guaranteed to be a proper string
+                name: String(newNftData.name).trim(),
+                rarity: String(newNftData.rarity).trim(),
+                imageUrl: String(newNftData.image).trim(),
+                description: String(newNftData.description || '').trim(),
+                attack: Math.max(1, parseInt(gameStats.attack) || 1),
+                health: Math.max(1, parseInt(gameStats.health) || 1),
+                speed: Math.max(1, parseInt(gameStats.speed) || 1),
+                special: gameStats.special ? String(gameStats.special).trim() : null,
                 metadata: metadata,
                 ownerId: user.id,
               };
@@ -190,8 +200,8 @@ export default async function handler(req, res) {
               const nftRecord = await prisma.NFT.upsert({
                 where: { 
                   tokenId_contractAddress: {
-                    tokenId: uniqueTokenId,
-                    contractAddress: contractAddress 
+                    tokenId: nftDataForUpsert.tokenId,
+                    contractAddress: nftDataForUpsert.contractAddress 
                   } 
                 },
                 update: { 
