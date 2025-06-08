@@ -6,6 +6,42 @@ export const prisma =
   globalForPrisma.prisma ??
   (globalForPrisma.prisma = new PrismaClient());
 
+// Database operation wrapper with retry logic
+export async function withDatabase(operation) {
+  const maxRetries = 3;
+  let retries = 0;
+  
+  while (retries < maxRetries) {
+    try {
+      return await operation(prisma);
+    } catch (error) {
+      retries++;
+      
+      // Check if it's a connection error that might be retryable
+      if (error.code === 'P2024' || error.message.includes('prepared statement') || error.message.includes('already exists')) {
+        console.warn(`Database operation failed (attempt ${retries}/${maxRetries}):`, error.message);
+        
+        if (retries < maxRetries) {
+          // Wait before retrying with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 1000));
+          
+          // Try to disconnect and reconnect
+          try {
+            await prisma.$disconnect();
+          } catch (disconnectError) {
+            console.warn('Error during disconnect:', disconnectError.message);
+          }
+          
+          continue;
+        }
+      }
+      
+      // If it's not a retryable error or we've exceeded max retries, throw the error
+      throw error;
+    }
+  }
+}
+
 // User related functions
 export async function getWalletByAddress(address) {
   if (!address) throw new Error('Address is required');
