@@ -1,5 +1,5 @@
-import { prisma, withDatabase } from '../../../utils/db.js';
-import { getFrogStats } from '../../../utils/frogData.js';
+import { prisma, withDatabase } from '../../../utils/db';
+import { getFrogStats } from '../../../utils/frogData';
 import { v4 as uuid4 } from 'uuid';
 
 // Add this helper function at the top after imports
@@ -95,8 +95,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Database client not initialized' });
   }
   
-  if (!prisma.user) {
-    console.error('❌ Prisma.user is undefined');
+  if (!prisma.User) {
+    console.error('❌ Prisma.User is undefined');
     console.log('Available Prisma methods:', Object.keys(prisma));
     return res.status(500).json({ error: 'Database user model not available' });
   }
@@ -110,7 +110,7 @@ export default async function handler(req, res) {
     console.log(`🔄 Attempting to upsert user with address: ${address}`);
     
     const user = await withDatabase(async (db) => {
-      return await db.user.upsert({
+      return await db.User.upsert({
         where: { address: address },
         update: {
           updatedAt: new Date(),
