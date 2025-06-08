@@ -1,6 +1,35 @@
-import { prisma } from '../../../utils/db.js';
+import { prisma, withDatabase } from '../../../utils/db.js';
 import { getFrogStats } from '../../../utils/frogData.js';
 import { v4 as uuid4 } from 'uuid';
+
+// Add this helper function at the top after imports
+const generateNFTId = (tokenId, contractAddress) => {
+  const timestamp = Date.now().toString(36);
+  const randomStr = Math.random().toString(36).substr(2, 5);
+  return `nft_${timestamp}_${randomStr}`;
+};
+
+// Add user ID generator
+const generateUserId = () => {
+  const timestamp = Date.now().toString(36);
+  const randomStr = Math.random().toString(36).substr(2, 9);
+  return `user_${timestamp}_${randomStr}`;
+};
+
+// CRITICAL FIX: Function to sanitize tokenId to prevent binary interpretation
+const sanitizeTokenId = (tokenId) => {
+  if (!tokenId) return null;
+  
+  // Convert to string and trim
+  let sanitized = String(tokenId).trim();
+  
+  // If it's all hex characters, add prefix to prevent binary interpretation
+  if (/^[0-9a-fA-F]+$/.test(sanitized) && sanitized.length > 10) {
+    sanitized = `cardano_${sanitized}`;
+  }
+  
+  return sanitized;
+};
 
 // Function to calculate game stats based on NFT data
 function calculateGameStats(nftData) {
@@ -60,7 +89,17 @@ export default async function handler(req, res) {
   const { address } = req.query;
   
   console.log(`🔍 Collections API called with address: ${address}, method: ${req.method}`);
-  console.log(`🔍 Prisma client status:`, prisma ? 'OK' : 'UNDEFINED');
+  
+  if (!prisma) {
+    console.error('❌ Prisma client is completely undefined');
+    return res.status(500).json({ error: 'Database client not initialized' });
+  }
+  
+  if (!prisma.user) {
+    console.error('❌ Prisma.user is undefined');
+    console.log('Available Prisma methods:', Object.keys(prisma));
+    return res.status(500).json({ error: 'Database user model not available' });
+  }
 
   if (!address) {
     console.log('❌ No address provided');
@@ -68,16 +107,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Use uppercase User - CRITICAL FIX
-    const user = await prisma.User.upsert({
-      where: { address: address },
-      update: {
-        updatedAt: new Date(),
-      },
-      create: {
-        id: uuid4(),
-        address: address,
-      },
+    console.log(`🔄 Attempting to upsert user with address: ${address}`);
+    
+    const user = await withDatabase(async (db) => {
+      return await db.user.upsert({
+        where: { address: address },
+        update: {
+          updatedAt: new Date(),
+        },
+        create: {
+          id: uuid4(),
+          address: address,
+        },
+      });
     });
     
     console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
@@ -86,18 +128,18 @@ export default async function handler(req, res) {
       case 'GET':
         try {
           console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
-          // Use uppercase NFT - CRITICAL FIX
-          const userNfts = await prisma.NFT.findMany({
-            where: { ownerId: user.id },
-            orderBy: { createdAt: 'desc' }
+          
+          const userNfts = await withDatabase(async (db) => {
+            return await db.NFT.findMany({
+              where: { ownerId: user.id },
+              orderBy: { createdAt: 'desc' }
+            });
           });
           
           console.log(`📊 Found ${userNfts.length} NFTs for user ${address}`);
           
-          // Process NFTs to ensure proper structure for frontend
           const collection = userNfts.map(nft => ({
             ...nft,
-            // Ensure metadata is an array of attributes for frontend compatibility
             attributes: Array.isArray(nft.metadata) ? nft.metadata : 
                        (nft.metadata && typeof nft.metadata === 'object') ? 
                        Object.entries(nft.metadata).map(([key, value]) => ({ trait_type: key, value })) :
@@ -106,7 +148,6 @@ export default async function handler(req, res) {
                          { trait_type: "Number", value: nft.tokenId },
                          { trait_type: "Policy ID", value: nft.contractAddress }
                        ],
-            // Ensure image field is properly named
             image: nft.imageUrl || nft.image
           }));
           
@@ -130,24 +171,19 @@ export default async function handler(req, res) {
           const savedNfts = [];
 
           for (const newNftData of newNftsData) {
-            // FIX: Ensure tokenId is always treated as a string, not binary data
-            let uniqueTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
-            
-            // Convert to string and sanitize to prevent binary interpretation
-            if (uniqueTokenId) {
-              uniqueTokenId = String(uniqueTokenId).trim();
-              // If it looks like hex, ensure it's treated as text
-              if (/^[0-9a-fA-F]+$/.test(uniqueTokenId)) {
-                uniqueTokenId = `hex_${uniqueTokenId}`;
-              }
-            }
+            // CRITICAL FIX: Sanitize tokenId to prevent binary interpretation
+            let rawTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
+            const uniqueTokenId = sanitizeTokenId(rawTokenId);
 
             if (!uniqueTokenId) {
               console.warn('⚠️ Skipping NFT with no unique identifier (tokenId):', newNftData);
               continue;
             }
             
-            const contractAddress = newNftData.policyId || (newNftData.attributes?.find(attr => attr.trait_type === "Policy ID")?.value);
+            // CRITICAL FIX: Sanitize contract address too
+            let rawContractAddress = newNftData.policyId || (newNftData.attributes?.find(attr => attr.trait_type === "Policy ID")?.value);
+            const contractAddress = sanitizeTokenId(rawContractAddress);
+            
             if (!contractAddress) {
               console.warn('⚠️ Skipping NFT due to missing contract address / policy ID:', newNftData);
               continue;
@@ -160,62 +196,57 @@ export default async function handler(req, res) {
             
             console.log(`🔄 Processing NFT. Token ID: ${uniqueTokenId}, Name: ${newNftData.name}`);
             
-            // Calculate game stats for this NFT
             const gameStats = calculateGameStats(newNftData);
 
-            try {// Ensure metadata is properly serializable JSON
-              let metadata = {};
-              try {
-                if (newNftData.attributes && Array.isArray(newNftData.attributes)) {
-                  metadata = newNftData.attributes;
-                } else if (newNftData.attributes && typeof newNftData.attributes === 'object') {
-                  metadata = newNftData.attributes;
-                } else {
-                  metadata = {};
-                }
-                
-                // Test JSON serialization to catch any issues early
-                JSON.stringify(metadata);
-              } catch (jsonError) {
-                console.warn(`⚠️ Invalid metadata for NFT ${uniqueTokenId}, using empty object:`, jsonError);
-                metadata = {};
-              }
+            try {
+              // CRITICAL FIX: Ensure all data types are correct for PostgreSQL
               const nftDataForUpsert = {
-                id: uuid4(), // :eyes:
-                tokenId: uniqueTokenId, // Now guaranteed to be a proper string
-                contractAddress: contractAddress, // Now guaranteed to be a proper string
-                name: String(newNftData.name).trim(),
-                rarity: String(newNftData.rarity).trim(),
-                imageUrl: String(newNftData.image).trim(),
+                tokenId: String(uniqueTokenId),
+                contractAddress: String(contractAddress),
+                name: String(newNftData.name || '').trim(),
+                rarity: String(newNftData.rarity || 'Common').trim(),
+                imageUrl: String(newNftData.image || '').trim(),
                 description: String(newNftData.description || '').trim(),
-                attack: Math.max(1, parseInt(gameStats.attack) || 1),
-                health: Math.max(1, parseInt(gameStats.health) || 1),
-                speed: Math.max(1, parseInt(gameStats.speed) || 1),
+                attack: parseInt(gameStats.attack) || 1,
+                health: parseInt(gameStats.health) || 1,
+                speed: parseInt(gameStats.speed) || 1,
                 special: gameStats.special ? String(gameStats.special).trim() : null,
-                metadata: metadata,
-                ownerId: user.id,
+                metadata: newNftData.attributes || {},
+                ownerId: String(user.id),
               };
 
-              // Use uppercase NFT and correct field names - CRITICAL FIX
-              const nftRecord = await prisma.NFT.upsert({
-                where: { 
-                  tokenId_contractAddress: {
-                    tokenId: nftDataForUpsert.tokenId,
-                    contractAddress: nftDataForUpsert.contractAddress 
-                  } 
-                },
-                update: { 
-                  ...nftDataForUpsert, 
-                  updatedAt: new Date() 
-                },
-                create: nftDataForUpsert,
+              const nftRecord = await withDatabase(async (db) => {
+                return await db.NFT.upsert({
+                  where: { 
+                    tokenId_contractAddress: {
+                      tokenId: nftDataForUpsert.tokenId,
+                      contractAddress: nftDataForUpsert.contractAddress 
+                    } 
+                  },
+                  update: { 
+                    name: nftDataForUpsert.name,
+                    rarity: nftDataForUpsert.rarity,
+                    imageUrl: nftDataForUpsert.imageUrl,
+                    description: nftDataForUpsert.description,
+                    attack: nftDataForUpsert.attack,
+                    health: nftDataForUpsert.health,
+                    speed: nftDataForUpsert.speed,
+                    special: nftDataForUpsert.special,
+                    metadata: nftDataForUpsert.metadata,
+                    ownerId: nftDataForUpsert.ownerId,
+                    updatedAt: new Date() 
+                  },
+                  create: {
+                    ...nftDataForUpsert,
+                    id: generateNFTId(nftDataForUpsert.tokenId, nftDataForUpsert.contractAddress),
+                  },
+                });
               });
               
               console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
               savedNfts.push(nftRecord);
             } catch (nftError) {
               console.error(`❌ Failed to save NFT ${uniqueTokenId}:`, nftError);
-              // Continue with other NFTs
             }
           }
           
