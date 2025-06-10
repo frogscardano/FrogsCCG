@@ -336,10 +336,35 @@ export default async function handler(req, res) {
           ]
         };
 
+        // Save the NFT data to the database
+        const saveResponse = await fetch(`/api/wallet/${req.query.address}/nfts`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userAddress: req.query.address,
+            tokenId: card.id,
+            contractAddress: collectionConfig.policyId,
+            metadata: {
+              name: card.name,
+              image: card.image,
+              number: validNumber,
+              collection: collectionConfig.name,
+              rarity: card.rarity,
+              attributes: card.attributes
+            }
+          }),
+        });
+
+        if (!saveResponse.ok) {
+          console.error('Failed to save NFT data:', await saveResponse.text());
+        }
+
         return res.status(200).json(card);
       } catch (error) {
-        console.error('Error creating card data:', error);
-        return res.status(500).json({ message: 'Error creating card data', error: error.message });
+        console.error('Error saving NFT data:', error);
+        return res.status(500).json({ message: 'Error saving NFT data', error: error.message });
       }
     } else {
       console.log(`Couldn't find a valid NFT after ${attempts} attempts, generating a random one...`);
