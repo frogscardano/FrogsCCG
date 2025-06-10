@@ -163,6 +163,13 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Get wallet address from query parameters
+    const walletAddress = req.query.walletAddress;
+    
+    if (!walletAddress) {
+      return res.status(400).json({ message: 'Wallet address is required' });
+    }
+
     // Get current collection from request query
     const userCards = req.query.collection ? JSON.parse(req.query.collection) : [];
     
@@ -337,13 +344,13 @@ export default async function handler(req, res) {
         };
 
         // Save the NFT data to the database
-        const saveResponse = await fetch(`/api/wallet/${req.query.address}/nfts`, {
+        const saveResponse = await fetch(`/api/wallet/${walletAddress}/nfts`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            userAddress: req.query.address,
+            userAddress: walletAddress,
             tokenId: card.id,
             contractAddress: collectionConfig.policyId,
             metadata: {
