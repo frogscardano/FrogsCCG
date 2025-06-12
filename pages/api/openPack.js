@@ -344,7 +344,7 @@ export default async function handler(req, res) {
         };
 
         // Save the NFT data to the database
-        const saveResponse = await fetch(`/api/wallet/${walletAddress}`, {
+        const saveResponse = await fetch(`/api/collections/${walletAddress}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
