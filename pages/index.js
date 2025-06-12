@@ -209,8 +209,7 @@ export default function Home() {
     } NFT from Cardano...`);
     
     try {
-      // Pass current collection to API to check for duplicates
-      const apiUrl = `/api/openPack?collection=${encodeURIComponent(JSON.stringify(currentCards))}&collectionType=${selectedPack}`;
+      const apiUrl = `/api/openPack?walletAddress=${address}&collection=${encodeURIComponent(JSON.stringify(currentCards))}&collectionType=${selectedPack}`;
       console.log(`Calling API: ${apiUrl}`);
       
       const response = await fetch(apiUrl);
