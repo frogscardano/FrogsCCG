@@ -206,7 +206,8 @@ export default async function handler(req, res) {
     // Keep trying until we get a valid number
     let validNumber = null;
     let attempts = 0;
-    let selectedAsset, assetDetails;
+    let selectedAsset = null;
+    let assetDetails = null;
     
     while (!validNumber && attempts < 15) {
       attempts++;
@@ -307,7 +308,7 @@ export default async function handler(req, res) {
       }
     }
     
-    if (validNumber) {
+    if (validNumber && selectedAsset && assetDetails) {
       try {
         // Get the actual image URL from the metadata
         const imageUrl = extractImageUrl(assetDetails) || 
@@ -339,7 +340,7 @@ export default async function handler(req, res) {
             { trait_type: "Collection", value: collectionConfig.name },
             { trait_type: "Number", value: `${validNumber}` },
             { trait_type: "Policy ID", value: collectionConfig.policyId },
-            { trait_type: "Asset Name", value: assetDetails.asset_name }
+            { trait_type: "Asset Name", value: assetDetails.asset_name || `${validNumber}` }
           ]
         };
 
@@ -351,7 +352,7 @@ export default async function handler(req, res) {
           },
           body: JSON.stringify({
             userAddress: walletAddress,
-            tokenId: card.id,
+            tokenId: assetDetails.asset_name || `${validNumber}`,
             contractAddress: collectionConfig.policyId,
             metadata: {
               name: card.name,
