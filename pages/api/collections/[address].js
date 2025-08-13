@@ -215,33 +215,57 @@ export default async function handler(req, res) {
                 ownerId: String(user.id),
               };
 
-              const nftRecord = await withDatabase(async (db) => {
-                return await db.NFT.upsert({
-                  where: { 
-                    tokenId_contractAddress: {
-                      tokenId: nftDataForUpsert.tokenId,
-                      contractAddress: nftDataForUpsert.contractAddress 
-                    } 
-                  },
-                  update: { 
-                    name: nftDataForUpsert.name,
-                    rarity: nftDataForUpsert.rarity,
-                    imageUrl: nftDataForUpsert.imageUrl,
-                    description: nftDataForUpsert.description,
-                    attack: nftDataForUpsert.attack,
-                    health: nftDataForUpsert.health,
-                    speed: nftDataForUpsert.speed,
-                    special: nftDataForUpsert.special,
-                    metadata: nftDataForUpsert.metadata,
-                    ownerId: nftDataForUpsert.ownerId,
-                    updatedAt: new Date() 
-                  },
-                  create: {
-                    ...nftDataForUpsert,
-                    id: generateNFTId(nftDataForUpsert.tokenId, nftDataForUpsert.contractAddress),
-                  },
+              // Try to create first, if it fails due to duplicate, then update
+              let nftRecord;
+              try {
+                nftRecord = await withDatabase(async (db) => {
+                  return await db.nFT.create({
+                    data: {
+                      ...nftDataForUpsert,
+                      id: generateNFTId(nftDataForUpsert.tokenId, nftDataForUpsert.contractAddress),
+                    }
+                  });
                 });
-              });
+              } catch (createError) {
+                // If creation fails due to duplicate, try to find and update
+                if (createError.code === 'P2002' || createError.message.includes('unique constraint')) {
+                  const existingNft = await withDatabase(async (db) => {
+                    return await db.nFT.findFirst({
+                      where: { 
+                        AND: [
+                          { tokenId: nftDataForUpsert.tokenId },
+                          { contractAddress: nftDataForUpsert.contractAddress }
+                        ]
+                      }
+                    });
+                  });
+                  
+                  if (existingNft) {
+                    nftRecord = await withDatabase(async (db) => {
+                      return await db.nFT.update({
+                        where: { id: existingNft.id },
+                        data: { 
+                          name: nftDataForUpsert.name,
+                          rarity: nftDataForUpsert.rarity,
+                          imageUrl: nftDataForUpsert.imageUrl,
+                          description: nftDataForUpsert.description,
+                          attack: nftDataForUpsert.attack,
+                          health: nftDataForUpsert.health,
+                          speed: nftDataForUpsert.speed,
+                          special: nftDataForUpsert.special,
+                          metadata: nftDataForUpsert.metadata,
+                          ownerId: nftDataForUpsert.ownerId,
+                          updatedAt: new Date() 
+                        }
+                      });
+                    });
+                  } else {
+                    throw createError; // Re-throw if we can't find the existing NFT
+                  }
+                } else {
+                  throw createError; // Re-throw if it's not a duplicate error
+                }
+              }
               
               console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
               savedNfts.push(nftRecord);
