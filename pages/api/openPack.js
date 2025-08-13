@@ -1,5 +1,7 @@
 import { BlockFrostAPI } from '@blockfrost/blockfrost-js';
 import { getFrogStats } from '../../utils/frogData';
+import { prisma, withDatabase } from '../../utils/db';
+import { v4 as uuid4 } from 'uuid';
 
 const blockfrost = new BlockFrostAPI({
   projectId: process.env.BLOCKFROST_API_KEY,
@@ -326,7 +328,7 @@ export default async function handler(req, res) {
         
         // Create the card data
         const card = {
-          id: `${collectionConfig.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: card.id, // Use the same ID from the card object
           name: `${collectionConfig.name} #${validNumber}`,
           description: assetDetails.onchain_metadata?.description || `A unique ${collectionConfig.name} from the Cardano blockchain collection`,
           rarity: rarity,
@@ -343,7 +345,9 @@ export default async function handler(req, res) {
           ]
         };
 
-        // Save the NFT data to the database
+        // Save the NFT data to the database directly instead of using fetch
+        console.log('💾 Saving NFT data directly to database...');
+
         const saveResponse = await fetch(`/api/collections/${walletAddress}`, {
           method: 'POST',
           headers: {
