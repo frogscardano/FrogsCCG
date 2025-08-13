@@ -343,29 +343,48 @@ export default async function handler(req, res) {
           ]
         };
 
-        // Save the NFT data to the database
-        const saveResponse = await fetch(`/api/collections/${walletAddress}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userAddress: walletAddress,
-            tokenId: card.id,
-            contractAddress: collectionConfig.policyId,
-            metadata: {
-              name: card.name,
-              image: card.image,
-              number: validNumber,
-              collection: collectionConfig.name,
-              rarity: card.rarity,
-              attributes: card.attributes
-            }
-          }),
-        });
-
-        if (!saveResponse.ok) {
-          console.error('Failed to save NFT data:', await saveResponse.text());
+        // Save the NFT data to the database directly instead of using fetch
+        console.log('💾 Saving NFT data directly to database...');
+        
+        try {
+          // First ensure user exists
+          const user = await withDatabase(async (db) => {
+            return await db.user.upsert({
+              where: { address: walletAddress },
+              update: { updatedAt: new Date() },
+              create: { id: uuid4(), address: walletAddress },
+            });
+          });
+          
+          console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
+          
+          // Create the NFT record directly
+          const nftRecord = await withDatabase(async (db) => {
+            return await db.nFT.create({
+              data: {
+                id: card.id, // Use the same ID from the card object
+                tokenId: assetDetails.asset_name || `${validNumber}`,
+                contractAddress: collectionConfig.policyId,
+                name: card.name,
+                rarity: card.rarity,
+                imageUrl: card.image,
+                description: card.description,
+                attack: card.attack,
+                health: card.health,
+                speed: card.speed,
+                special: card.special,
+                metadata: card.attributes,
+                ownerId: user.id,
+              }
+            });
+          });
+          
+          console.log(`✅ Successfully saved NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
+          
+        } catch (dbError) {
+          console.error('❌ Database error saving NFT:', dbError);
+          // Don't throw error here, just log it so the pack opening can still succeed
+          console.error(`Failed to save NFT to database: ${dbError.message}`);
         }
 
         return res.status(200).json(card);
