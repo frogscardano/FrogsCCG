@@ -344,29 +344,57 @@ export default async function handler(req, res) {
         };
 
         // Save the NFT data to the database
-        const saveResponse = await fetch(`/api/collections/${walletAddress}`, {
+// Use a more robust URL construction approach
+let baseUrl;
+
+if (process.env.NEXT_PUBLIC_APP_URL) {
+  baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+} else if (process.env.VERCEL_URL) {
+  baseUrl = `https://${process.env.VERCEL_URL}`;
+} else {
+  // For local development, construct from headers
+  const protocol = req.headers['x-forwarded-proto'] || (req.headers.host?.includes('localhost') ? 'http' : 'https');
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  baseUrl = host ? `${protocol}://${host}` : 'http://localhost:3000';
+}
+
+// Ensure the base URL doesn't end with a slash
+baseUrl = baseUrl.replace(/\/$/, '');
+const apiUrl = `${baseUrl}/api/collections/${encodeURIComponent(walletAddress)}`;
+
+console.log('Constructed API URL:', apiUrl);
+console.log('Base URL:', baseUrl);
+console.log('Wallet Address:', walletAddress);
+console.log('Encoded Wallet Address:', encodeURIComponent(walletAddress));
+
+const saveResponse = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            userAddress: walletAddress,
-            tokenId: card.id,
-            contractAddress: collectionConfig.policyId,
-            metadata: {
-              name: card.name,
-              image: card.image,
-              number: validNumber,
-              collection: collectionConfig.name,
-              rarity: card.rarity,
-              attributes: card.attributes
-            }
-          }),
+          body: JSON.stringify([
+  {
+    name: card.name,
+    rarity: card.rarity,
+    image: card.image,
+    description: card.description,
+    attributes: card.attributes,
+    policyId: collectionConfig.policyId,
+    asset_name: assetDetails.asset_name,
+  }
+]),
         });
 
         if (!saveResponse.ok) {
-          console.error('Failed to save NFT data:', await saveResponse.text());
-        }
+  const errorText = await saveResponse.text();
+  console.error('Failed to save NFT data:', {
+    status: saveResponse.status,
+    statusText: saveResponse.statusText,
+    url: apiUrl,
+    error: errorText
+  });
+  throw new Error(`Failed to save NFT data: ${saveResponse.status} ${saveResponse.statusText} - ${errorText}`);
+}
 
         return res.status(200).json(card);
       } catch (error) {
