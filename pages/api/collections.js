@@ -1,5 +1,5 @@
-import { prisma, withDatabase } from '../../../utils/db';
-import { getFrogStats } from '../../../utils/frogData';
+import { prisma, withDatabase } from '../../utils/db';
+import { getFrogStats } from '../../utils/frogData';
 import { v4 as uuid4 } from 'uuid';
 
 // Add this helper function at the top after imports
@@ -86,9 +86,7 @@ function calculateGameStats(nftData) {
 }
 
 export default async function handler(req, res) {
-  const { address } = req.query;
-  
-  console.log(`🔍 Collections API called with address: ${address}, method: ${req.method}`);
+  console.log(`🔍 Collections API called with method: ${req.method}`);
   
   if (!prisma) {
     console.error('❌ Prisma client is completely undefined');
@@ -101,31 +99,34 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Database user model not available' });
   }
 
-  if (!address) {
-    console.log('❌ No address provided');
-    return res.status(400).json({ error: 'Wallet address is required' });
-  }
-
   try {
-    console.log(`🔄 Attempting to upsert user with address: ${address}`);
-    
-    const user = await withDatabase(async (db) => {
-      return await db.User.upsert({
-        where: { address: address },
-        update: {
-          updatedAt: new Date(),
-        },
-        create: {
-          id: uuid4(),
-          address: address,
-        },
-      });
-    });
-    
-    console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
-
     switch (req.method) {
       case 'GET':
+        // For GET requests, we need the wallet address as a query parameter
+        const { walletAddress } = req.query;
+        
+        if (!walletAddress) {
+          console.log('❌ No wallet address provided in query');
+          return res.status(400).json({ error: 'Wallet address is required as query parameter' });
+        }
+        
+        console.log(`🔄 Attempting to upsert user with address: ${walletAddress}`);
+        
+        const user = await withDatabase(async (db) => {
+          return await db.User.upsert({
+            where: { address: walletAddress },
+            update: {
+              updatedAt: new Date(),
+            },
+            create: {
+              id: uuid4(),
+              address: walletAddress,
+            },
+          });
+        });
+        
+        console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
+        
         try {
           console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
           
@@ -136,7 +137,7 @@ export default async function handler(req, res) {
             });
           });
           
-          console.log(`📊 Found ${userNfts.length} NFTs for user ${address}`);
+          console.log(`📊 Found ${userNfts.length} NFTs for user ${walletAddress}`);
           
           const collection = userNfts.map(nft => ({
             ...nft,
@@ -160,17 +161,40 @@ export default async function handler(req, res) {
 
       case 'POST':
         try {
-          const newNftsData = req.body;
-          console.log(`📥 Received POST data for ${newNftsData?.length || 0} NFTs`);
+          const { walletAddress, cards } = req.body;
           
-          if (!Array.isArray(newNftsData) || newNftsData.length === 0) {
-            console.log('❌ Invalid or empty NFT data');
-            return res.status(400).json({ error: 'Invalid or empty NFT data' });
+          if (!walletAddress) {
+            console.log('❌ No wallet address provided in request body');
+            return res.status(400).json({ error: 'Wallet address is required in request body' });
           }
+          
+          if (!Array.isArray(cards) || cards.length === 0) {
+            console.log('❌ Invalid or empty cards data');
+            return res.status(400).json({ error: 'Invalid or empty cards data' });
+          }
+          
+          console.log(`📥 Received POST data for ${cards.length} NFTs from wallet: ${walletAddress}`);
+          
+          console.log(`🔄 Attempting to upsert user with address: ${walletAddress}`);
+          
+          const user = await withDatabase(async (db) => {
+            return await db.User.upsert({
+              where: { address: walletAddress },
+              update: {
+                updatedAt: new Date(),
+              },
+              create: {
+                id: uuid4(),
+                address: walletAddress,
+              },
+            });
+          });
+          
+          console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
 
           const savedNfts = [];
 
-          for (const newNftData of newNftsData) {
+          for (const newNftData of cards) {
             // CRITICAL FIX: Sanitize tokenId to prevent binary interpretation
             let rawTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
             const uniqueTokenId = sanitizeTokenId(rawTokenId);
@@ -216,56 +240,56 @@ export default async function handler(req, res) {
               };
 
               // Try to create first, if it fails due to duplicate, then update
-               let nftRecord;
-               try {
-                 nftRecord = await withDatabase(async (db) => {
-                   return await db.NFT.create({
-                     data: {
-                       ...nftDataForUpsert,
-                       id: generateNFTId(nftDataForUpsert.tokenId, nftDataForUpsert.contractAddress),
-                     }
-                   });
-                 });
-               } catch (createError) {
-                 // If creation fails due to duplicate, try to find and update
-                 if (createError.code === 'P2002' || createError.message.includes('unique constraint')) {
-                   const existingNft = await withDatabase(async (db) => {
-                     return await db.NFT.findFirst({
-                       where: { 
-                         AND: [
-                           { tokenId: nftDataForUpsert.tokenId },
-                           { contractAddress: nftDataForUpsert.contractAddress }
-                         ]
-                       }
-                     });
-                   });
-                   
-                   if (existingNft) {
-                     nftRecord = await withDatabase(async (db) => {
-                       return await db.NFT.update({
-                         where: { id: existingNft.id },
-                         data: { 
-                           name: nftDataForUpsert.name,
-                           rarity: nftDataForUpsert.rarity,
-                           imageUrl: nftDataForUpsert.imageUrl,
-                           description: nftDataForUpsert.description,
-                           attack: nftDataForUpsert.attack,
-                           health: nftDataForUpsert.health,
-                           speed: nftDataForUpsert.speed,
-                           special: nftDataForUpsert.special,
-                           metadata: nftDataForUpsert.metadata,
-                           ownerId: nftDataForUpsert.ownerId,
-                           updatedAt: new Date() 
-                         }
-                       });
-                     });
-                   } else {
-                     throw createError; // Re-throw if we can't find the existing NFT
-                   }
-                 } else {
-                   throw createError; // Re-throw if it's not a duplicate error
-                 }
-               }
+              let nftRecord;
+              try {
+                nftRecord = await withDatabase(async (db) => {
+                  return await db.NFT.create({
+                    data: {
+                      ...nftDataForUpsert,
+                      id: generateNFTId(nftDataForUpsert.tokenId, nftDataForUpsert.contractAddress),
+                    }
+                  });
+                });
+              } catch (createError) {
+                // If creation fails due to duplicate, try to find and update
+                if (createError.code === 'P2002' || createError.message.includes('unique constraint')) {
+                  const existingNft = await withDatabase(async (db) => {
+                    return await db.NFT.findFirst({
+                      where: { 
+                        AND: [
+                          { tokenId: nftDataForUpsert.tokenId },
+                          { contractAddress: nftDataForUpsert.contractAddress }
+                        ]
+                      }
+                    });
+                  });
+                  
+                  if (existingNft) {
+                    nftRecord = await withDatabase(async (db) => {
+                      return await db.NFT.update({
+                        where: { id: existingNft.id },
+                        data: { 
+                          name: nftDataForUpsert.name,
+                          rarity: nftDataForUpsert.rarity,
+                          imageUrl: nftDataForUpsert.imageUrl,
+                          description: nftDataForUpsert.description,
+                          attack: nftDataForUpsert.attack,
+                          health: nftDataForUpsert.health,
+                          speed: nftDataForUpsert.speed,
+                          special: nftDataForUpsert.special,
+                          metadata: nftDataForUpsert.metadata,
+                          ownerId: nftDataForUpsert.ownerId,
+                          updatedAt: new Date() 
+                        }
+                      });
+                    });
+                  } else {
+                    throw createError; // Re-throw if we can't find the existing NFT
+                  }
+                } else {
+                  throw createError; // Re-throw if it's not a duplicate error
+                }
+              }
               
               console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
               savedNfts.push(nftRecord);
@@ -289,4 +313,4 @@ export default async function handler(req, res) {
     console.error('❌ Error processing user or NFT data:', e);
     return res.status(500).json({ error: `Failed to process request: ${e.message}` });
   }
-} 
+}
