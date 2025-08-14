@@ -134,7 +134,7 @@ export default function Home() {
       setError(null);
       setStatusMessage('Loading your collection...');
       
-      const apiUrl = `/api/collections/${address}`;
+      const apiUrl = `/api/collections?walletAddress=${encodeURIComponent(address)}`;
       console.log(`📡 Fetching from: ${apiUrl}`);
       
       const response = await fetch(apiUrl);
@@ -268,12 +268,15 @@ export default function Home() {
       setStatusMessage('Adding card to collection...');
       console.log(`Adding card to collection for address: ${address}`);
       
-      const response = await fetch(`/api/collections/${address}`, {
+      const response = await fetch(`/api/collections`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(revealedCards)
+        body: JSON.stringify({
+          walletAddress: address,
+          cards: revealedCards
+        })
       });
 
       if (!response.ok) {
