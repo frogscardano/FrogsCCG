@@ -1,5 +1,7 @@
 import { BlockFrostAPI } from '@blockfrost/blockfrost-js';
 import { getFrogStats } from '../../utils/frogData';
+import { prisma, withDatabase } from '../../utils/db';
+import { v4 as uuid4 } from 'uuid';
 
 const blockfrost = new BlockFrostAPI({
   projectId: process.env.BLOCKFROST_API_KEY,
@@ -170,9 +172,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Wallet address is required' });
     }
 
-    // Get current collection from request query
-    const userCards = req.query.collection ? JSON.parse(req.query.collection) : [];
-    
     // Get requested collection type (defaulting to frogs if not specified)
     const requestedCollection = req.query.collectionType || 'frogs';
     console.log(`Requested collection: ${requestedCollection}`);
@@ -189,6 +188,34 @@ export default async function handler(req, res) {
     };
     
     console.log(`Using policy ID: ${collectionConfig.policyId} for ${collectionConfig.name}`);
+    
+    // Get user's existing collection from database instead of query parameter
+    let userCards = [];
+    try {
+      const user = await withDatabase(async (db) => {
+        return await db.User.findUnique({
+          where: { address: walletAddress },
+          include: { NFT: true }
+        });
+      });
+      
+      if (user) {
+        userCards = user.NFT.map(nft => ({
+          attributes: Array.isArray(nft.metadata) ? nft.metadata : 
+                     (nft.metadata && typeof nft.metadata === 'object') ? 
+                     Object.entries(nft.metadata).map(([key, value]) => ({ trait_type: key, value })) :
+                     [
+                       { trait_type: "Collection", value: "Unknown" },
+                       { trait_type: "Number", value: nft.tokenId },
+                       { trait_type: "Policy ID", value: nft.contractAddress }
+                     ]
+        }));
+        console.log(`Found ${userCards.length} existing NFTs for user ${walletAddress}`);
+      }
+    } catch (dbError) {
+      console.warn('Could not fetch existing collection from database:', dbError.message);
+      userCards = [];
+    }
     
     // Special handling for collections that don't use BlockFrost (like Snekkies)
     if (!collectionConfig.useBlockfrost) {
@@ -343,29 +370,74 @@ export default async function handler(req, res) {
           ]
         };
 
-        // Save the NFT data to the database
-        const saveResponse = await fetch(`/api/collections/${walletAddress}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userAddress: walletAddress,
-            tokenId: card.id,
-            contractAddress: collectionConfig.policyId,
-            metadata: {
-              name: card.name,
-              image: card.image,
-              number: validNumber,
-              collection: collectionConfig.name,
-              rarity: card.rarity,
-              attributes: card.attributes
-            }
-          }),
+        // Save the NFT data to the database directly instead of using fetch
+        console.log('💾 Saving NFT data directly to database...');
+        console.log('💾 NFT data to save:', {
+          id: card.id,
+          tokenId: assetDetails.asset_name || `${validNumber}`,
+          contractAddress: collectionConfig.policyId,
+          name: card.name,
+          rarity: card.rarity,
+          imageUrl: card.image,
+          description: card.description,
+          attack: card.attack,
+          health: card.health,
+          speed: card.speed,
+          special: card.special,
+          metadata: card.attributes,
+          ownerId: user.id
         });
-
-        if (!saveResponse.ok) {
-          console.error('Failed to save NFT data:', await saveResponse.text());
+        
+        try {
+          // First ensure user exists
+          const user = await withDatabase(async (db) => {
+            return await db.User.upsert({
+              where: { address: walletAddress },
+              update: { updatedAt: new Date() },
+              create: { id: uuid4(), address: walletAddress },
+            });
+          });
+          
+          console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
+          
+          // Create the NFT record directly
+          const nftRecord = await withDatabase(async (db) => {
+            return await db.NFT.create({
+              data: {
+                id: card.id, // Use the same ID from the card object
+                tokenId: assetDetails.asset_name || `${validNumber}`,
+                contractAddress: collectionConfig.policyId,
+                name: card.name,
+                rarity: card.rarity,
+                imageUrl: card.image,
+                description: card.description,
+                attack: card.attack,
+                health: card.health,
+                speed: card.speed,
+                special: card.special,
+                metadata: card.attributes,
+                ownerId: user.id,
+              }
+            });
+          });
+          
+          console.log(`✅ Successfully saved NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
+          console.log(`✅ NFT record details:`, {
+            id: nftRecord.id,
+            tokenId: nftRecord.tokenId,
+            contractAddress: nftRecord.contractAddress,
+            ownerId: nftRecord.ownerId
+          });
+          
+        } catch (dbError) {
+          console.error('❌ Database error saving NFT:', dbError);
+          console.error('❌ Error details:', {
+            code: dbError.code,
+            message: dbError.message,
+            meta: dbError.meta
+          });
+          // Don't throw error here, just log it so the pack opening can still succeed
+          console.error(`Failed to save NFT to database: ${dbError.message}`);
         }
 
         return res.status(200).json(card);
