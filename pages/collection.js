@@ -1,131 +1,360 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { useWallet } from '../contexts/WalletContext';
-import WalletConnect from '../components/WalletConnect';
-import Link from 'next/link';
-import styles from '../styles/Collection.module.css';
+import { prisma, withDatabase } from '../../utils/db';
+import { getFrogStats } from '../../utils/frogData';
+import { v4 as uuid4 } from 'uuid';
 
-export default function Collection() {
-  const { connected, address } = useWallet();
-  const [collection, setCollection] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const router = useRouter();
+// Add this helper function at the top after imports
+const generateNFTId = (tokenId, contractAddress) => {
+  const timestamp = Date.now().toString(36);
+  const randomStr = Math.random().toString(36).substr(2, 5);
+  return `nft_${timestamp}_${randomStr}`;
+};
 
-  useEffect(() => {
-    if (connected && address) {
-      fetchCollection();
-    }
-  }, [connected, address]);
+// Add user ID generator
+const generateUserId = () => {
+  const timestamp = Date.now().toString(36);
+  const randomStr = Math.random().toString(36).substr(2, 9);
+  return `user_${timestamp}_${randomStr}`;
+};
 
-  const fetchCollection = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+// CRITICAL FIX: Function to sanitize tokenId to prevent binary interpretation
+const sanitizeTokenId = (tokenId) => {
+  if (!tokenId) return null;
+  
+  // Convert to string and trim
+  let sanitized = String(tokenId).trim();
+  
+  // If it's all hex characters, add prefix to prevent binary interpretation
+  if (/^[0-9a-fA-F]+$/.test(sanitized) && sanitized.length > 10) {
+    sanitized = `cardano_${sanitized}`;
+  }
+  
+  return sanitized;
+};
 
-      const response = await fetch(`/api/wallet/${address}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch wallet data');
+// Function to calculate game stats based on NFT data
+function calculateGameStats(nftData) {
+  const rarity = nftData.rarity || 'Common';
+  
+  // Extract number from NFT name or use a default
+  let nftNumber = 1;
+  
+  // Try to extract number from name (e.g., "Frogs #123", "Snekkies #4267")
+  const nameMatch = nftData.name?.match(/#(\d+)/);
+  if (nameMatch) {
+    nftNumber = parseInt(nameMatch[1]);
+  } else {
+    // Try to extract from attributes
+    const numberAttr = nftData.attributes?.find(attr => 
+      attr.trait_type === "Number" || attr.trait_type === "Asset Name"
+    );
+    if (numberAttr && numberAttr.value) {
+      const numMatch = numberAttr.value.toString().match(/\d+/);
+      if (numMatch) {
+        nftNumber = parseInt(numMatch[0]);
       }
-      
-      const walletData = await response.json();
-      
-      if (walletData && walletData.id) {
-        const collectionResponse = await fetch(`/api/collection/${walletData.id}`);
-        if (!collectionResponse.ok) {
-          throw new Error('Failed to fetch collection');
+    }
+  }
+  
+  console.log(`🎮 Calculating stats for NFT #${nftNumber} with rarity ${rarity}`);
+  
+  // Use getFrogStats for now - can be extended for other collections
+  const stats = getFrogStats(nftNumber, rarity);
+  
+  // Add some collection-specific bonuses
+  const collection = nftData.attributes?.find(attr => attr.trait_type === "Collection")?.value || 'Unknown';
+  let bonus = { attack: 0, health: 0, speed: 0 };
+  
+  switch (collection.toLowerCase()) {
+    case 'snekkies':
+      bonus = { attack: 5, health: 0, speed: 10 }; // Snekkies are fast
+      break;
+    case 'titans':
+      bonus = { attack: 10, health: 15, speed: -5 }; // Titans are strong but slow
+      break;
+    case 'frogs':
+    default:
+      bonus = { attack: 0, health: 5, speed: 5 }; // Frogs are balanced
+      break;
+  }
+  
+  return {
+    attack: Math.max(1, stats.attack + bonus.attack),
+    health: Math.max(1, stats.health + bonus.health),
+    speed: Math.max(1, stats.speed + bonus.speed),
+    special: stats.special
+  };
+}
+
+export default async function handler(req, res) {
+  console.log(`🔍 Collections API called with method: ${req.method}`);
+  
+  if (!prisma) {
+    console.error('❌ Prisma client is completely undefined');
+    return res.status(500).json({ error: 'Database client not initialized' });
+  }
+  
+  if (!prisma.User) {
+    console.error('❌ Prisma.User is undefined');
+    console.log('Available Prisma methods:', Object.keys(prisma));
+    return res.status(500).json({ error: 'Database user model not available' });
+  }
+
+  try {
+    switch (req.method) {
+      case 'GET':
+        // For GET requests, we need the wallet address as a query parameter
+        const { walletAddress } = req.query;
+        
+        if (!walletAddress) {
+          console.log('❌ No wallet address provided in query');
+          return res.status(400).json({ error: 'Wallet address is required as query parameter' });
         }
         
-        const collectionData = await collectionResponse.json();
-        setCollection(collectionData);
-      } else {
-        // New wallet with no collections yet
-        setCollection([]);
-      }
-    } catch (error) {
-      console.error('Error fetching collection:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Group cards by rarity for display
-  const groupedCards = collection.reduce((acc, userCard) => {
-    const rarity = userCard.card.rarity || 'unknown';
-    if (!acc[rarity]) {
-      acc[rarity] = [];
-    }
-    acc[rarity].push(userCard);
-    return acc;
-  }, {});
-
-  const rarityOrder = ['legendary', 'rare', 'common', 'unknown'];
-
-  return (
-    <div className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Your Card Collection</h1>
-        <nav className={styles.nav}>
-          <Link href="/" className={styles.navLink}>
-            Home
-          </Link>
-          <Link href="/collection" className={styles.navLink}>
-            Collection
-          </Link>
-        </nav>
-      </header>
-
-      <div className={styles.walletSection}>
-        <WalletConnect />
-      </div>
-
-      {!connected ? (
-        <div className={styles.connectPrompt}>
-          <p>Connect your wallet to view your card collection</p>
-        </div>
-      ) : loading ? (
-        <div className={styles.loading}>Loading your collection...</div>
-      ) : error ? (
-        <div className={styles.error}>{error}</div>
-      ) : collection.length === 0 ? (
-        <div className={styles.emptyCollection}>
-          <p>You don't have any cards yet.</p>
-          <button 
-            className={styles.shopButton}
-            onClick={() => router.push('/')}
-          >
-            Buy Card Packs
-          </button>
-        </div>
-      ) : (
-        <div className={styles.collectionContainer}>
-          {rarityOrder.map(rarity => {
-            if (!groupedCards[rarity] || groupedCards[rarity].length === 0) return null;
+        console.log(`🔄 Attempting to upsert user with address: ${walletAddress}`);
+        
+        const user = await withDatabase(async (db) => {
+          return await db.User.upsert({
+            where: { address: walletAddress },
+            update: {
+              updatedAt: new Date(),
+            },
+            create: {
+              id: uuid4(),
+              address: walletAddress,
+            },
+          });
+        });
+        
+        console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
+        
+        try {
+          console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
+          
+          // First, let's check if the user exists and has the correct ID
+          const userCheck = await withDatabase(async (db) => {
+            return await db.User.findUnique({
+              where: { id: user.id },
+              include: { NFT: true }
+            });
+          });
+          
+          console.log(`🔍 User check result:`, {
+            userId: userCheck?.id,
+            address: userCheck?.address,
+            nftCount: userCheck?.NFT?.length || 0
+          });
+          
+          const userNfts = await withDatabase(async (db) => {
+            return await db.NFT.findMany({
+              where: { ownerId: user.id },
+              orderBy: { createdAt: 'desc' }
+            });
+          });
+          
+          console.log(`📊 Found ${userNfts.length} NFTs for user ${walletAddress}`);
+          
+          // Debug: Log the first few NFTs to see their structure
+          if (userNfts.length > 0) {
+            console.log(`🔍 First NFT structure:`, {
+              id: userNfts[0].id,
+              name: userNfts[0].name,
+              tokenId: userNfts[0].tokenId,
+              contractAddress: userNfts[0].contractAddress,
+              ownerId: userNfts[0].ownerId
+            });
+          } else {
+            console.log(`🔍 No NFTs found for user ${user.id}. Checking database directly...`);
             
-            return (
-              <div key={rarity} className={styles.raritySection}>
-                <h2 className={styles.rarityTitle}>{rarity.charAt(0).toUpperCase() + rarity.slice(1)}</h2>
-                <div className={styles.cardsGrid}>
-                  {groupedCards[rarity].map(userCard => (
-                    <div key={userCard.id} className={styles.cardItem}>
-                      <div className={styles.cardImage}>
-                        <img src={userCard.card.imageUrl} alt={userCard.card.name} />
-                      </div>
-                      <div className={styles.cardInfo}>
-                        <h3 className={styles.cardName}>{userCard.card.name}</h3>
-                        <p className={styles.cardRarity}>{userCard.card.rarity}</p>
-                        <p className={styles.cardQuantity}>Owned: {userCard.quantity}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-} 
+            // Let's check if there are any NFTs in the database at all
+            const allNfts = await withDatabase(async (db) => {
+              return await db.NFT.findMany({
+                take: 5,
+                orderBy: { createdAt: 'desc' }
+              });
+            });
+            
+            console.log(`🔍 Total NFTs in database: ${allNfts.length}`);
+            if (allNfts.length > 0) {
+              console.log(`🔍 Sample NFT:`, {
+                id: allNfts[0].id,
+                name: allNfts[0].name,
+                ownerId: allNfts[0].ownerId
+              });
+            }
+          }
+          
+          const collection = userNfts.map(nft => ({
+            ...nft,
+            attributes: Array.isArray(nft.metadata) ? nft.metadata : 
+                       (nft.metadata && typeof nft.metadata === 'object') ? 
+                       Object.entries(nft.metadata).map(([key, value]) => ({ trait_type: key, value })) :
+                       [
+                         { trait_type: "Collection", value: "Unknown" },
+                         { trait_type: "Number", value: nft.tokenId },
+                         { trait_type: "Policy ID", value: nft.contractAddress }
+                       ],
+            image: nft.imageUrl || nft.image
+          }));
+          
+          console.log(`✅ Returning collection with ${collection.length} items`);
+          return res.status(200).json(collection);
+        } catch (error) {
+          console.error('❌ Error fetching collection:', error);
+          return res.status(500).json({ error: 'Failed to fetch collection' });
+        }
+
+      case 'POST':
+        try {
+          const { walletAddress, cards } = req.body;
+          
+          if (!walletAddress) {
+            console.log('❌ No wallet address provided in request body');
+            return res.status(400).json({ error: 'Wallet address is required in request body' });
+          }
+          
+          if (!Array.isArray(cards) || cards.length === 0) {
+            console.log('❌ Invalid or empty cards data');
+            return res.status(400).json({ error: 'Invalid or empty cards data' });
+          }
+          
+          console.log(`📥 Received POST data for ${cards.length} NFTs from wallet: ${walletAddress}`);
+          
+          console.log(`🔄 Attempting to upsert user with address: ${walletAddress}`);
+          
+          const user = await withDatabase(async (db) => {
+            return await db.User.upsert({
+              where: { address: walletAddress },
+              update: {
+                updatedAt: new Date(),
+              },
+              create: {
+                id: uuid4(),
+                address: walletAddress,
+              },
+            });
+          });
+          
+          console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
+
+          const savedNfts = [];
+
+          for (const newNftData of cards) {
+            // CRITICAL FIX: Sanitize tokenId to prevent binary interpretation
+            let rawTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
+            const uniqueTokenId = sanitizeTokenId(rawTokenId);
+
+            if (!uniqueTokenId) {
+              console.warn('⚠️ Skipping NFT with no unique identifier (tokenId):', newNftData);
+              continue;
+            }
+            
+            // CRITICAL FIX: Sanitize contract address too
+            let rawContractAddress = newNftData.policyId || (newNftData.attributes?.find(attr => attr.trait_type === "Policy ID")?.value);
+            const contractAddress = sanitizeTokenId(rawContractAddress);
+            
+            if (!contractAddress) {
+              console.warn('⚠️ Skipping NFT due to missing contract address / policy ID:', newNftData);
+              continue;
+            }
+
+            if (!newNftData.name || !newNftData.rarity || !newNftData.image) {
+              console.warn('⚠️ Skipping NFT with missing essential data (name, rarity, image):', newNftData);
+              continue;
+            }
+            
+            console.log(`🔄 Processing NFT. Token ID: ${uniqueTokenId}, Name: ${newNftData.name}`);
+            
+            const gameStats = calculateGameStats(newNftData);
+
+            try {
+              // CRITICAL FIX: Ensure all data types are correct for PostgreSQL
+              const nftDataForUpsert = {
+                tokenId: String(uniqueTokenId),
+                contractAddress: String(contractAddress),
+                name: String(newNftData.name || '').trim(),
+                rarity: String(newNftData.rarity || 'Common').trim(),
+                imageUrl: String(newNftData.image || '').trim(),
+                description: String(newNftData.description || '').trim(),
+                attack: parseInt(gameStats.attack) || 1,
+                health: parseInt(gameStats.health) || 1,
+                speed: parseInt(gameStats.speed) || 1,
+                special: gameStats.special ? String(gameStats.special).trim() : null,
+                metadata: newNftData.attributes || {},
+                ownerId: String(user.id),
+              };
+
+              // Try to create first, if it fails due to duplicate, then update
+              let nftRecord;
+              try {
+                nftRecord = await withDatabase(async (db) => {
+                  return await db.NFT.create({
+                    data: {
+                      ...nftDataForUpsert,
+                      id: generateNFTId(nftDataForUpsert.tokenId, nftDataForUpsert.contractAddress),
+                    }
+                  });
+                });
+              } catch (createError) {
+                // If creation fails due to duplicate, try to find and update
+                if (createError.code === 'P2002' || createError.message.includes('unique constraint')) {
+                  const existingNft = await withDatabase(async (db) => {
+                    return await db.NFT.findFirst({
+                      where: { 
+                        AND: [
+                          { tokenId: nftDataForUpsert.tokenId },
+                          { contractAddress: nftDataForUpsert.contractAddress }
+                        ]
+                      }
+                    });
+                  });
+                  
+                  if (existingNft) {
+                    nftRecord = await withDatabase(async (db) => {
+                      return await db.NFT.update({
+                        where: { id: existingNft.id },
+                        data: { 
+                          name: nftDataForUpsert.name,
+                          rarity: nftDataForUpsert.rarity,
+                          imageUrl: nftDataForUpsert.imageUrl,
+                          description: nftDataForUpsert.description,
+                          attack: nftDataForUpsert.attack,
+                          health: nftDataForUpsert.health,
+                          speed: nftDataForUpsert.speed,
+                          special: nftDataForUpsert.special,
+                          metadata: nftDataForUpsert.metadata,
+                          ownerId: nftDataForUpsert.ownerId,
+                          updatedAt: new Date() 
+                        }
+                      });
+                    });
+                  } else {
+                    throw createError; // Re-throw if we can't find the existing NFT
+                  }
+                } else {
+                  throw createError; // Re-throw if it's not a duplicate error
+                }
+              }
+              
+              console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
+              savedNfts.push(nftRecord);
+            } catch (nftError) {
+              console.error(`❌ Failed to save NFT ${uniqueTokenId}:`, nftError);
+            }
+          }
+          
+          console.log(`✅ POST complete. Successfully saved ${savedNfts.length} NFTs`);
+          return res.status(200).json(savedNfts);
+        } catch (error) {
+          console.error('❌ Error adding NFTs to collection:', error);
+          return res.status(500).json({ error: `Failed to add NFTs to collection: ${error.message}` });
+        }
+
+      default:
+        res.setHeader('Allow', ['GET', 'POST']);
+        return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
+    }
+  } catch (e) {
+    console.error('❌ Error processing user or NFT data:', e);
+    return res.status(500).json({ error: `Failed to process request: ${e.message}` });
+  }
+}
