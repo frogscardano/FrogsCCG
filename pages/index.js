@@ -209,7 +209,9 @@ export default function Home() {
     } NFT from Cardano...`);
     
     try {
-      const apiUrl = `/api/openPack?walletAddress=${address}&collection=${encodeURIComponent(JSON.stringify(currentCards))}&collectionType=${selectedPack}`;
+      // Don't send the entire collection as it can make the URL too long
+      // Just send the collection type and wallet address
+      const apiUrl = `/api/openPack?walletAddress=${encodeURIComponent(address)}&collectionType=${selectedPack}`;
       console.log(`Calling API: ${apiUrl}`);
       
       const response = await fetch(apiUrl);
