@@ -1,6 +1,6 @@
 import { BlockFrostAPI } from '@blockfrost/blockfrost-js';
-import { getFrogStats } from '../../utils/frogData';
-import { prisma, withDatabase } from '../../utils/db';
+import { getFrogStats } from '../utils/frogData';
+import { prisma, withDatabase } from '../utils/db';
 import { v4 as uuid4 } from 'uuid';
 
 const blockfrost = new BlockFrostAPI({
