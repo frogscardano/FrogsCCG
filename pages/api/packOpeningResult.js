@@ -1,7 +1,7 @@
 // api/packOpeningResult.js
 // API route for retrieving pack opening results
 
-import { prisma } from '../../utils/db.js';
+import { prisma } from '../utils/db';
 
 export default async function handler(req, res) {
   // Only allow GET requests
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     }
 
     // Fetch NFTs associated with this pack opening
-    const nfts = await prisma.NFT.findMany({
+    const nfts = await prisma.nFT.findMany({
       where: { packOpeningId: packOpeningId },
       orderBy: {
         // Order by rarity (will need to map string rarities to numeric values in a real app)
