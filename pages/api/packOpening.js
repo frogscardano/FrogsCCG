@@ -1,7 +1,7 @@
 // api/packOpening.js
 // API route for handling pack opening logic
 
-import { prisma } from '../utils/db';
+import { prisma } from '../../utils/db';
 import { 
   initializeBlockfrostBackend, 
   validateTransaction, 
