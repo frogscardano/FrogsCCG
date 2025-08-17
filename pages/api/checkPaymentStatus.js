@@ -1,7 +1,7 @@
 // api/checkPaymentStatus.js
 // API route for checking the status of a payment
 
-import { prisma } from '../utils/db';
+import { prisma } from '../../utils/db';
 import { 
   initializeBlockfrostBackend, 
   checkWalletForPayment 
