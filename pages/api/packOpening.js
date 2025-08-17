@@ -1,7 +1,7 @@
 // api/packOpening.js
 // API route for handling pack opening logic
 
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/db';
 import { 
   initializeBlockfrostBackend, 
   validateTransaction, 
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
     // Determine NFTs to include in the pack based on rarity weights
     // This is a simplified example - you would have more complex logic
     // to determine which NFTs to include based on rarity, availability, etc.
-    const availableNFTs = await prisma.NFT.findMany({
+    const availableNFTs = await prisma.nFT.findMany({
       where: {
         packId: null, // Only NFTs not yet assigned to a pack
         // You might have additional filters here
@@ -112,7 +112,7 @@ export default async function handler(req, res) {
     }
 
     // Update NFTs to assign them to the user
-    await prisma.NFT.updateMany({
+    await prisma.nFT.updateMany({
       where: {
         id: {
           in: availableNFTs.map(nft => nft.id)
