@@ -1,7 +1,7 @@
 // api/generatePaymentAddress.js
 // API route for generating payment addresses for pack purchases
 
-import { prisma } from '../utils/db';
+import { prisma } from '../../utils/db';
 import { 
   initializeBlockfrostBackend, 
   generatePaymentAddress 
