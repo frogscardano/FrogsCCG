@@ -1,5 +1,5 @@
-import { prisma, withDatabase } from '../../../utils/db';
-import { getFrogStats } from '../../../utils/frogData';
+import { prisma, withDatabase } from '../../utils/db';
+import { getFrogStats } from '../../utils/frogData';
 import { v4 as uuid4 } from 'uuid';
 
 // Add this helper function at the top after imports
