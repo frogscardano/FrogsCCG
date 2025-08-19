@@ -9,13 +9,6 @@ const generateNFTId = (tokenId, contractAddress) => {
   return `nft_${timestamp}_${randomStr}`;
 };
 
-// Add user ID generator
-const generateUserId = () => {
-  const timestamp = Date.now().toString(36);
-  const randomStr = Math.random().toString(36).substr(2, 9);
-  return `user_${timestamp}_${randomStr}`;
-};
-
 // CRITICAL FIX: Function to sanitize tokenId to prevent binary interpretation
 const sanitizeTokenId = (tokenId) => {
   if (!tokenId) return null;
@@ -129,14 +122,68 @@ export default async function handler(req, res) {
         try {
           console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
           
-          const userNfts = await withDatabase(async (db) => {
+          // CRITICAL FIX: First try to find NFTs by user ID
+          let userNfts = await withDatabase(async (db) => {
             return await db.NFT.findMany({
               where: { ownerId: user.id },
               orderBy: { createdAt: 'desc' }
             });
           });
           
-          console.log(`📊 Found ${userNfts.length} NFTs for user ${address}`);
+          // CRITICAL FIX: If no NFTs found by user ID, check if there are NFTs with the wrong ownerId
+          // This handles the case where NFTs were saved with a different user ID format
+          if (userNfts.length === 0) {
+            console.log(`🔍 No NFTs found for user ID ${user.id}, checking for orphaned NFTs...`);
+            
+            // Look for NFTs that might belong to this user but have wrong ownerId
+            const orphanedNfts = await withDatabase(async (db) => {
+              return await db.NFT.findMany({
+                where: {
+                  OR: [
+                    { ownerId: { contains: address.slice(-8) } }, // Check if ownerId contains part of wallet address
+                    { ownerId: { startsWith: 'frogs-' } }, // Check for old format IDs
+                    { ownerId: { startsWith: 'user_' } }   // Check for other old format IDs
+                  ]
+                },
+                orderBy: { createdAt: 'desc' }
+              });
+            });
+            
+            if (orphanedNfts.length > 0) {
+              console.log(`🔍 Found ${orphanedNfts.length} potentially orphaned NFTs, attempting to fix...`);
+              
+              // Update the ownerId for these NFTs to the current user
+              for (const orphanedNft of orphanedNfts) {
+                try {
+                  await withDatabase(async (db) => {
+                    await db.NFT.update({
+                      where: { id: orphanedNft.id },
+                      data: { 
+                        ownerId: user.id,
+                        updatedAt: new Date()
+                      }
+                    });
+                  });
+                  console.log(`✅ Fixed orphaned NFT ${orphanedNft.name} (ID: ${orphanedNft.id})`);
+                } catch (updateError) {
+                  console.error(`❌ Failed to fix orphaned NFT ${orphanedNft.id}:`, updateError);
+                }
+              }
+              
+              // Fetch the updated NFTs
+              userNfts = await withDatabase(async (db) => {
+                return await db.NFT.findMany({
+                  where: { ownerId: user.id },
+                  orderBy: { createdAt: 'desc' }
+                });
+              });
+              
+              console.log(`✅ After fixing orphaned NFTs, found ${userNfts.length} NFTs for user ID: ${user.id}`);
+            }
+          }
+          
+          // CRITICAL FIX: Log with user ID, not wallet address
+          console.log(`📊 Found ${userNfts.length} NFTs for user ID: ${user.id}`);
           
           const collection = userNfts.map(nft => ({
             ...nft,
@@ -162,8 +209,14 @@ export default async function handler(req, res) {
         try {
           const newNftsData = req.body;
           console.log(`📥 Received POST data for ${newNftsData?.length || 0} NFTs`);
+          console.log(`📥 POST data structure:`, JSON.stringify(newNftsData, null, 2));
           
-          if (!Array.isArray(newNftsData) || newNftsData.length === 0) {
+          if (!Array.isArray(newNftsData)) {
+            // Handle single NFT from openPack
+            newNftsData = [newNftsData];
+          }
+          
+          if (newNftsData.length === 0) {
             console.log('❌ Invalid or empty NFT data');
             return res.status(400).json({ error: 'Invalid or empty NFT data' });
           }
@@ -171,9 +224,33 @@ export default async function handler(req, res) {
           const savedNfts = [];
 
           for (const newNftData of newNftsData) {
+            console.log(`🔄 Processing NFT data:`, JSON.stringify(newNftData, null, 2));
+            
+            // CRITICAL FIX: Handle both data structures (from openPack and direct API calls)
+            let nftName, nftRarity, nftImage, nftDescription, nftAttributes, nftTokenId, nftContractAddress;
+            
+            if (newNftData.metadata) {
+              // Data from openPack.js
+              nftName = newNftData.metadata.name;
+              nftRarity = newNftData.metadata.rarity;
+              nftImage = newNftData.metadata.image;
+              nftDescription = newNftData.metadata.description || '';
+              nftAttributes = newNftData.metadata.attributes || [];
+              nftTokenId = newNftData.metadata.number || newNftData.tokenId;
+              nftContractAddress = newNftData.contractAddress;
+            } else {
+              // Direct API call data
+              nftName = newNftData.name;
+              nftRarity = newNftData.rarity;
+              nftImage = newNftData.image;
+              nftDescription = newNftData.description || '';
+              nftAttributes = newNftData.attributes || [];
+              nftTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
+              nftContractAddress = newNftData.policyId || (newNftData.attributes?.find(attr => attr.trait_type === "Policy ID")?.value);
+            }
+
             // CRITICAL FIX: Sanitize tokenId to prevent binary interpretation
-            let rawTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
-            const uniqueTokenId = sanitizeTokenId(rawTokenId);
+            const uniqueTokenId = sanitizeTokenId(nftTokenId);
 
             if (!uniqueTokenId) {
               console.warn('⚠️ Skipping NFT with no unique identifier (tokenId):', newNftData);
@@ -181,37 +258,43 @@ export default async function handler(req, res) {
             }
             
             // CRITICAL FIX: Sanitize contract address too
-            let rawContractAddress = newNftData.policyId || (newNftData.attributes?.find(attr => attr.trait_type === "Policy ID")?.value);
-            const contractAddress = sanitizeTokenId(rawContractAddress);
+            const contractAddress = sanitizeTokenId(nftContractAddress);
             
             if (!contractAddress) {
               console.warn('⚠️ Skipping NFT due to missing contract address / policy ID:', newNftData);
               continue;
             }
 
-            if (!newNftData.name || !newNftData.rarity || !newNftData.image) {
+            if (!nftName || !nftRarity || !nftImage) {
               console.warn('⚠️ Skipping NFT with missing essential data (name, rarity, image):', newNftData);
               continue;
             }
             
-            console.log(`🔄 Processing NFT. Token ID: ${uniqueTokenId}, Name: ${newNftData.name}`);
+            console.log(`🔄 Processing NFT. Token ID: ${uniqueTokenId}, Name: ${nftName}`);
             
-            const gameStats = calculateGameStats(newNftData);
+            // Create a standardized NFT data object for stats calculation
+            const standardizedNftData = {
+              name: nftName,
+              rarity: nftRarity,
+              attributes: nftAttributes
+            };
+            
+            const gameStats = calculateGameStats(standardizedNftData);
 
             try {
               // CRITICAL FIX: Ensure all data types are correct for PostgreSQL
               const nftDataForUpsert = {
                 tokenId: String(uniqueTokenId),
                 contractAddress: String(contractAddress),
-                name: String(newNftData.name || '').trim(),
-                rarity: String(newNftData.rarity || 'Common').trim(),
-                imageUrl: String(newNftData.image || '').trim(),
-                description: String(newNftData.description || '').trim(),
+                name: String(nftName || '').trim(),
+                rarity: String(nftRarity || 'Common').trim(),
+                imageUrl: String(nftImage || '').trim(),
+                description: String(nftDescription || '').trim(),
                 attack: parseInt(gameStats.attack) || 1,
                 health: parseInt(gameStats.health) || 1,
                 speed: parseInt(gameStats.speed) || 1,
                 special: gameStats.special ? String(gameStats.special).trim() : null,
-                metadata: newNftData.attributes || {},
+                metadata: nftAttributes || {},
                 ownerId: String(user.id),
               };
 
