@@ -140,13 +140,13 @@ export async function addCardToUserCollection(address, tokenId, contractAddress,
         }
       },
       update: {
-        ownerId: User.id,
+        ownerId: user.id,
         updatedAt: new Date()
       },
       create: {
         tokenId,
         contractAddress,
-        ownerId: User.id,
+        ownerId: user.id,
         metadata,
         name: metadata?.name,
         rarity: metadata?.rarity,
