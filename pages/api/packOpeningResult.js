@@ -1,7 +1,7 @@
 // api/packOpeningResult.js
 // API route for retrieving pack opening results
 
-import { prisma } from '../../utils/db';
+import { prisma } from '../../utils/db.js';
 
 export default async function handler(req, res) {
   // Only allow GET requests
