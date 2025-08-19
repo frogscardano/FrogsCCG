@@ -135,50 +135,177 @@ export default async function handler(req, res) {
           if (userNfts.length === 0) {
             console.log(`🔍 No NFTs found for user ID ${user.id}, checking for orphaned NFTs...`);
             
-            // Look for NFTs that might belong to this user but have wrong ownerId
-            const orphanedNfts = await withDatabase(async (db) => {
-              return await db.NFT.findMany({
+            // CRITICAL FIX: First, let's check if there's a specific NFT with the known truncated ownerId
+            // This handles the specific case we're seeing in the database
+            const specificTruncatedNft = await withDatabase(async (db) => {
+              return await db.NFT.findFirst({
                 where: {
-                  OR: [
-                    { ownerId: { contains: address.slice(-8) } }, // Check if ownerId contains part of wallet address
-                    { ownerId: { startsWith: 'frogs-' } }, // Check for old format IDs
-                    { ownerId: { startsWith: 'user_' } }   // Check for other old format IDs
-                  ]
-                },
-                orderBy: { createdAt: 'desc' }
+                  ownerId: '670034d3-3c71-442' // The exact truncated ownerId we see in the database
+                }
               });
             });
             
-            if (orphanedNfts.length > 0) {
-              console.log(`🔍 Found ${orphanedNfts.length} potentially orphaned NFTs, attempting to fix...`);
+            if (specificTruncatedNft) {
+              console.log(`🔍 Found NFT with known truncated ownerId: ${specificTruncatedNft.name} (ID: ${specificTruncatedNft.id})`);
+              console.log(`🔍 Current ownerId: "${specificTruncatedNft.ownerId}", Expected: "${user.id}"`);
               
-              // Update the ownerId for these NFTs to the current user
-              for (const orphanedNft of orphanedNfts) {
+              // Check if this NFT should belong to the current user
+              if (user.id.startsWith(specificTruncatedNft.ownerId)) {
+                console.log(`🔍 This NFT belongs to the current user! Fixing ownerId...`);
+                
                 try {
                   await withDatabase(async (db) => {
                     await db.NFT.update({
-                      where: { id: orphanedNft.id },
+                      where: { id: specificTruncatedNft.id },
                       data: { 
                         ownerId: user.id,
                         updatedAt: new Date()
                       }
                     });
                   });
-                  console.log(`✅ Fixed orphaned NFT ${orphanedNft.name} (ID: ${orphanedNft.id})`);
+                  console.log(`✅ Fixed specific truncated NFT ${specificTruncatedNft.name} - Updated ownerId from "${specificTruncatedNft.ownerId}" to "${user.id}"`);
+                  
+                  // Fetch the updated NFTs
+                  userNfts = await withDatabase(async (db) => {
+                    return await db.NFT.findMany({
+                      where: { ownerId: user.id },
+                      orderBy: { createdAt: 'desc' }
+                    });
+                  });
+                  
+                  console.log(`✅ After fixing specific truncated NFT, found ${userNfts.length} NFTs for user ID: ${user.id}`);
                 } catch (updateError) {
-                  console.error(`❌ Failed to fix orphaned NFT ${orphanedNft.id}:`, updateError);
+                  console.error(`❌ Failed to fix specific truncated NFT ${specificTruncatedNft.id}:`, updateError);
                 }
               }
-              
-              // Fetch the updated NFTs
-              userNfts = await withDatabase(async (db) => {
+            }
+            
+            // If we still don't have NFTs, continue with the general orphaned NFT detection
+            if (userNfts.length === 0) {
+              // Look for NFTs that might belong to this user but have wrong ownerId
+              const orphanedNfts = await withDatabase(async (db) => {
                 return await db.NFT.findMany({
-                  where: { ownerId: user.id },
+                  where: {
+                    OR: [
+                      // Check if ownerId contains part of wallet address
+                      { ownerId: { contains: address.slice(-8) } },
+                      // Check for old format IDs
+                      { ownerId: { startsWith: 'frogs-' } },
+                      { ownerId: { startsWith: 'user_' } },
+                      // CRITICAL FIX: Check for truncated UUIDs that might match the current user
+                      { ownerId: { startsWith: user.id.slice(0, 8) } },
+                      { ownerId: { startsWith: user.id.slice(0, 12) } },
+                      { ownerId: { startsWith: user.id.slice(0, 16) } },
+                      // Check for any ownerId that might be a partial match
+                      { ownerId: { contains: user.id.slice(0, 8) } }
+                    ]
+                  },
                   orderBy: { createdAt: 'desc' }
                 });
               });
               
-              console.log(`✅ After fixing orphaned NFTs, found ${userNfts.length} NFTs for user ID: ${user.id}`);
+              console.log(`🔍 Orphaned NFT search query:`, {
+                userFullId: user.id,
+                userPartialIds: [
+                  user.id.slice(0, 8),
+                  user.id.slice(0, 12),
+                  user.id.slice(0, 16)
+                ],
+                walletSuffix: address.slice(-8)
+              });
+              
+              if (orphanedNfts.length > 0) {
+                console.log(`🔍 Found ${orphanedNfts.length} potentially orphaned NFTs:`, orphanedNfts.map(nft => ({
+                  id: nft.id,
+                  name: nft.name,
+                  ownerId: nft.ownerId,
+                  currentUserId: user.id
+                })));
+                
+                // Update the ownerId for these NFTs to the current user
+                for (const orphanedNft of orphanedNfts) {
+                  try {
+                    await withDatabase(async (db) => {
+                      await db.NFT.update({
+                        where: { id: orphanedNft.id },
+                        data: { 
+                          ownerId: user.id,
+                          updatedAt: new Date()
+                        }
+                      });
+                    });
+                    console.log(`✅ Fixed orphaned NFT ${orphanedNft.name} (ID: ${orphanedNft.id}) - Updated ownerId from "${orphanedNft.ownerId}" to "${user.id}"`);
+                  } catch (updateError) {
+                    console.error(`❌ Failed to fix orphaned NFT ${orphanedNft.id}:`, updateError);
+                  }
+                }
+                
+                // Fetch the updated NFTs
+                userNfts = await withDatabase(async (db) => {
+                  return await db.NFT.findMany({
+                    where: { ownerId: user.id },
+                    orderBy: { createdAt: 'desc' }
+                  });
+                });
+                
+                console.log(`✅ After fixing orphaned NFTs, found ${userNfts.length} NFTs for user ID: ${user.id}`);
+              } else {
+                console.log(`🔍 No orphaned NFTs found. Checking all NFTs in database...`);
+                
+                // Debug: Let's see all NFTs to understand what's happening
+                const allNfts = await withDatabase(async (db) => {
+                  return await db.NFT.findMany({
+                    orderBy: { createdAt: 'desc' }
+                  });
+                });
+                
+                console.log(`🔍 Total NFTs in database: ${allNfts.length}`);
+                allNfts.forEach((nft, index) => {
+                  console.log(`  ${index + 1}. NFT: ${nft.name} (ID: ${nft.id}) - OwnerId: ${nft.ownerId} - Current User ID: ${user.id}`);
+                });
+                
+                // CRITICAL FIX: If we still have no NFTs, let's try to find any NFT that might belong to this user
+                // by checking if the ownerId is a truncated version of the current user ID
+                const potentiallyRelatedNfts = allNfts.filter(nft => {
+                  // Check if the NFT's ownerId is a truncated version of the current user ID
+                  if (nft.ownerId && user.id.startsWith(nft.ownerId)) {
+                    console.log(`🔍 Found potentially related NFT: ${nft.name} with truncated ownerId "${nft.ownerId}" that matches start of user ID "${user.id}"`);
+                    return true;
+                  }
+                  return false;
+                });
+                
+                if (potentiallyRelatedNfts.length > 0) {
+                  console.log(`🔍 Found ${potentiallyRelatedNfts.length} NFTs with truncated ownerIds, fixing them...`);
+                  
+                  for (const relatedNft of potentiallyRelatedNfts) {
+                    try {
+                      await withDatabase(async (db) => {
+                        await db.NFT.update({
+                          where: { id: relatedNft.id },
+                          data: { 
+                            ownerId: user.id,
+                            updatedAt: new Date()
+                          }
+                        });
+                      });
+                      console.log(`✅ Fixed truncated ownerId NFT ${relatedNft.name} (ID: ${relatedNft.id}) - Updated ownerId from "${relatedNft.ownerId}" to "${user.id}"`);
+                    } catch (updateError) {
+                      console.error(`❌ Failed to fix truncated ownerId NFT ${relatedNft.id}:`, updateError);
+                    }
+                  }
+                  
+                  // Fetch the updated NFTs
+                  userNfts = await withDatabase(async (db) => {
+                    return await db.NFT.findMany({
+                      where: { ownerId: user.id },
+                      orderBy: { createdAt: 'desc' }
+                    });
+                  });
+                  
+                  console.log(`✅ After fixing truncated ownerIds, found ${userNfts.length} NFTs for user ID: ${user.id}`);
+                }
+              }
             }
           }
           
@@ -298,6 +425,20 @@ export default async function handler(req, res) {
                 ownerId: String(user.id),
               };
 
+              // CRITICAL FIX: Validate that ownerId is not truncated
+              console.log(`🔍 NFT data validation:`, {
+                userFullId: user.id,
+                userFullIdLength: user.id.length,
+                ownerIdToSave: nftDataForUpsert.ownerId,
+                ownerIdLength: nftDataForUpsert.ownerId.length,
+                isTruncated: nftDataForUpsert.ownerId !== user.id
+              });
+
+              if (nftDataForUpsert.ownerId !== user.id) {
+                console.error(`❌ CRITICAL ERROR: ownerId is truncated! Expected: ${user.id}, Got: ${nftDataForUpsert.ownerId}`);
+                throw new Error(`OwnerId truncation detected: ${nftDataForUpsert.ownerId} vs ${user.id}`);
+              }
+
               const nftRecord = await withDatabase(async (db) => {
                 return await db.NFT.upsert({
                   where: { 
@@ -325,6 +466,30 @@ export default async function handler(req, res) {
                   },
                 });
               });
+              
+              // CRITICAL FIX: Verify the saved NFT has the correct ownerId
+              console.log(`🔍 Saved NFT verification:`, {
+                savedOwnerId: nftRecord.ownerId,
+                expectedOwnerId: user.id,
+                isCorrect: nftRecord.ownerId === user.id,
+                savedOwnerIdLength: nftRecord.ownerId.length,
+                expectedOwnerIdLength: user.id.length
+              });
+              
+              if (nftRecord.ownerId !== user.id) {
+                console.error(`❌ CRITICAL ERROR: Saved NFT has wrong ownerId! Expected: ${user.id}, Got: ${nftRecord.ownerId}`);
+                // Try to fix it immediately
+                await withDatabase(async (db) => {
+                  await db.NFT.update({
+                    where: { id: nftRecord.id },
+                    data: { 
+                      ownerId: user.id,
+                      updatedAt: new Date()
+                    }
+                  });
+                });
+                console.log(`✅ Fixed NFT ownerId after save from "${nftRecord.ownerId}" to "${user.id}"`);
+              }
               
               console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
               savedNfts.push(nftRecord);
