@@ -349,19 +349,15 @@ export default async function handler(req, res) {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            userAddress: walletAddress,
-            tokenId: card.id,
-            contractAddress: collectionConfig.policyId,
-            metadata: {
-              name: card.name,
-              image: card.image,
-              number: validNumber,
-              collection: collectionConfig.name,
-              rarity: card.rarity,
-              attributes: card.attributes
-            }
-          }),
+          body: JSON.stringify([{
+            name: card.name,
+            rarity: card.rarity,
+            image: card.image,
+            description: card.description,
+            attributes: card.attributes,
+            tokenId: card.attributes.find(attr => attr.trait_type === "Asset Name")?.value || validNumber.toString(),
+            contractAddress: collectionConfig.policyId
+          }]),
         });
 
         if (!saveResponse.ok) {
