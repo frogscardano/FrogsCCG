@@ -147,27 +147,46 @@ export default function Home() {
       }
       
       const cards = await response.json();
-      console.log(`✅ Received ${cards.length} cards from API:`, cards);
+      console.log(`✅ Received response from API:`, cards);
+      
+      // Handle new response format with metadata
+      let cardData = cards;
+      let userMessage = '';
+      
+      if (cards.collection && Array.isArray(cards.collection)) {
+        // New format with metadata
+        cardData = cards.collection;
+        userMessage = cards.message || '';
+        console.log(`📊 Collection data: ${cardData.length} cards, Message: ${userMessage}`);
+      } else if (Array.isArray(cards)) {
+        // Old format - just array of cards
+        cardData = cards;
+        userMessage = `Found ${cards.length} cards in your collection`;
+        console.log(`📊 Legacy format: ${cardData.length} cards`);
+      } else {
+        console.error(`❌ Unexpected response format:`, cards);
+        throw new Error('Unexpected response format from API');
+      }
       
       // Debug: Log the structure of the first card
-      if (cards.length > 0) {
+      if (cardData.length > 0) {
         console.log(`🔍 First card structure:`, {
-          id: cards[0].id,
-          name: cards[0].name,
-          image: cards[0].image,
-          imageUrl: cards[0].imageUrl,
-          attack: cards[0].attack,
-          health: cards[0].health,
-          speed: cards[0].speed,
-          attributes: cards[0].attributes,
-          metadata: cards[0].metadata
+          id: cardData[0].id,
+          name: cardData[0].name,
+          image: cardData[0].image,
+          imageUrl: cardData[0].imageUrl,
+          attack: cardData[0].attack,
+          health: cardData[0].health,
+          speed: cardData[0].speed,
+          attributes: cardData[0].attributes,
+          metadata: cardData[0].metadata
         });
       }
       
-      setCurrentCards(cards);
-      setStatusMessage('');
+      setCurrentCards(cardData);
+      setStatusMessage(userMessage || '');
       
-      console.log(`🎯 Collection loaded successfully with ${cards.length} NFTs`);
+      console.log(`🎯 Collection loaded successfully with ${cardData.length} NFTs`);
     } catch (e) {
       console.error('❌ Error loading collection:', e);
       setStatusMessage('Failed to load collection. Please try again.');
