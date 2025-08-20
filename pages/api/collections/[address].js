@@ -83,6 +83,38 @@ export default async function handler(req, res) {
   
   console.log(`🔍 Collections API called with address: ${address}, method: ${req.method}`);
   
+  // CRITICAL FIX: Validate and clean the wallet address
+  let cleanAddress = address;
+  if (address) {
+    // Remove any obvious malformed characters
+    cleanAddress = address.replace(/[^a-zA-Z0-9]/g, '');
+    
+    // Check if the address is still valid
+    if (!cleanAddress.startsWith('addr1') && !cleanAddress.startsWith('stake1')) {
+      console.error(`❌ Invalid wallet address format: ${address}`);
+      return res.status(400).json({ 
+        error: 'Invalid wallet address format',
+        receivedAddress: address,
+        cleanedAddress: cleanAddress,
+        message: 'Wallet address must start with addr1 or stake1'
+      });
+    }
+    
+    // Check for obvious corruption (extra characters, wrong length)
+    if (cleanAddress.length < 100 || cleanAddress.length > 120) {
+      console.error(`❌ Wallet address length is invalid: ${cleanAddress.length} characters`);
+      return res.status(400).json({ 
+        error: 'Wallet address length is invalid',
+        receivedAddress: address,
+        cleanedAddress: cleanAddress,
+        receivedLength: cleanAddress.length,
+        message: 'Expected 100-120 characters'
+      });
+    }
+    
+    console.log(`🔍 Cleaned wallet address: ${cleanAddress} (original: ${address})`);
+  }
+  
   if (!prisma) {
     console.error('❌ Prisma client is completely undefined');
     return res.status(500).json({ error: 'Database client not initialized' });
@@ -94,23 +126,23 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Database user model not available' });
   }
 
-  if (!address) {
+  if (!cleanAddress) {
     console.log('❌ No address provided');
     return res.status(400).json({ error: 'Wallet address is required' });
   }
 
   try {
-    console.log(`🔄 Attempting to upsert user with address: ${address}`);
+    console.log(`🔄 Attempting to upsert user with address: ${cleanAddress}`);
     
     const user = await withDatabase(async (db) => {
       return await db.User.upsert({
-        where: { address: address },
+        where: { address: cleanAddress },
         update: {
           updatedAt: new Date(),
         },
         create: {
           id: uuid4(),
-          address: address,
+          address: cleanAddress,
         },
       });
     });
@@ -177,6 +209,8 @@ export default async function handler(req, res) {
                 } catch (updateError) {
                   console.error(`❌ Failed to fix specific truncated NFT ${specificTruncatedNft.id}:`, updateError);
                 }
+              } else {
+                console.log(`🔍 This NFT belongs to a different user (${specificTruncatedNft.ownerId}), not the current user (${user.id})`);
               }
             }
             
@@ -188,7 +222,7 @@ export default async function handler(req, res) {
                   where: {
                     OR: [
                       // Check if ownerId contains part of wallet address
-                      { ownerId: { contains: address.slice(-8) } },
+                      { ownerId: { contains: cleanAddress.slice(-8) } },
                       // Check for old format IDs
                       { ownerId: { startsWith: 'frogs-' } },
                       { ownerId: { startsWith: 'user_' } },
@@ -211,7 +245,9 @@ export default async function handler(req, res) {
                   user.id.slice(0, 12),
                   user.id.slice(0, 16)
                 ],
-                walletSuffix: address.slice(-8)
+                walletSuffix: cleanAddress.slice(-8),
+                originalAddress: address,
+                cleanedAddress: cleanAddress
               });
               
               if (orphanedNfts.length > 0) {
@@ -304,6 +340,8 @@ export default async function handler(req, res) {
                   });
                   
                   console.log(`✅ After fixing truncated ownerIds, found ${userNfts.length} NFTs for user ID: ${user.id}`);
+                } else {
+                  console.log(`🔍 No NFTs found that belong to the current user. This user has no NFTs yet.`);
                 }
               }
             }
@@ -311,6 +349,10 @@ export default async function handler(req, res) {
           
           // CRITICAL FIX: Log with user ID, not wallet address
           console.log(`📊 Found ${userNfts.length} NFTs for user ID: ${user.id}`);
+          
+          if (userNfts.length === 0) {
+            console.log(`ℹ️ User ${user.id} has no NFTs yet. This is normal for new users.`);
+          }
           
           const collection = userNfts.map(nft => ({
             ...nft,
@@ -326,7 +368,21 @@ export default async function handler(req, res) {
           }));
           
           console.log(`✅ Returning collection with ${collection.length} items`);
-          return res.status(200).json(collection);
+          
+          // Add helpful metadata to the response
+          const responseData = {
+            collection: collection,
+            userInfo: {
+              id: user.id,
+              address: user.address,
+              hasNfts: collection.length > 0
+            },
+            message: collection.length > 0 
+              ? `Found ${collection.length} NFTs in your collection` 
+              : "Your collection is empty. Open some packs to get started!"
+          };
+          
+          return res.status(200).json(responseData);
         } catch (error) {
           console.error('❌ Error fetching collection:', error);
           return res.status(500).json({ error: 'Failed to fetch collection' });
