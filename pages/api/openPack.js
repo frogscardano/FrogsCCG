@@ -170,6 +170,35 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Wallet address is required' });
     }
 
+    // CRITICAL FIX: Validate wallet address format to prevent malformed URLs
+    if (!walletAddress.startsWith('addr1') && !walletAddress.startsWith('stake1')) {
+      return res.status(400).json({ 
+        message: 'Invalid wallet address format. Must start with addr1 or stake1',
+        receivedAddress: walletAddress
+      });
+    }
+
+    // CRITICAL FIX: Check for obvious malformed addresses (extra characters, wrong length, etc.)
+    if (walletAddress.length < 100 || walletAddress.length > 120) {
+      return res.status(400).json({ 
+        message: 'Wallet address length is invalid. Expected 100-120 characters.',
+        receivedAddress: walletAddress,
+        receivedLength: walletAddress.length
+      });
+    }
+
+    // CRITICAL FIX: Check for duplicate characters that might indicate corruption
+    const addressParts = walletAddress.split('');
+    const uniqueChars = new Set(addressParts);
+    if (uniqueChars.size < addressParts.length * 0.8) { // If more than 20% are duplicates
+      return res.status(400).json({ 
+        message: 'Wallet address appears to be malformed with duplicate characters.',
+        receivedAddress: walletAddress
+      });
+    }
+
+    console.log(`🔍 Validated wallet address: ${walletAddress} (length: ${walletAddress.length})`);
+    
     // Get current collection from request query
     const userCards = req.query.collection ? JSON.parse(req.query.collection) : [];
     
@@ -361,8 +390,24 @@ export default async function handler(req, res) {
         });
 
         if (!saveResponse.ok) {
-          console.error('Failed to save NFT data:', await saveResponse.text());
+          const errorText = await saveResponse.text();
+          console.error('Failed to save NFT data:', {
+            status: saveResponse.status,
+            statusText: saveResponse.statusText,
+            error: errorText,
+            walletAddress: walletAddress,
+            cardName: card.name
+          });
+          
+          // Return the card anyway, but log the save failure
+          return res.status(200).json({
+            ...card,
+            saveWarning: 'NFT was generated but failed to save to database. Please try again later.'
+          });
         }
+
+        const savedNft = await saveResponse.json();
+        console.log(`✅ Successfully saved NFT to database:`, savedNft);
 
         return res.status(200).json(card);
       } catch (error) {
