@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useWallet } from '../../contexts/WalletContext';
 import styles from '../../styles/Games.module.css';
@@ -9,48 +9,6 @@ const NFTMahjongSolitairePage = () => {
     const [iframeSrc, setIframeSrc] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [isFullscreen, setIsFullscreen] = useState(false);
-    const containerRef = useRef(null);
-
-    // Fullscreen functionality
-    const toggleFullscreen = async () => {
-        if (!document.fullscreenElement) {
-            try {
-                await containerRef.current.requestFullscreen();
-                setIsFullscreen(true);
-            } catch (err) {
-                console.error('Error attempting to enable fullscreen:', err);
-            }
-        } else {
-            try {
-                await document.exitFullscreen();
-                setIsFullscreen(false);
-            } catch (err) {
-                console.error('Error attempting to exit fullscreen:', err);
-            }
-        }
-    };
-
-    // Listen for fullscreen changes and ESC key
-    useEffect(() => {
-        const handleFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
-        };
-
-        const handleKeyDown = (event) => {
-            if (event.key === 'Escape' && isFullscreen) {
-                setIsFullscreen(false);
-            }
-        };
-
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        document.addEventListener('keydown', handleKeyDown);
-        
-        return () => {
-            document.removeEventListener('fullscreenchange', handleFullscreenChange);
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [isFullscreen]);
 
     // Fetch user's actual NFT collection
     useEffect(() => {
@@ -79,7 +37,21 @@ const NFTMahjongSolitairePage = () => {
                     throw new Error(`Failed to load collection: ${response.status}`);
                 }
                 
-                const cards = await response.json();
+                const responseData = await response.json();
+                
+                // Handle new response format with metadata
+                let cards = responseData;
+                if (responseData.collection && Array.isArray(responseData.collection)) {
+                    cards = responseData.collection;
+                    console.log(`📊 Collection loaded: ${cards.length} cards, Message: ${responseData.message}`);
+                } else if (Array.isArray(responseData)) {
+                    cards = responseData;
+                    console.log(`📊 Legacy format: ${cards.length} cards`);
+                } else {
+                    console.error(`❌ Unexpected response format:`, responseData);
+                    throw new Error('Unexpected response format from API');
+                }
+                
                 console.log(`Received ${cards.length} cards from API`);
                 
                 if (cards.length === 0) {
@@ -141,28 +113,11 @@ const NFTMahjongSolitairePage = () => {
                 <title>NFT Mahjong Solitaire | Frogs CCG</title>
                 <meta name="description" content="Play Mahjong Solitaire with your NFTs!" />
             </Head>
-            <div 
-                ref={containerRef}
-                className={`${styles.gamePageContainer} ${isFullscreen ? styles.fullscreen : ''}`}
-            >
-                {!isFullscreen && (
-                    <h1 className={styles.gameTitle}>NFT Mahjong Solitaire</h1>
-                )}
+            <div className={styles.gamePageContainer}>
+                <h1 className={styles.gameTitle}>NFT Mahjong Solitaire</h1>
                 
-                {/* Floating controls */}
-                <div className={styles.gameControls}>
-                    <button 
-                        onClick={toggleFullscreen}
-                        className={styles.fullscreenButton}
-                        title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
-                    >
-                        {isFullscreen ? "🗗" : "🗖"}
-                    </button>
-                </div>
-
-                {/* Floating status messages */}
                 {loading && (
-                    <div className={styles.loadingMessage}>Loading your NFT collection...</div>
+                    <p>Loading your NFT collection...</p>
                 )}
                 
                 {error && (
@@ -178,9 +133,9 @@ const NFTMahjongSolitairePage = () => {
                     </div>
                 )}
                 
-                {connected && nftCards.length > 0 && !error && (
+                {connected && nftCards.length > 0 && (
                     <div className={styles.collectionInfo}>
-                        Playing with {nftCards.length} NFTs from your collection
+                        <p>Playing with {nftCards.length} NFTs from your collection</p>
                     </div>
                 )}
                 
@@ -194,8 +149,13 @@ const NFTMahjongSolitairePage = () => {
                         allowFullScreen={false}
                     ></iframe>
                 ) : (
-                    <div className={styles.loadingMessage}>Loading Mahjong Game...</div>
+                    <p>Loading Mahjong Game...</p>
                 )}
+                
+                <p className={styles.gameInstructions}>
+                    Match pairs of identical tiles. A tile can be selected if it's open on its left or right side and no other tile is on top of it.
+                    Flower tiles match any other flower tile, and Season tiles match any other season tile.
+                </p>
             </div>
         </>
     );
