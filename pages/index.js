@@ -496,6 +496,12 @@ export default function Home() {
         </div>
       </div>
 
+      <div className={styles.pageLinks}>
+        <a href="/teams" className={styles.pageLink}>
+          🏆 Full Teams & Leaderboard Page
+        </a>
+      </div>
+
       <main className={styles.main}>
         {currentTab === 'packs' ? (
           <div className={styles.packsTab}>
