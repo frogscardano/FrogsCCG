@@ -367,51 +367,70 @@ export default async function handler(req, res) {
           contractAddress: collectionConfig.policyId
         });
         
-        const saveResponse = await fetch(`/api/collections/${walletAddress}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify([{
-            name: card.name,
-            rarity: card.rarity,
-            image: card.image,
-            description: card.description,
-            attributes: card.attributes,
-            tokenId: card.attributes.find(attr => attr.trait_type === "Asset Name")?.value || validNumber.toString(),
-            contractAddress: collectionConfig.policyId
-          }]),
-        });
-
-        console.log(`💾 Save response status: ${saveResponse.status} ${saveResponse.statusText}`);
-
-        if (!saveResponse.ok) {
-          const errorText = await saveResponse.text();
-          console.error('Failed to save NFT data:', {
-            status: saveResponse.status,
-            statusText: saveResponse.statusText,
-            error: errorText,
-            walletAddress: walletAddress,
-            cardName: card.name,
-            responseHeaders: Object.fromEntries(saveResponse.headers.entries())
-          });
+        // CRITICAL FIX: Create a proper mock request/response for the collections API
+        try {
+          // Import the collections API handler
+          const { default: collectionsHandler } = await import('./collections/[address].js');
+          
+          // Create a proper mock request object
+          const mockReq = {
+            method: 'POST',
+            query: { address: walletAddress },
+            body: [{
+              name: card.name,
+              rarity: card.rarity,
+              image: card.image,
+              description: card.description,
+              attributes: card.attributes,
+              tokenId: card.attributes.find(attr => attr.trait_type === "Asset Name")?.value || validNumber.toString(),
+              contractAddress: collectionConfig.policyId
+            }]
+          };
+          
+          // Create a proper mock response object that mimics the real response
+          let responseData = null;
+          let responseStatus = 200;
+          
+          const mockRes = {
+            status: (code) => {
+              responseStatus = code;
+              return mockRes;
+            },
+            json: (data) => {
+              responseData = data;
+              return mockRes;
+            },
+            end: (data) => {
+              responseData = data;
+              return mockRes;
+            }
+          };
+          
+          // Call the collections API handler directly
+          await collectionsHandler(mockReq, mockRes);
+          
+          if (responseStatus === 200 && responseData) {
+            console.log(`✅ Successfully saved NFT to database:`, responseData);
+            
+            return res.status(200).json({
+              ...card,
+              saveSuccess: true,
+              savedNft: responseData
+            });
+          } else {
+            throw new Error(`Collections API returned status ${responseStatus}`);
+          }
+          
+        } catch (saveError) {
+          console.error('Error calling collections API directly:', saveError);
           
           // Return the card anyway, but log the save failure
           return res.status(200).json({
             ...card,
-            saveWarning: `NFT was generated but failed to save to database (${saveResponse.status}). Please try again later.`,
-            saveError: errorText
+            saveWarning: 'NFT was generated but failed to save to database. Please try again later.',
+            saveError: saveError.message
           });
         }
-
-        const savedNft = await saveResponse.json();
-        console.log(`✅ Successfully saved NFT to database:`, savedNft);
-
-        return res.status(200).json({
-          ...card,
-          saveSuccess: true,
-          savedNft: savedNft
-        });
       } catch (error) {
         console.error('Error saving NFT data:', error);
         return res.status(500).json({ message: 'Error saving NFT data', error: error.message });
