@@ -49,6 +49,37 @@
   color: #ff9800;
 }
 
+.pageLinks {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0 2rem 0;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.pageLink {
+  background: linear-gradient(45deg, #667eea, #764ba2);
+  color: white;
+  text-decoration: none;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pageLink:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  text-decoration: none;
+  color: white;
+}
+
 .cardGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
