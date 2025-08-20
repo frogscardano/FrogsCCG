@@ -170,30 +170,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Wallet address is required' });
     }
 
-    // CRITICAL FIX: Validate wallet address format to prevent malformed URLs
-    if (!walletAddress.startsWith('addr1') && !walletAddress.startsWith('stake1')) {
-      return res.status(400).json({ 
-        message: 'Invalid wallet address format. Must start with addr1 or stake1',
-        receivedAddress: walletAddress
-      });
-    }
-
-    // CRITICAL FIX: Check for obvious malformed addresses (wrong length, etc.)
+    // CRITICAL FIX: Check for obvious corruption (wrong length, etc.)
+    // Cardano addresses are complex and strict validation can cause false positives
     if (walletAddress.length < 100 || walletAddress.length > 120) {
       return res.status(400).json({ 
-        message: 'Wallet address length is invalid. Expected 100-120 characters.',
+        message: 'Wallet address length is suspicious. Expected 100-120 characters for Cardano addresses.',
         receivedAddress: walletAddress,
         receivedLength: walletAddress.length
-      });
-    }
-
-    // CRITICAL FIX: Check for obvious corruption (extra characters, wrong format)
-    // Cardano addresses use base58 encoding which can have repeated characters, so we need to be more careful
-    const validChars = /^[1-9A-HJ-NP-Za-km-z]+$/;
-    if (!validChars.test(walletAddress)) {
-      return res.status(400).json({ 
-        message: 'Wallet address contains invalid characters. Cardano addresses use base58 encoding.',
-        receivedAddress: walletAddress
       });
     }
 
