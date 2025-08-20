@@ -86,33 +86,41 @@ export default async function handler(req, res) {
   // CRITICAL FIX: Validate and clean the wallet address
   let cleanAddress = address;
   if (address) {
-    // Remove any obvious malformed characters
-    cleanAddress = address.replace(/[^a-zA-Z0-9]/g, '');
+    // Remove any obvious malformed characters (but be careful with base58 encoding)
+    // Cardano addresses use base58 which can have repeated characters
+    const validChars = /^[1-9A-HJ-NP-Za-km-z]+$/;
+    if (!validChars.test(address)) {
+      console.error(`❌ Invalid wallet address characters: ${address}`);
+      return res.status(400).json({ 
+        error: 'Invalid wallet address characters',
+        receivedAddress: address,
+        message: 'Wallet address contains invalid characters. Cardano addresses use base58 encoding.'
+      });
+    }
     
     // Check if the address is still valid
-    if (!cleanAddress.startsWith('addr1') && !cleanAddress.startsWith('stake1')) {
+    if (!address.startsWith('addr1') && !address.startsWith('stake1')) {
       console.error(`❌ Invalid wallet address format: ${address}`);
       return res.status(400).json({ 
         error: 'Invalid wallet address format',
         receivedAddress: address,
-        cleanedAddress: cleanAddress,
         message: 'Wallet address must start with addr1 or stake1'
       });
     }
     
-    // Check for obvious corruption (extra characters, wrong length)
-    if (cleanAddress.length < 100 || cleanAddress.length > 120) {
-      console.error(`❌ Wallet address length is invalid: ${cleanAddress.length} characters`);
+    // Check for obvious corruption (wrong length)
+    if (address.length < 100 || address.length > 120) {
+      console.error(`❌ Wallet address length is invalid: ${address.length} characters`);
       return res.status(400).json({ 
         error: 'Wallet address length is invalid',
         receivedAddress: address,
-        cleanedAddress: cleanAddress,
-        receivedLength: cleanAddress.length,
+        receivedLength: address.length,
         message: 'Expected 100-120 characters'
       });
     }
     
-    console.log(`🔍 Cleaned wallet address: ${cleanAddress} (original: ${address})`);
+    cleanAddress = address; // Use the original address since it's valid
+    console.log(`🔍 Validated wallet address: ${cleanAddress} (length: ${cleanAddress.length})`);
   }
   
   if (!prisma) {
@@ -393,10 +401,14 @@ export default async function handler(req, res) {
           const newNftsData = req.body;
           console.log(`📥 Received POST data for ${newNftsData?.length || 0} NFTs`);
           console.log(`📥 POST data structure:`, JSON.stringify(newNftsData, null, 2));
+          console.log(`📥 Request headers:`, req.headers);
+          console.log(`📥 Request method: ${req.method}`);
+          console.log(`📥 Request URL: ${req.url}`);
           
           if (!Array.isArray(newNftsData)) {
             // Handle single NFT from openPack
             newNftsData = [newNftsData];
+            console.log(`📥 Converted single NFT to array`);
           }
           
           if (newNftsData.length === 0) {
