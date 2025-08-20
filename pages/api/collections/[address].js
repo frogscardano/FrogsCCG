@@ -86,19 +86,10 @@ export default async function handler(req, res) {
   // CRITICAL FIX: Validate and clean the wallet address
   let cleanAddress = address;
   if (address) {
-    // Remove any obvious malformed characters (but be careful with base58 encoding)
-    // Cardano addresses use base58 which can have repeated characters
-    const validChars = /^[1-9A-HJ-NP-Za-km-z]+$/;
-    if (!validChars.test(address)) {
-      console.error(`❌ Invalid wallet address characters: ${address}`);
-      return res.status(400).json({ 
-        error: 'Invalid wallet address characters',
-        receivedAddress: address,
-        message: 'Wallet address contains invalid characters. Cardano addresses use base58 encoding.'
-      });
-    }
+    // Basic validation - just check format and length
+    // Cardano addresses are complex and strict validation can cause false positives
     
-    // Check if the address is still valid
+    // Check if the address has the right format
     if (!address.startsWith('addr1') && !address.startsWith('stake1')) {
       console.error(`❌ Invalid wallet address format: ${address}`);
       return res.status(400).json({ 
@@ -108,18 +99,18 @@ export default async function handler(req, res) {
       });
     }
     
-    // Check for obvious corruption (wrong length)
+    // Check for reasonable length (Cardano addresses are typically 100-120 chars)
     if (address.length < 100 || address.length > 120) {
-      console.error(`❌ Wallet address length is invalid: ${address.length} characters`);
+      console.error(`❌ Wallet address length is suspicious: ${address.length} characters`);
       return res.status(400).json({ 
-        error: 'Wallet address length is invalid',
+        error: 'Wallet address length is suspicious',
         receivedAddress: address,
         receivedLength: address.length,
-        message: 'Expected 100-120 characters'
+        message: 'Expected 100-120 characters for Cardano addresses'
       });
     }
     
-    cleanAddress = address; // Use the original address since it's valid
+    cleanAddress = address; // Use the original address since it passed basic validation
     console.log(`🔍 Validated wallet address: ${cleanAddress} (length: ${cleanAddress.length})`);
   }
   
