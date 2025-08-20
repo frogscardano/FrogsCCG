@@ -178,7 +178,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // CRITICAL FIX: Check for obvious malformed addresses (extra characters, wrong length, etc.)
+    // CRITICAL FIX: Check for obvious malformed addresses (wrong length, etc.)
     if (walletAddress.length < 100 || walletAddress.length > 120) {
       return res.status(400).json({ 
         message: 'Wallet address length is invalid. Expected 100-120 characters.',
@@ -187,12 +187,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // CRITICAL FIX: Check for duplicate characters that might indicate corruption
-    const addressParts = walletAddress.split('');
-    const uniqueChars = new Set(addressParts);
-    if (uniqueChars.size < addressParts.length * 0.8) { // If more than 20% are duplicates
+    // CRITICAL FIX: Check for obvious corruption (extra characters, wrong format)
+    // Cardano addresses use base58 encoding which can have repeated characters, so we need to be more careful
+    const validChars = /^[1-9A-HJ-NP-Za-km-z]+$/;
+    if (!validChars.test(walletAddress)) {
       return res.status(400).json({ 
-        message: 'Wallet address appears to be malformed with duplicate characters.',
+        message: 'Wallet address contains invalid characters. Cardano addresses use base58 encoding.',
         receivedAddress: walletAddress
       });
     }
@@ -373,6 +373,17 @@ export default async function handler(req, res) {
         };
 
         // Save the NFT data to the database
+        console.log(`💾 Attempting to save NFT to database for wallet: ${walletAddress}`);
+        console.log(`💾 NFT data to save:`, {
+          name: card.name,
+          rarity: card.rarity,
+          image: card.image,
+          description: card.description,
+          attributes: card.attributes,
+          tokenId: card.attributes.find(attr => attr.trait_type === "Asset Name")?.value || validNumber.toString(),
+          contractAddress: collectionConfig.policyId
+        });
+        
         const saveResponse = await fetch(`/api/collections/${walletAddress}`, {
           method: 'POST',
           headers: {
@@ -389,6 +400,8 @@ export default async function handler(req, res) {
           }]),
         });
 
+        console.log(`💾 Save response status: ${saveResponse.status} ${saveResponse.statusText}`);
+
         if (!saveResponse.ok) {
           const errorText = await saveResponse.text();
           console.error('Failed to save NFT data:', {
@@ -396,20 +409,26 @@ export default async function handler(req, res) {
             statusText: saveResponse.statusText,
             error: errorText,
             walletAddress: walletAddress,
-            cardName: card.name
+            cardName: card.name,
+            responseHeaders: Object.fromEntries(saveResponse.headers.entries())
           });
           
           // Return the card anyway, but log the save failure
           return res.status(200).json({
             ...card,
-            saveWarning: 'NFT was generated but failed to save to database. Please try again later.'
+            saveWarning: `NFT was generated but failed to save to database (${saveResponse.status}). Please try again later.`,
+            saveError: errorText
           });
         }
 
         const savedNft = await saveResponse.json();
         console.log(`✅ Successfully saved NFT to database:`, savedNft);
 
-        return res.status(200).json(card);
+        return res.status(200).json({
+          ...card,
+          saveSuccess: true,
+          savedNft: savedNft
+        });
       } catch (error) {
         console.error('Error saving NFT data:', error);
         return res.status(500).json({ message: 'Error saving NFT data', error: error.message });
