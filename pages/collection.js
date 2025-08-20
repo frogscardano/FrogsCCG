@@ -23,26 +23,28 @@ export default function Collection() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/wallet/${address}`);
+      const response = await fetch(`/api/collections/${address}`);
       
       if (!response.ok) {
-        throw new Error('Failed to fetch wallet data');
+        throw new Error('Failed to fetch collection');
       }
       
-      const walletData = await response.json();
+      const responseData = await response.json();
       
-      if (walletData && walletData.id) {
-        const collectionResponse = await fetch(`/api/collection/${walletData.id}`);
-        if (!collectionResponse.ok) {
-          throw new Error('Failed to fetch collection');
-        }
-        
-        const collectionData = await collectionResponse.json();
-        setCollection(collectionData);
+      // Handle new response format with metadata
+      let collectionData = responseData;
+      if (responseData.collection && Array.isArray(responseData.collection)) {
+        collectionData = responseData.collection;
+        console.log(`📊 Collection loaded: ${collectionData.length} cards, Message: ${responseData.message}`);
+      } else if (Array.isArray(responseData)) {
+        collectionData = responseData;
+        console.log(`📊 Legacy format: ${collectionData.length} cards`);
       } else {
-        // New wallet with no collections yet
-        setCollection([]);
+        console.error(`❌ Unexpected response format:`, responseData);
+        throw new Error('Unexpected response format from API');
       }
+      
+      setCollection(collectionData);
     } catch (error) {
       console.error('Error fetching collection:', error);
       setError(error.message);
