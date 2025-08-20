@@ -134,16 +134,35 @@ export default async function handler(req, res) {
     console.log(`🔄 Attempting to upsert user with address: ${cleanAddress}`);
     
     const user = await withDatabase(async (db) => {
-      return await db.User.upsert({
-        where: { address: cleanAddress },
-        update: {
-          updatedAt: new Date(),
-        },
-        create: {
-          id: uuid4(),
-          address: cleanAddress,
-        },
-      });
+      try {
+        // First try to find existing user
+        const existingUser = await db.User.findUnique({
+          where: { address: cleanAddress }
+        });
+
+        if (existingUser) {
+          console.log(`🔄 Updating existing user: ${existingUser.id}`);
+          // Update existing user
+          return await db.User.update({
+            where: { address: cleanAddress },
+            data: {
+              updatedAt: new Date(),
+            }
+          });
+        } else {
+          console.log(`🆕 Creating new user for address: ${cleanAddress}`);
+          // Create new user
+          return await db.User.create({
+            data: {
+              id: uuid4(),
+              address: cleanAddress,
+            }
+          });
+        }
+      } catch (userError) {
+        console.error(`❌ User operation failed for address ${cleanAddress}:`, userError);
+        throw userError;
+      }
     });
     
     console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
@@ -407,67 +426,83 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Invalid or empty NFT data' });
           }
 
+          // Validate the data structure
+          for (const nftData of newNftsData) {
+            if (!nftData.name || !nftData.rarity || !nftData.image) {
+              console.error(`❌ Invalid NFT data structure:`, nftData);
+              return res.status(400).json({ 
+                error: 'Invalid NFT data structure', 
+                missingFields: {
+                  name: !nftData.name,
+                  rarity: !nftData.rarity,
+                  image: !nftData.image
+                },
+                receivedData: nftData
+              });
+            }
+          }
+
           const savedNfts = [];
 
           for (const newNftData of newNftsData) {
-            console.log(`🔄 Processing NFT data:`, JSON.stringify(newNftData, null, 2));
-            
-            // CRITICAL FIX: Handle both data structures (from openPack and direct API calls)
-            let nftName, nftRarity, nftImage, nftDescription, nftAttributes, nftTokenId, nftContractAddress;
-            
-            if (newNftData.metadata) {
-              // Data from openPack.js
-              nftName = newNftData.metadata.name;
-              nftRarity = newNftData.metadata.rarity;
-              nftImage = newNftData.metadata.image;
-              nftDescription = newNftData.metadata.description || '';
-              nftAttributes = newNftData.metadata.attributes || [];
-              nftTokenId = newNftData.metadata.number || newNftData.tokenId;
-              nftContractAddress = newNftData.contractAddress;
-            } else {
-              // Direct API call data
-              nftName = newNftData.name;
-              nftRarity = newNftData.rarity;
-              nftImage = newNftData.image;
-              nftDescription = newNftData.description || '';
-              nftAttributes = newNftData.attributes || [];
-              nftTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
-              nftContractAddress = newNftData.policyId || (newNftData.attributes?.find(attr => attr.trait_type === "Policy ID")?.value);
-            }
-
-            // CRITICAL FIX: Sanitize tokenId to prevent binary interpretation
-            const uniqueTokenId = sanitizeTokenId(nftTokenId);
-
-            if (!uniqueTokenId) {
-              console.warn('⚠️ Skipping NFT with no unique identifier (tokenId):', newNftData);
-              continue;
-            }
-            
-            // CRITICAL FIX: Sanitize contract address too
-            const contractAddress = sanitizeTokenId(nftContractAddress);
-            
-            if (!contractAddress) {
-              console.warn('⚠️ Skipping NFT due to missing contract address / policy ID:', newNftData);
-              continue;
-            }
-
-            if (!nftName || !nftRarity || !nftImage) {
-              console.warn('⚠️ Skipping NFT with missing essential data (name, rarity, image):', newNftData);
-              continue;
-            }
-            
-            console.log(`🔄 Processing NFT. Token ID: ${uniqueTokenId}, Name: ${nftName}`);
-            
-            // Create a standardized NFT data object for stats calculation
-            const standardizedNftData = {
-              name: nftName,
-              rarity: nftRarity,
-              attributes: nftAttributes
-            };
-            
-            const gameStats = calculateGameStats(standardizedNftData);
-
             try {
+              console.log(`🔄 Processing NFT data:`, JSON.stringify(newNftData, null, 2));
+              
+              // CRITICAL FIX: Handle both data structures (from openPack and direct API calls)
+              let nftName, nftRarity, nftImage, nftDescription, nftAttributes, nftTokenId, nftContractAddress;
+              
+              if (newNftData.metadata) {
+                // Data from openPack.js
+                nftName = newNftData.metadata.name;
+                nftRarity = newNftData.metadata.rarity;
+                nftImage = newNftData.metadata.image;
+                nftDescription = newNftData.metadata.description || '';
+                nftAttributes = newNftData.metadata.attributes || [];
+                nftTokenId = newNftData.metadata.number || newNftData.tokenId;
+                nftContractAddress = newNftData.contractAddress;
+              } else {
+                // Direct API call data
+                nftName = newNftData.name;
+                nftRarity = newNftData.rarity;
+                nftImage = newNftData.image;
+                nftDescription = newNftData.description || '';
+                nftAttributes = newNftData.attributes || [];
+                nftTokenId = newNftData.attributes?.find(attr => attr.trait_type === "Asset Name")?.value || newNftData.asset_name || newNftData.name;
+                nftContractAddress = newNftData.policyId || (newNftData.attributes?.find(attr => attr.trait_type === "Policy ID")?.value);
+              }
+
+              // CRITICAL FIX: Sanitize tokenId to prevent binary interpretation
+              const uniqueTokenId = sanitizeTokenId(nftTokenId);
+
+              if (!uniqueTokenId) {
+                console.warn('⚠️ Skipping NFT with no unique identifier (tokenId):', newNftData);
+                continue;
+              }
+              
+              // CRITICAL FIX: Sanitize contract address too
+              const contractAddress = sanitizeTokenId(nftContractAddress);
+              
+              if (!contractAddress) {
+                console.warn('⚠️ Skipping NFT due to missing contract address / policy ID:', newNftData);
+                continue;
+              }
+
+              if (!nftName || !nftRarity || !nftImage) {
+                console.warn('⚠️ Skipping NFT with missing essential data (name, rarity, image):', newNftData);
+                continue;
+              }
+              
+              console.log(`🔄 Processing NFT. Token ID: ${uniqueTokenId}, Name: ${nftName}`);
+              
+              // Create a standardized NFT data object for stats calculation
+              const standardizedNftData = {
+                name: nftName,
+                rarity: nftRarity,
+                attributes: nftAttributes
+              };
+              
+              const gameStats = calculateGameStats(standardizedNftData);
+
               // CRITICAL FIX: Ensure all data types are correct for PostgreSQL
               const nftDataForUpsert = {
                 tokenId: String(uniqueTokenId),
@@ -490,7 +525,10 @@ export default async function handler(req, res) {
                 userFullIdLength: user.id.length,
                 ownerIdToSave: nftDataForUpsert.ownerId,
                 ownerIdLength: nftDataForUpsert.ownerId.length,
-                isTruncated: nftDataForUpsert.ownerId !== user.id
+                isTruncated: nftDataForUpsert.ownerId !== user.id,
+                tokenId: nftDataForUpsert.tokenId,
+                contractAddress: nftDataForUpsert.contractAddress,
+                name: nftDataForUpsert.name
               });
 
               if (nftDataForUpsert.ownerId !== user.id) {
@@ -498,32 +536,65 @@ export default async function handler(req, res) {
                 throw new Error(`OwnerId truncation detected: ${nftDataForUpsert.ownerId} vs ${user.id}`);
               }
 
-              const nftRecord = await withDatabase(async (db) => {
-                return await db.NFT.upsert({
-                  where: { 
-                    tokenId_contractAddress: {
-                      tokenId: nftDataForUpsert.tokenId,
-                      contractAddress: nftDataForUpsert.contractAddress 
-                    } 
-                  },
-                  update: { 
-                    name: nftDataForUpsert.name,
-                    rarity: nftDataForUpsert.rarity,
-                    imageUrl: nftDataForUpsert.imageUrl,
-                    description: nftDataForUpsert.description,
-                    attack: nftDataForUpsert.attack,
-                    health: nftDataForUpsert.health,
-                    speed: nftDataForUpsert.speed,
-                    special: nftDataForUpsert.special,
-                    metadata: nftDataForUpsert.metadata,
-                    ownerId: nftDataForUpsert.ownerId,
-                    updatedAt: new Date() 
-                  },
-                  create: {
-                    ...nftDataForUpsert,
-                    id: generateNFTId(nftDataForUpsert.tokenId, nftDataForUpsert.contractAddress),
-                  },
+              // Additional validation
+              if (!nftDataForUpsert.tokenId || !nftDataForUpsert.contractAddress || !nftDataForUpsert.name) {
+                console.error(`❌ CRITICAL ERROR: Missing required NFT data:`, {
+                  tokenId: nftDataForUpsert.tokenId,
+                  contractAddress: nftDataForUpsert.contractAddress,
+                  name: nftDataForUpsert.name
                 });
+                throw new Error(`Missing required NFT data: tokenId=${nftDataForUpsert.tokenId}, contractAddress=${nftDataForUpsert.contractAddress}, name=${nftDataForUpsert.name}`);
+              }
+
+              const nftRecord = await withDatabase(async (db) => {
+                try {
+                  // First try to find existing NFT
+                  const existingNFT = await db.NFT.findFirst({
+                    where: {
+                      tokenId: nftDataForUpsert.tokenId,
+                      contractAddress: nftDataForUpsert.contractAddress
+                    }
+                  });
+
+                  if (existingNFT) {
+                    console.log(`🔄 Updating existing NFT: ${existingNFT.name} (ID: ${existingNFT.id})`);
+                    // Update existing NFT
+                    return await db.NFT.update({
+                      where: { id: existingNFT.id },
+                      data: { 
+                        name: nftDataForUpsert.name,
+                        rarity: nftDataForUpsert.rarity,
+                        imageUrl: nftDataForUpsert.imageUrl,
+                        description: nftDataForUpsert.description,
+                        attack: nftDataForUpsert.attack,
+                        health: nftDataForUpsert.health,
+                        speed: nftDataForUpsert.speed,
+                        special: nftDataForUpsert.special,
+                        metadata: nftDataForUpsert.metadata,
+                        ownerId: nftDataForUpsert.ownerId,
+                        updatedAt: new Date() 
+                      }
+                    });
+                  } else {
+                    console.log(`🆕 Creating new NFT: ${nftDataForUpsert.name}`);
+                    // Create new NFT
+                    return await db.NFT.create({
+                      data: {
+                        ...nftDataForUpsert,
+                        id: generateNFTId(nftDataForUpsert.tokenId, nftDataForUpsert.contractAddress),
+                      }
+                    });
+                  }
+                } catch (dbError) {
+                  console.error(`❌ Database operation failed for NFT ${nftDataForUpsert.name}:`, dbError);
+                  console.error(`❌ Database error details:`, {
+                    message: dbError.message,
+                    code: dbError.code,
+                    meta: dbError.meta,
+                    nftData: nftDataForUpsert
+                  });
+                  throw dbError;
+                }
               });
               
               // CRITICAL FIX: Verify the saved NFT has the correct ownerId
@@ -553,7 +624,10 @@ export default async function handler(req, res) {
               console.log(`✅ Successfully upserted NFT: ${nftRecord.name} (ATK:${nftRecord.attack} HP:${nftRecord.health} SPD:${nftRecord.speed})`);
               savedNfts.push(nftRecord);
             } catch (nftError) {
-              console.error(`❌ Failed to save NFT ${uniqueTokenId}:`, nftError);
+              console.error(`❌ Failed to process NFT:`, nftError);
+              console.error(`❌ NFT data that failed:`, JSON.stringify(newNftData, null, 2));
+              // Continue with next NFT instead of failing completely
+              continue;
             }
           }
           
@@ -572,4 +646,4 @@ export default async function handler(req, res) {
     console.error('❌ Error processing user or NFT data:', e);
     return res.status(500).json({ error: `Failed to process request: ${e.message}` });
   }
-} 
+}
