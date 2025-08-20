@@ -357,15 +357,28 @@ export default async function handler(req, res) {
 
         // Save the NFT data to the database
         console.log(`💾 Attempting to save NFT to database for wallet: ${walletAddress}`);
-        console.log(`💾 NFT data to save:`, {
+        
+        // Validate the card data before sending
+        if (!card.name || !card.rarity || !card.image || !card.attack || !card.health || !card.speed) {
+          console.error(`❌ Invalid card data:`, card);
+          throw new Error('Invalid card data - missing required fields');
+        }
+        
+        const nftDataToSave = {
+          id: `${collectionConfig.name.toLowerCase()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: card.name,
           rarity: card.rarity,
           image: card.image,
           description: card.description,
+          attack: card.attack,
+          health: card.health,
+          speed: card.speed,
           attributes: card.attributes,
           tokenId: card.attributes.find(attr => attr.trait_type === "Asset Name")?.value || validNumber.toString(),
           contractAddress: collectionConfig.policyId
-        });
+        };
+        
+        console.log(`💾 NFT data to save:`, nftDataToSave);
         
         // CRITICAL FIX: Create a proper mock request/response for the collections API
         try {
@@ -376,16 +389,10 @@ export default async function handler(req, res) {
           const mockReq = {
             method: 'POST',
             query: { address: walletAddress },
-            body: [{
-              name: card.name,
-              rarity: card.rarity,
-              image: card.image,
-              description: card.description,
-              attributes: card.attributes,
-              tokenId: card.attributes.find(attr => attr.trait_type === "Asset Name")?.value || validNumber.toString(),
-              contractAddress: collectionConfig.policyId
-            }]
+            body: [nftDataToSave]
           };
+          
+          console.log(`📤 Sending data to collections API:`, JSON.stringify(mockReq.body, null, 2));
           
           // Create a proper mock response object that mimics the real response
           let responseData = null;
@@ -394,20 +401,25 @@ export default async function handler(req, res) {
           const mockRes = {
             status: (code) => {
               responseStatus = code;
+              console.log(`📥 Collections API response status: ${code}`);
               return mockRes;
             },
             json: (data) => {
               responseData = data;
+              console.log(`📥 Collections API response data:`, JSON.stringify(data, null, 2));
               return mockRes;
             },
             end: (data) => {
               responseData = data;
+              console.log(`📥 Collections API response end:`, data);
               return mockRes;
             }
           };
           
           // Call the collections API handler directly
+          console.log(`🔄 Calling collections API handler...`);
           await collectionsHandler(mockReq, mockRes);
+          console.log(`✅ Collections API handler completed`);
           
           if (responseStatus === 200 && responseData) {
             console.log(`✅ Successfully saved NFT to database:`, responseData);
@@ -418,11 +430,18 @@ export default async function handler(req, res) {
               savedNft: responseData
             });
           } else {
+            console.error(`❌ Collections API returned status ${responseStatus} with data:`, responseData);
             throw new Error(`Collections API returned status ${responseStatus}`);
           }
           
         } catch (saveError) {
-          console.error('Error calling collections API directly:', saveError);
+          console.error('❌ Error calling collections API directly:', saveError);
+          console.error('❌ Error details:', {
+            message: saveError.message,
+            stack: saveError.stack,
+            walletAddress,
+            cardName: card.name
+          });
           
           // Return the card anyway, but log the save failure
           return res.status(200).json({
