@@ -5,7 +5,10 @@ import CardCollection from './CardCollection';
 import { WalletContext } from '../contexts/WalletContext';
 
 const TeamBuilder = ({ cards = [], onBattleComplete }) => {
-  const { connected, address, loading } = useContext(WalletContext);
+  // Check if we're in the browser environment
+  const isBrowser = typeof window !== 'undefined';
+  
+  const walletContext = useContext(WalletContext);
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
@@ -17,6 +20,17 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   const [isBattleLoading, setIsBattleLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Handle case when context is not available (during build time)
+  if (!isBrowser || !walletContext) {
+    return (
+      <div className={styles.notAuthenticated}>
+        <p>Wallet context not available. Please refresh the page.</p>
+      </div>
+    );
+  }
+
+  const { connected, address, loading } = walletContext;
 
   // Show loading state while wallet is being determined
   if (loading) {
@@ -39,9 +53,10 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
 
   // Load teams from database on mount
   useEffect(() => {
+    // Only run in browser environment
+    if (!isBrowser || !address) return;
+    
     const fetchTeams = async () => {
-      if (!address) return;
-      
       try {
         const response = await fetch(`/api/teams?walletAddress=${address}`);
         if (!response.ok) throw new Error('Failed to fetch teams');
@@ -56,7 +71,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     };
 
     fetchTeams();
-  }, [address]);
+  }, [address, isBrowser]);
 
   const handleCreateTeam = () => {
     setIsCreatingTeam(true);
@@ -71,6 +86,8 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   };
 
   const handleDeleteTeam = async (teamToDelete) => {
+    if (!isBrowser || !address) return;
+    
     try {
       const response = await fetch(`/api/teams?walletAddress=${address}`, {
         method: 'DELETE',
@@ -106,6 +123,8 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   };
 
   const handleSaveTeam = async ({ name, cards }) => {
+    if (!isBrowser || !address) return;
+    
     try {
       const nftIds = cards.map(card => card.id);
       const method = selectedTeam ? 'PUT' : 'POST';
@@ -187,6 +206,8 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   };
 
   const startBattle = async (teamA, teamB) => {
+    if (!isBrowser) return;
+    
     setIsBattleLoading(true);
     
     try {
@@ -208,7 +229,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
         setBattleResult(result);
         
         // Refresh teams to get updated battle records
-        const teamsResponse = await fetch('/api/teams');
+        const teamsResponse = await fetch(`/api/teams?walletAddress=${address}`);
         if (teamsResponse.ok) {
           const updatedTeams = await teamsResponse.json();
           setTeams(updatedTeams);
@@ -240,6 +261,11 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     setTeam2(null);
     setBattleResult(null);
   };
+
+  // Don't render anything during build time
+  if (!isBrowser) {
+    return null;
+  }
 
   if (isLoading) {
     return <div className={styles.loading}>Loading teams...</div>;
