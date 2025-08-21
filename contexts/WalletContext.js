@@ -3,6 +3,8 @@ import { BrowserWallet } from '@meshsdk/core';
 
 const WalletContext = createContext();
 
+export { WalletContext };
+
 // List of supported wallet providers
 const SUPPORTED_WALLETS = {
   eternl: {
