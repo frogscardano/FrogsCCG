@@ -2,10 +2,10 @@ import React, { useState, useEffect, useContext } from 'react';
 import styles from './TeamBuilder.module.css';
 import Team from './Team';
 import CardCollection from './CardCollection';
-import { AuthContext } from '../contexts/authContext';
+import { WalletContext } from '../contexts/WalletContext';
 
 const TeamBuilder = ({ cards = [], onBattleComplete }) => {
-  const { user, loading } = useContext(AuthContext);
+  const { connected, address, loading } = useContext(WalletContext);
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
@@ -18,7 +18,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Show loading state while auth is being determined
+  // Show loading state while wallet is being determined
   if (loading) {
     return (
       <div className={styles.loading}>
@@ -28,11 +28,11 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     );
   }
 
-  // Show message if not authenticated
-  if (!user) {
+  // Show message if not connected to wallet
+  if (!connected || !address) {
     return (
       <div className={styles.notAuthenticated}>
-        <p>Please sign in to access the team builder.</p>
+        <p>Please connect your wallet to access the team builder.</p>
       </div>
     );
   }
@@ -40,10 +40,10 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   // Load teams from database on mount
   useEffect(() => {
     const fetchTeams = async () => {
-      if (!user) return;
+      if (!address) return;
       
       try {
-        const response = await fetch('/api/teams');
+        const response = await fetch(`/api/teams?walletAddress=${address}`);
         if (!response.ok) throw new Error('Failed to fetch teams');
         const data = await response.json();
         setTeams(data);
@@ -56,7 +56,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     };
 
     fetchTeams();
-  }, [user]);
+  }, [address]);
 
   const handleCreateTeam = () => {
     setIsCreatingTeam(true);
@@ -72,8 +72,12 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
 
   const handleDeleteTeam = async (teamToDelete) => {
     try {
-      const response = await fetch(`/api/teams?id=${teamToDelete.id}`, {
-        method: 'DELETE'
+      const response = await fetch(`/api/teams?walletAddress=${address}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id: teamToDelete.id })
       });
 
       if (!response.ok) throw new Error('Failed to delete team');
@@ -110,7 +114,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
         ? { id: selectedTeam.id, name, nftIds }
         : { name, nftIds };
 
-      const response = await fetch(url, {
+      const response = await fetch(`${url}?walletAddress=${address}`, {
         method,
         headers: {
           'Content-Type': 'application/json'
