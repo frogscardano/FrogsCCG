@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import styles from './TeamBuilder.module.css';
 import Team from './Team';
 import CardCollection from './CardCollection';
-import { useSession } from 'next-auth/react';
+import { AuthContext } from '../contexts/authContext';
 
 const TeamBuilder = ({ cards = [], onBattleComplete }) => {
-  const { data: session } = useSession();
+  const { user, loading } = useContext(AuthContext);
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
@@ -18,10 +18,29 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Show loading state while auth is being determined
+  if (loading) {
+    return (
+      <div className={styles.loading}>
+        <div className={styles.spinner}></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  // Show message if not authenticated
+  if (!user) {
+    return (
+      <div className={styles.notAuthenticated}>
+        <p>Please sign in to access the team builder.</p>
+      </div>
+    );
+  }
+
   // Load teams from database on mount
   useEffect(() => {
     const fetchTeams = async () => {
-      if (!session) return;
+      if (!user) return;
       
       try {
         const response = await fetch('/api/teams');
@@ -37,7 +56,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     };
 
     fetchTeams();
-  }, [session]);
+  }, [user]);
 
   const handleCreateTeam = () => {
     setIsCreatingTeam(true);
