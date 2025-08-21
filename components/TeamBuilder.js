@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import styles from './TeamBuilder.module.css';
 import Team from './Team';
 import CardCollection from './CardCollection';
+import { useSession } from 'next-auth/react';
 
 const TeamBuilder = ({ cards = [], onBattleComplete }) => {
+  const { data: session } = useSession();
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
@@ -13,19 +15,29 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   const [team2, setTeam2] = useState(null);
   const [battleResult, setBattleResult] = useState(null);
   const [isBattleLoading, setIsBattleLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Load teams from localStorage on mount
+  // Load teams from database on mount
   useEffect(() => {
-    const savedTeams = localStorage.getItem('teams');
-    if (savedTeams) {
-      setTeams(JSON.parse(savedTeams));
-    }
-  }, []);
+    const fetchTeams = async () => {
+      if (!session) return;
+      
+      try {
+        const response = await fetch('/api/teams');
+        if (!response.ok) throw new Error('Failed to fetch teams');
+        const data = await response.json();
+        setTeams(data);
+      } catch (error) {
+        console.error('Error fetching teams:', error);
+        setError('Failed to load teams');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // Save teams to localStorage when updated
-  useEffect(() => {
-    localStorage.setItem('teams', JSON.stringify(teams));
-  }, [teams]);
+    fetchTeams();
+  }, [session]);
 
   const handleCreateTeam = () => {
     setIsCreatingTeam(true);
@@ -39,11 +51,22 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     setIsCreatingTeam(true);
   };
 
-  const handleDeleteTeam = (teamToDelete) => {
-    setTeams(teams.filter(team => team.name !== teamToDelete.name));
-    if (selectedTeam?.name === teamToDelete.name) {
-      setSelectedTeam(null);
-      setSelectedCards([]);
+  const handleDeleteTeam = async (teamToDelete) => {
+    try {
+      const response = await fetch(`/api/teams?id=${teamToDelete.id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete team');
+
+      setTeams(teams.filter(team => team.id !== teamToDelete.id));
+      if (selectedTeam?.id === teamToDelete.id) {
+        setSelectedTeam(null);
+        setSelectedCards([]);
+      }
+    } catch (error) {
+      console.error('Error deleting team:', error);
+      setError('Failed to delete team');
     }
   };
 
@@ -59,23 +82,42 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     setSelectedCards(selectedCards.filter(card => card.id !== cardToRemove.id));
   };
 
-  const handleSaveTeam = ({ name, cards }) => {
-    const teamIndex = teams.findIndex(t => t.name === selectedTeam?.name);
-    const newTeam = { name, cards };
+  const handleSaveTeam = async ({ name, cards }) => {
+    try {
+      const nftIds = cards.map(card => card.id);
+      const method = selectedTeam ? 'PUT' : 'POST';
+      const url = '/api/teams';
+      const body = selectedTeam 
+        ? { id: selectedTeam.id, name, nftIds }
+        : { name, nftIds };
 
-    if (teamIndex >= 0) {
-      // Update existing team
-      const updatedTeams = [...teams];
-      updatedTeams[teamIndex] = newTeam;
-      setTeams(updatedTeams);
-    } else {
-      // Create new team
-      setTeams([...teams, newTeam]);
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) throw new Error('Failed to save team');
+
+      const savedTeam = await response.json();
+      
+      if (selectedTeam) {
+        setTeams(teams.map(team => 
+          team.id === savedTeam.id ? savedTeam : team
+        ));
+      } else {
+        setTeams([...teams, savedTeam]);
+      }
+
+      setIsCreatingTeam(false);
+      setSelectedTeam(null);
+      setSelectedCards([]);
+    } catch (error) {
+      console.error('Error saving team:', error);
+      setError('Failed to save team');
     }
-
-    setIsCreatingTeam(false);
-    setSelectedTeam(null);
-    setSelectedCards([]);
   };
 
   const handleStartBattle = () => {
@@ -133,12 +175,21 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
         body: JSON.stringify({
           teamA: teamA.cards,
           teamB: teamB.cards,
+          teamAId: teamA.id,
+          teamBId: teamB.id
         }),
       });
       
       if (response.ok) {
         const result = await response.json();
         setBattleResult(result);
+        
+        // Refresh teams to get updated battle records
+        const teamsResponse = await fetch('/api/teams');
+        if (teamsResponse.ok) {
+          const updatedTeams = await teamsResponse.json();
+          setTeams(updatedTeams);
+        }
         
         // Wait a few seconds before resetting battle mode
         setTimeout(() => {
@@ -166,6 +217,14 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     setTeam2(null);
     setBattleResult(null);
   };
+
+  if (isLoading) {
+    return <div className={styles.loading}>Loading teams...</div>;
+  }
+
+  if (error) {
+    return <div className={styles.error}>{error}</div>;
+  }
 
   return (
     <div className={styles.teamBuilder}>
