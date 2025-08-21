@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
 import Head from 'next/head';
 import TeamBuilder from '../components/TeamBuilder';
