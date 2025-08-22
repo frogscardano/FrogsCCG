@@ -25,7 +25,8 @@ export async function withDatabase(operation) {
           error.message.includes('prepared statement') || 
           error.message.includes('already exists') ||
           error.message.includes('there is no unique or exclusion constraint') ||
-          error.message.includes('connection')) {
+          error.message.includes('connection') ||
+          error.message.includes('s0')) {
         console.warn(`Database operation failed (attempt ${retries}/${maxRetries}):`, error.message);
         
         if (retries < maxRetries) {
