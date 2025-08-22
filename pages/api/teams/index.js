@@ -1,7 +1,20 @@
-import { prisma } from '../../../utils/db.js';
+import { prisma, withDatabase } from '../../../utils/db.js';
 import { authenticateUser, getUserFromRequest, verifyOwnership } from '../../../utils/auth.js';
 
 export default async function handler(req, res) {
+  // Test database connection first
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    console.log('✅ Database connection test successful');
+  } catch (connectionError) {
+    console.error('❌ Database connection test failed:', connectionError);
+    return res.status(500).json({ 
+      error: 'Database connection failed',
+      message: 'Unable to connect to database. Please try again later.',
+      details: connectionError.message
+    });
+  }
+
   // Authenticate user first
   try {
     await authenticateUser(req, res, async () => {
@@ -14,10 +27,10 @@ export default async function handler(req, res) {
           try {
             console.log(`🔍 Fetching teams for user ID: ${user.id}`);
             
-            // Check if the Team table exists by trying to query it
-            try {
+            // Use the withDatabase wrapper which has retry logic
+            const teamsWithNFTs = await withDatabase(async (db) => {
               // Get all teams for the authenticated user
-              const teams = await prisma.Team.findMany({
+              const teams = await db.Team.findMany({
                 where: { ownerId: user.id },
                 orderBy: { updatedAt: 'desc' }
               });
@@ -28,7 +41,7 @@ export default async function handler(req, res) {
               const teamsWithNFTs = await Promise.all(
                 teams.map(async (team) => {
                   if (team.nftIds && team.nftIds.length > 0) {
-                    const nfts = await prisma.NFT.findMany({
+                    const nfts = await db.NFT.findMany({
                       where: { 
                         id: { in: team.nftIds }
                       },
@@ -55,24 +68,73 @@ export default async function handler(req, res) {
                 })
               );
 
-              return res.status(200).json(teamsWithNFTs);
-            } catch (tableError) {
-              console.error('❌ Error accessing Team table:', tableError);
-              
-              // Check if this is a table doesn't exist error
-              if (tableError.message && tableError.message.includes('does not exist')) {
-                console.error('❌ Team table does not exist in database');
-                return res.status(500).json({ 
-                  error: 'Teams functionality not available',
-                  message: 'The teams table has not been created in the database. Please run database migrations.',
-                  details: tableError.message
-                });
-              }
-              
-              throw tableError;
-            }
+              return teamsWithNFTs;
+            });
+
+            return res.status(200).json(teamsWithNFTs);
           } catch (error) {
             console.error('❌ Error fetching teams:', error);
+            
+            // Check if this is a table doesn't exist error
+            if (error.message && error.message.includes('does not exist')) {
+              return res.status(500).json({ 
+                error: 'Teams functionality not available',
+                message: 'The teams table has not been created in the database. Please run database migrations.',
+                details: error.message
+              });
+            }
+            
+            // Check if this is a prepared statement error
+            if (error.message && error.message.includes('prepared statement')) {
+              console.error('❌ Prepared statement error persists - trying alternative approach');
+              
+              // Try a simpler approach without the withDatabase wrapper
+              try {
+                // Force disconnect and reconnect
+                await prisma.$disconnect();
+                await prisma.$connect();
+                
+                // Try a simple query
+                const teams = await prisma.Team.findMany({
+                  where: { ownerId: user.id }
+                });
+                
+                console.log(`✅ Alternative approach successful - Found ${teams.length} teams`);
+                
+                // Process teams with NFTs
+                const teamsWithNFTs = await Promise.all(
+                  teams.map(async (team) => {
+                    if (team.nftIds && team.nftIds.length > 0) {
+                      const nfts = await prisma.NFT.findMany({
+                        where: { 
+                          id: { in: team.nftIds }
+                        }
+                      });
+                      
+                      return {
+                        ...team,
+                        cards: nfts
+                      };
+                    } else {
+                      return {
+                        ...team,
+                        cards: []
+                      };
+                    }
+                  })
+                );
+                
+                return res.status(200).json(teamsWithNFTs);
+              } catch (fallbackError) {
+                console.error('❌ Alternative approach also failed:', fallbackError);
+                return res.status(500).json({ 
+                  error: 'Database connection issue',
+                  message: 'Database connection error. Please try again in a few moments.',
+                  details: 'Both primary and fallback approaches failed'
+                });
+              }
+            }
+            
             return res.status(500).json({ error: 'Failed to fetch teams', details: error.message });
           }
 
@@ -84,42 +146,48 @@ export default async function handler(req, res) {
               return res.status(400).json({ error: 'Invalid team data' });
             }
 
-            // Verify that all NFTs belong to the user
-            const userNfts = await prisma.NFT.findMany({
-              where: { 
-                id: { in: nftIds },
-                ownerId: user.id
+            // Use withDatabase wrapper for better connection management
+            const createdTeam = await withDatabase(async (db) => {
+              // Verify that all NFTs belong to the user
+              const userNfts = await db.NFT.findMany({
+                where: { 
+                  id: { in: nftIds },
+                  ownerId: user.id
+                }
+              });
+
+              if (userNfts.length !== nftIds.length) {
+                throw new Error('Some NFTs do not belong to the user');
               }
+
+              // Create the team with nftIds array
+              const team = await db.Team.create({
+                data: {
+                  name,
+                  ownerId: user.id,
+                  nftIds: nftIds,
+                  isActive: true,
+                  battlesWon: 0,
+                  battlesLost: 0,
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                }
+              });
+
+              // Return the created team with NFTs in the expected format
+              return {
+                ...team,
+                cards: userNfts
+              };
             });
-
-            if (userNfts.length !== nftIds.length) {
-              return res.status(400).json({ error: 'Some NFTs do not belong to the user' });
-            }
-
-            // Create the team with nftIds array
-            const team = await prisma.Team.create({
-              data: {
-                name,
-                ownerId: user.id,
-                nftIds: nftIds,
-                isActive: true,
-                battlesWon: 0,
-                battlesLost: 0,
-                createdAt: new Date(),
-                updatedAt: new Date()
-              }
-            });
-
-            // Return the created team with NFTs in the expected format
-            const createdTeam = {
-              ...team,
-              cards: userNfts
-            };
 
             return res.status(201).json(createdTeam);
           } catch (error) {
-            console.error('Error creating team:', error);
-            return res.status(500).json({ error: 'Failed to create team' });
+            console.error('❌ Error creating team:', error);
+            if (error.message === 'Some NFTs do not belong to the user') {
+              return res.status(400).json({ error: error.message });
+            }
+            return res.status(500).json({ error: 'Failed to create team', details: error.message });
           }
 
         case 'PUT':
@@ -130,44 +198,53 @@ export default async function handler(req, res) {
               return res.status(400).json({ error: 'Invalid team data' });
             }
 
-            // Verify the team belongs to the user
-            const isOwner = await verifyOwnership(req, id, 'team');
-            if (!isOwner) {
-              return res.status(403).json({ error: 'Team not found or does not belong to user' });
-            }
-
-            // Verify that all NFTs belong to the user
-            const userNfts = await prisma.NFT.findMany({
-              where: { 
-                id: { in: nftIds },
-                ownerId: user.id
+            // Use withDatabase wrapper for better connection management
+            const teamWithNFTs = await withDatabase(async (db) => {
+              // Verify the team belongs to the user
+              const isOwner = await verifyOwnership(req, id, 'team');
+              if (!isOwner) {
+                throw new Error('Team not found or does not belong to user');
               }
-            });
 
-            if (userNfts.length !== nftIds.length) {
-              return res.status(400).json({ error: 'Some NFTs do not belong to the user' });
-            }
+              // Verify that all NFTs belong to the user
+              const userNfts = await db.NFT.findMany({
+                where: { 
+                  id: { in: nftIds },
+                  ownerId: user.id
+                }
+              });
 
-            // Update the team with nftIds array
-            const updatedTeam = await prisma.Team.update({
-              where: { id },
-              data: {
-                name,
-                nftIds: nftIds,
-                updatedAt: new Date()
+              if (userNfts.length !== nftIds.length) {
+                throw new Error('Some NFTs do not belong to the user');
               }
-            });
 
-            // Return the updated team with NFTs in the expected format
-            const teamWithNFTs = {
-              ...updatedTeam,
-              cards: userNfts
-            };
+              // Update the team with nftIds array
+              const updatedTeam = await db.Team.update({
+                where: { id },
+                data: {
+                  name,
+                  nftIds: nftIds,
+                  updatedAt: new Date()
+                }
+              });
+
+              // Return the updated team with NFTs in the expected format
+              return {
+                ...updatedTeam,
+                cards: userNfts
+              };
+            });
 
             return res.status(200).json(teamWithNFTs);
           } catch (error) {
-            console.error('Error updating team:', error);
-            return res.status(500).json({ error: 'Failed to update team' });
+            console.error('❌ Error updating team:', error);
+            if (error.message === 'Team not found or does not belong to user') {
+              return res.status(403).json({ error: error.message });
+            }
+            if (error.message === 'Some NFTs do not belong to the user') {
+              return res.status(400).json({ error: error.message });
+            }
+            return res.status(500).json({ error: 'Failed to update team', details: error.message });
           }
 
         case 'DELETE':
@@ -178,21 +255,27 @@ export default async function handler(req, res) {
               return res.status(400).json({ error: 'Team ID is required' });
             }
 
-            // Verify the team belongs to the user
-            const isOwner = await verifyOwnership(req, id, 'team');
-            if (!isOwner) {
-              return res.status(403).json({ error: 'Team not found or does not belong to user' });
-            }
+            // Use withDatabase wrapper for better connection management
+            await withDatabase(async (db) => {
+              // Verify the team belongs to the user
+              const isOwner = await verifyOwnership(req, id, 'team');
+              if (!isOwner) {
+                throw new Error('Team not found or does not belong to user');
+              }
 
-            // Delete the team
-            await prisma.Team.delete({
-              where: { id }
+              // Delete the team
+              await db.Team.delete({
+                where: { id }
+              });
             });
 
             return res.status(200).json({ message: 'Team deleted successfully' });
           } catch (error) {
-            console.error('Error deleting team:', error);
-            return res.status(500).json({ error: 'Failed to delete team' });
+            console.error('❌ Error deleting team:', error);
+            if (error.message === 'Team not found or does not belong to user') {
+              return res.status(403).json({ error: error.message });
+            }
+            return res.status(500).json({ error: 'Failed to delete team', details: error.message });
           }
 
         default:
