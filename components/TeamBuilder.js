@@ -59,12 +59,24 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     const fetchTeams = async () => {
       try {
         const response = await fetch(`/api/teams?walletAddress=${address}`);
-        if (!response.ok) throw new Error('Failed to fetch teams');
+        if (!response.ok) {
+          const errorData = await response.json();
+          if (errorData.error === 'Teams functionality not available') {
+            setError('Teams functionality is not available yet. The database needs to be updated. Please contact support.');
+          } else {
+            throw new Error(errorData.message || 'Failed to fetch teams');
+          }
+          return;
+        }
         const data = await response.json();
         setTeams(data);
       } catch (error) {
         console.error('Error fetching teams:', error);
-        setError('Failed to load teams');
+        if (error.message.includes('Teams functionality is not available')) {
+          setError(error.message);
+        } else {
+          setError('Failed to load teams. Please try again later.');
+        }
       } finally {
         setIsLoading(false);
       }
