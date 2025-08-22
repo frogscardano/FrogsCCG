@@ -21,8 +21,13 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Debug: Log the cards prop
+  console.log('🔍 TeamBuilder received cards:', cards);
+  console.log('🔍 TeamBuilder cards length:', cards?.length || 0);
+
   // Handle case when context is not available (during build time)
   if (!isBrowser || !walletContext) {
+    console.log('❌ TeamBuilder: Browser or wallet context not available');
     return (
       <div className={styles.notAuthenticated}>
         <p>Wallet context not available. Please refresh the page.</p>
@@ -31,6 +36,8 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   }
 
   const { connected, address, loading } = walletContext;
+  
+  console.log('🔍 TeamBuilder wallet context:', { connected, address, loading });
 
   // Show loading state while wallet is being determined
   if (loading) {
@@ -58,14 +65,21 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     
     const fetchTeams = async () => {
       try {
+        console.log('🔍 Fetching teams for address:', address);
         const response = await fetch(`/api/teams?walletAddress=${address}`);
+        console.log('🔍 Teams API response status:', response.status);
+        
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Teams API error response:', errorText);
           throw new Error('Failed to fetch teams');
         }
+        
         const data = await response.json();
+        console.log('✅ Teams API response data:', data);
         setTeams(data);
       } catch (error) {
-        console.error('Error fetching teams:', error);
+        console.error('❌ Error fetching teams:', error);
         setError('Failed to load teams. Please try again later.');
       } finally {
         setIsLoading(false);
