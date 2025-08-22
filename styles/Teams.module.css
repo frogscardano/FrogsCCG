@@ -299,3 +299,100 @@
     font-size: 1.8rem;
   }
 }
+
+/* Loading styles */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(102, 126, 234, 0.3);
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading p {
+  color: #666;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* Help section styles */
+.helpSection {
+  margin-bottom: 40px;
+}
+
+.helpCard {
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.helpCard h3 {
+  color: #d63384;
+  margin: 0 0 16px 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.helpCard p {
+  color: #495057;
+  line-height: 1.6;
+  margin: 0 0 16px 0;
+}
+
+.helpSteps {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 16px 0;
+}
+
+.helpSteps h4 {
+  color: #d63384;
+  margin: 0 0 12px 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.helpSteps ol {
+  color: #495057;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.helpSteps li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.helpSteps code {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.helpNote {
+  font-size: 0.9rem;
+  color: #6c757d;
+  font-style: italic;
+  margin: 16px 0 0 0;
+}
