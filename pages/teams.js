@@ -1,13 +1,54 @@
 export const dynamic = 'force-dynamic';
 
-import React, { useState } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import Head from 'next/head';
 import TeamBuilder from '../components/TeamBuilder';
 import Scoreboard from '../components/Scoreboard';
 import styles from '../styles/Teams.module.css';
+import { WalletContext } from '../contexts/WalletContext';
 
 const Teams = () => {
   const [activeTab, setActiveTab] = useState('builder');
+  const [currentCards, setCurrentCards] = useState([]);
+  const [isLoadingCards, setIsLoadingCards] = useState(true);
+  
+  const walletContext = useContext(WalletContext);
+
+  // Load user's cards when wallet is connected
+  useEffect(() => {
+    const loadUserCards = async () => {
+      if (!walletContext?.connected || !walletContext?.address) {
+        setIsLoadingCards(false);
+        return;
+      }
+
+      try {
+        setIsLoadingCards(true);
+        const response = await fetch(`/api/collections/${walletContext.address}`);
+        if (response.ok) {
+          const data = await response.json();
+          // The collections API returns { collection: [...], userInfo: {...}, message: "..." }
+          // We need to extract the collection array for the TeamBuilder
+          if (data.collection && Array.isArray(data.collection)) {
+            setCurrentCards(data.collection);
+          } else {
+            console.error('Invalid collection data format:', data);
+            setCurrentCards([]);
+          }
+        } else {
+          console.error('Failed to load collection');
+          setCurrentCards([]);
+        }
+      } catch (error) {
+        console.error('Error loading collection:', error);
+        setCurrentCards([]);
+      } finally {
+        setIsLoadingCards(false);
+      }
+    };
+
+    loadUserCards();
+  }, [walletContext?.connected, walletContext?.address]);
 
   const handleBattleComplete = (result) => {
     console.log('Battle completed:', result);
@@ -49,7 +90,17 @@ const Teams = () => {
                 <h2>🏗️ Build Your Dream Team</h2>
                 <p>Create teams of up to 5 cards, strategize synergies, and prepare for battle!</p>
               </div>
-              <TeamBuilder onBattleComplete={handleBattleComplete} />
+              {isLoadingCards ? (
+                <div className={styles.loading}>
+                  <div className={styles.spinner}></div>
+                  <p>Loading your collection...</p>
+                </div>
+              ) : (
+                <TeamBuilder 
+                  cards={currentCards}
+                  onBattleComplete={handleBattleComplete} 
+                />
+              )}
             </div>
           )}
 
@@ -62,6 +113,28 @@ const Teams = () => {
               <Scoreboard />
             </div>
           )}
+        </div>
+
+        {/* Help section for when teams functionality is not available */}
+        <div className={styles.helpSection}>
+          <div className={styles.helpCard}>
+            <h3>🚧 Teams Functionality Setup</h3>
+            <p>
+              If you're seeing "Failed to load teams" or similar errors, the teams database table 
+              may not be set up yet. This is a one-time setup requirement.
+            </p>
+            <div className={styles.helpSteps}>
+              <h4>Quick Fix:</h4>
+              <ol>
+                <li>Run database migration: <code>npx prisma migrate dev --name add_teams_table</code></li>
+                <li>Restart your application</li>
+                <li>Refresh this page</li>
+              </ol>
+            </div>
+            <p className={styles.helpNote}>
+              <strong>Note:</strong> See <code>TEAMS_SETUP.md</code> for detailed instructions.
+            </p>
+          </div>
         </div>
 
         <div className={styles.features}>
