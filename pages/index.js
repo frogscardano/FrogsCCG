@@ -497,9 +497,12 @@ export default function Home() {
       </div>
 
       <div className={styles.pageLinks}>
-        <a href="/teams" className={styles.pageLink}>
+        <button 
+          className={styles.pageLink}
+          onClick={() => setCurrentTab('teams')}
+        >
           🏆 Full Teams & Leaderboard Page
-        </a>
+        </button>
       </div>
 
       <main className={styles.main}>
