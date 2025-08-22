@@ -2,19 +2,6 @@ import { prisma, withDatabase } from '../../../utils/db.js';
 import { authenticateUser, getUserFromRequest, verifyOwnership } from '../../../utils/auth.js';
 
 export default async function handler(req, res) {
-  // Test database connection first
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    console.log('✅ Database connection test successful');
-  } catch (connectionError) {
-    console.error('❌ Database connection test failed:', connectionError);
-    return res.status(500).json({ 
-      error: 'Database connection failed',
-      message: 'Unable to connect to database. Please try again later.',
-      details: connectionError.message
-    });
-  }
-
   // Authenticate user first
   try {
     await authenticateUser(req, res, async () => {
@@ -44,9 +31,6 @@ export default async function handler(req, res) {
                     const nfts = await db.NFT.findMany({
                       where: { 
                         id: { in: team.nftIds }
-                      },
-                      include: {
-                        attributes: true
                       }
                     });
                     
@@ -74,67 +58,6 @@ export default async function handler(req, res) {
             return res.status(200).json(teamsWithNFTs);
           } catch (error) {
             console.error('❌ Error fetching teams:', error);
-            
-            // Check if this is a table doesn't exist error
-            if (error.message && error.message.includes('does not exist')) {
-              return res.status(500).json({ 
-                error: 'Teams functionality not available',
-                message: 'The teams table has not been created in the database. Please run database migrations.',
-                details: error.message
-              });
-            }
-            
-            // Check if this is a prepared statement error
-            if (error.message && error.message.includes('prepared statement')) {
-              console.error('❌ Prepared statement error persists - trying alternative approach');
-              
-              // Try a simpler approach without the withDatabase wrapper
-              try {
-                // Force disconnect and reconnect
-                await prisma.$disconnect();
-                await prisma.$connect();
-                
-                // Try a simple query
-                const teams = await prisma.Team.findMany({
-                  where: { ownerId: user.id }
-                });
-                
-                console.log(`✅ Alternative approach successful - Found ${teams.length} teams`);
-                
-                // Process teams with NFTs
-                const teamsWithNFTs = await Promise.all(
-                  teams.map(async (team) => {
-                    if (team.nftIds && team.nftIds.length > 0) {
-                      const nfts = await prisma.NFT.findMany({
-                        where: { 
-                          id: { in: team.nftIds }
-                        }
-                      });
-                      
-                      return {
-                        ...team,
-                        cards: nfts
-                      };
-                    } else {
-                      return {
-                        ...team,
-                        cards: []
-                      };
-                    }
-                  })
-                );
-                
-                return res.status(200).json(teamsWithNFTs);
-              } catch (fallbackError) {
-                console.error('❌ Alternative approach also failed:', fallbackError);
-                return res.status(500).json({ 
-                  error: 'Database connection issue',
-                  message: 'Database connection error. Please try again in a few moments.',
-                  details: 'Both primary and fallback approaches failed'
-                });
-              }
-            }
-            
             return res.status(500).json({ error: 'Failed to fetch teams', details: error.message });
           }
 
