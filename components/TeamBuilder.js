@@ -141,6 +141,8 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   const handleSaveTeam = async ({ name, cards }) => {
     if (!isBrowser || !address) return;
     
+    console.log('🔍 Attempting to save team:', { name, cardsCount: cards.length, address });
+    
     try {
       const nftIds = cards.map(card => card.id);
       const method = selectedTeam ? 'PUT' : 'POST';
@@ -148,6 +150,8 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
       const body = selectedTeam 
         ? { id: selectedTeam.id, name, nftIds }
         : { name, nftIds };
+
+      console.log('🔍 Saving team with:', { method, url, body });
 
       const response = await fetch(`${url}?walletAddress=${address}`, {
         method,
@@ -157,9 +161,16 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
         body: JSON.stringify(body)
       });
 
-      if (!response.ok) throw new Error('Failed to save team');
+      console.log('🔍 Save team response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Save team error response:', errorText);
+        throw new Error('Failed to save team');
+      }
 
       const savedTeam = await response.json();
+      console.log('✅ Team saved successfully:', savedTeam);
       
       if (selectedTeam) {
         setTeams(teams.map(team => 
@@ -173,7 +184,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
       setSelectedTeam(null);
       setSelectedCards([]);
     } catch (error) {
-      console.error('Error saving team:', error);
+      console.error('❌ Error saving team:', error);
       setError('Failed to save team');
     }
   };
