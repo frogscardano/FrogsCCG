@@ -6,18 +6,6 @@ export default async function handler(req, res) {
   console.log('🔍 Request method:', req.method);
   console.log('🔍 Request query:', req.query);
   
-  // Test database connection first
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    console.log('✅ Database connection successful');
-  } catch (dbError) {
-    console.error('❌ Database connection failed:', dbError);
-    return res.status(500).json({ 
-      error: 'Database connection failed', 
-      details: dbError.message 
-    });
-  }
-  
   // Authenticate user first
   try {
     await authenticateUser(req, res, async () => {
@@ -29,18 +17,6 @@ export default async function handler(req, res) {
         case 'GET':
           try {
             console.log(`🔍 Fetching teams for user ID: ${user.id}`);
-            
-            // Test if Team table exists
-            try {
-              const tableTest = await prisma.$queryRaw`SELECT 1 FROM "Team" LIMIT 1`;
-              console.log('✅ Team table exists and is accessible');
-            } catch (tableError) {
-              console.error('❌ Team table test failed:', tableError);
-              return res.status(500).json({ 
-                error: 'Team table not accessible', 
-                details: tableError.message 
-              });
-            }
             
             // Get all teams for the authenticated user
             const teams = await prisma.Team.findMany({
@@ -88,8 +64,11 @@ export default async function handler(req, res) {
         case 'POST':
           try {
             const { name, nftIds } = req.body;
+            
+            console.log('🔍 Creating team with data:', { name, nftIds, user: user.id });
 
             if (!name || !nftIds || !Array.isArray(nftIds)) {
+              console.error('❌ Invalid team data:', { name, nftIds });
               return res.status(400).json({ error: 'Invalid team data' });
             }
 
@@ -101,8 +80,16 @@ export default async function handler(req, res) {
               }
             });
 
+            console.log('🔍 Found user NFTs:', userNfts.length, 'out of', nftIds.length);
+
             if (userNfts.length !== nftIds.length) {
-              throw new Error('Some NFTs do not belong to the user');
+              console.error('❌ Some NFTs do not belong to user:', { 
+                requested: nftIds.length, 
+                found: userNfts.length,
+                userNftIds: userNfts.map(nft => nft.id),
+                requestedIds: nftIds
+              });
+              return res.status(400).json({ error: 'Some NFTs do not belong to the user' });
             }
 
             // Create the team with nftIds array
@@ -119,11 +106,16 @@ export default async function handler(req, res) {
               }
             });
 
+            console.log('✅ Team created successfully:', team);
+
             // Return the created team with NFTs in the expected format
-            return res.status(201).json({
+            const createdTeam = {
               ...team,
               cards: userNfts
-            });
+            };
+
+            console.log('✅ Returning created team:', createdTeam);
+            return res.status(201).json(createdTeam);
           } catch (error) {
             console.error('❌ Error creating team:', error);
             if (error.message === 'Some NFTs do not belong to the user') {
