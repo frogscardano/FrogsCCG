@@ -227,6 +227,25 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Teams API error:', error);
+    
+    // Handle specific authentication errors
+    if (error.message.includes('User not authenticated')) {
+      return res.status(401).json({ 
+        error: 'Authentication failed', 
+        message: 'User not authenticated. Please provide a valid wallet address.' 
+      });
+    }
+    
+    // Handle database connection errors
+    if (error.message.includes('prepared statement') || 
+        error.message.includes('already exists') ||
+        error.message.includes('connection')) {
+      return res.status(503).json({ 
+        error: 'Database temporarily unavailable', 
+        message: 'Please try again in a moment. If the problem persists, contact support.' 
+      });
+    }
+    
     return res.status(500).json({ 
       error: 'Internal server error', 
       message: error.message 
