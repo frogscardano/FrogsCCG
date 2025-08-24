@@ -2,11 +2,34 @@ import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis;
 
+export { globalForPrisma };
+
 export const prisma =
   globalForPrisma.prisma ??
   (globalForPrisma.prisma = new PrismaClient({
     log: ['query', 'info', 'warn', 'error'],
     errorFormat: 'pretty',
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
+    // Add connection pool configuration
+    __internal: {
+      engine: {
+        connectionLimit: 5,
+        pool: {
+          min: 2,
+          max: 10,
+          acquireTimeoutMillis: 30000,
+          createTimeoutMillis: 30000,
+          destroyTimeoutMillis: 5000,
+          idleTimeoutMillis: 30000,
+          reapIntervalMillis: 1000,
+          createRetryIntervalMillis: 200,
+        },
+      },
+    },
   }));
 
 // Database operation wrapper with retry logic and better connection management
@@ -26,7 +49,8 @@ export async function withDatabase(operation) {
           error.message.includes('already exists') ||
           error.message.includes('there is no unique or exclusion constraint') ||
           error.message.includes('connection') ||
-          error.message.includes('s0')) {
+          error.message.includes('s0') ||
+          error.message.includes('s2')) {
         console.warn(`Database operation failed (attempt ${retries}/${maxRetries}):`, error.message);
         
         if (retries < maxRetries) {
@@ -38,12 +62,32 @@ export async function withDatabase(operation) {
             console.log(`🔄 Attempting to reconnect to database (attempt ${retries})...`);
             await prisma.$disconnect();
             
-            // Force a new connection
+            // Force a new connection with fresh configuration
             globalForPrisma.prisma = new PrismaClient({
               log: ['query', 'info', 'warn', 'error'],
               errorFormat: 'pretty',
+              datasources: {
+                db: {
+                  url: process.env.DATABASE_URL,
+                },
+              },
+              // Add connection pool configuration
+              __internal: {
+                engine: {
+                  connectionLimit: 5,
+                  pool: {
+                    min: 2,
+                    max: 10,
+                    acquireTimeoutMillis: 30000,
+                    createTimeoutMillis: 30000,
+                    destroyTimeoutMillis: 5000,
+                    idleTimeoutMillis: 30000,
+                    reapIntervalMillis: 1000,
+                    createRetryIntervalMillis: 200,
+                  },
+                },
+              },
             });
-            globalForPrisma.prisma = globalForPrisma.prisma;
             
             console.log(`✅ Database reconnection successful`);
           } catch (disconnectError) {
