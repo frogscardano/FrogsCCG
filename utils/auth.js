@@ -1,4 +1,5 @@
-import { prisma } from './db.js';
+import { prisma, withDatabase, globalForPrisma } from './db.js';
+import { PrismaClient } from '@prisma/client';
 
 /**
  * Middleware to authenticate API requests using wallet address
@@ -18,21 +19,67 @@ export async function authenticateUser(req, res, next) {
       });
     }
 
-    // Find or create user based on wallet address
-    let user = await prisma.User.findUnique({
-      where: { address: walletAddress }
-    });
+    // Use withDatabase wrapper to handle connection issues
+    const user = await withDatabase(async (db) => {
+      try {
+        // Find or create user based on wallet address
+        let user = await db.User.findUnique({
+          where: { address: walletAddress }
+        });
 
-    if (!user) {
-      // Create new user if they don't exist
-      user = await prisma.User.create({
-        data: {
-          address: walletAddress,
-          createdAt: new Date(),
-          updatedAt: new Date()
+        if (!user) {
+          // Create new user if they don't exist
+          user = await db.User.create({
+            data: {
+              address: walletAddress,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+          });
         }
-      });
-    }
+
+        return user;
+      } catch (dbError) {
+        console.error('Database error during authentication:', dbError);
+        
+        // If it's a prepared statement error, try to reconnect
+        if (dbError.message.includes('prepared statement') || 
+            dbError.message.includes('already exists')) {
+          console.log('🔄 Prepared statement error detected, attempting to reconnect...');
+          
+          // Force disconnect and reconnect
+          try {
+            await prisma.$disconnect();
+            globalForPrisma.prisma = new PrismaClient({
+              log: ['query', 'info', 'warn', 'error'],
+              errorFormat: 'pretty',
+            });
+            
+            // Try the operation again with the new connection
+            let user = await prisma.User.findUnique({
+              where: { address: walletAddress }
+            });
+
+            if (!user) {
+              user = await prisma.User.create({
+                data: {
+                  address: walletAddress,
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                }
+              });
+            }
+            
+            return user;
+          } catch (reconnectError) {
+            console.error('Failed to reconnect:', reconnectError);
+            throw new Error('Database connection failed after reconnection attempt');
+          }
+        }
+        
+        throw dbError;
+      }
+    });
 
     // Attach user to request object
     req.user = user;
@@ -70,20 +117,27 @@ export function getUserFromRequest(req) {
 export async function verifyOwnership(req, resourceId, resourceType) {
   const user = getUserFromRequest(req);
   
-  switch (resourceType) {
-    case 'team':
-      const team = await prisma.Team.findUnique({
-        where: { id: resourceId }
-      });
-      return team && team.ownerId === user.id;
-      
-    case 'nft':
-      const nft = await prisma.NFT.findUnique({
-        where: { id: resourceId }
-      });
-      return nft && nft.ownerId === user.id;
-      
-    default:
-      return false;
+  try {
+    return await withDatabase(async (db) => {
+      switch (resourceType) {
+        case 'team':
+          const team = await db.Team.findUnique({
+            where: { id: resourceId }
+          });
+          return team && team.ownerId === user.id;
+          
+        case 'nft':
+          const nft = await db.NFT.findUnique({
+            where: { id: resourceId }
+          });
+          return nft && nft.ownerId === user.id;
+          
+        default:
+          return false;
+      }
+    });
+  } catch (error) {
+    console.error('Error verifying ownership:', error);
+    return false;
   }
 }
