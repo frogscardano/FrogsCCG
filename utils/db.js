@@ -39,17 +39,20 @@ export async function withDatabase(operation) {
   
   while (retries < maxRetries) {
     try {
+      // Get the current Prisma client (it might have been updated during reconnection)
+      const currentPrisma = globalForPrisma.prisma || prisma;
+      
       // Create a wrapper object that maps the expected model names to the actual Prisma client
       const dbWrapper = {
-        Team: prisma.team,
-        User: prisma.user,
-        NFT: prisma.nFT,
+        Team: currentPrisma.team,
+        User: currentPrisma.user,
+        NFT: currentPrisma.nFT,
         // Add any other models that might be needed
-        $connect: prisma.$connect,
-        $disconnect: prisma.$disconnect,
-        $transaction: prisma.$transaction,
-        $queryRaw: prisma.$queryRaw,
-        $executeRaw: prisma.$executeRaw
+        $connect: currentPrisma.$connect,
+        $disconnect: currentPrisma.$disconnect,
+        $transaction: currentPrisma.$transaction,
+        $queryRaw: currentPrisma.$queryRaw,
+        $executeRaw: currentPrisma.$executeRaw
       };
       
       return await operation(dbWrapper);
@@ -63,6 +66,7 @@ export async function withDatabase(operation) {
           error.message.includes('there is no unique or exclusion constraint') ||
           error.message.includes('connection') ||
           error.message.includes('s0') ||
+          error.message.includes('s1') ||
           error.message.includes('s2')) {
         console.warn(`Database operation failed (attempt ${retries}/${maxRetries}):`, error.message);
         
@@ -73,7 +77,11 @@ export async function withDatabase(operation) {
           // Try to disconnect and reconnect
           try {
             console.log(`🔄 Attempting to reconnect to database (attempt ${retries})...`);
-            await prisma.$disconnect();
+            
+            // Disconnect the current client
+            if (globalForPrisma.prisma) {
+              await globalForPrisma.prisma.$disconnect();
+            }
             
             // Force a new connection with fresh configuration
             globalForPrisma.prisma = new PrismaClient({
