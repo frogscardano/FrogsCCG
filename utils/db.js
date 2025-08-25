@@ -14,22 +14,8 @@ export const prisma =
         url: process.env.DATABASE_URL,
       },
     },
-    // Add connection pool configuration
-    __internal: {
-      engine: {
-        connectionLimit: 5,
-        pool: {
-          min: 2,
-          max: 10,
-          acquireTimeoutMillis: 30000,
-          createTimeoutMillis: 30000,
-          destroyTimeoutMillis: 5000,
-          idleTimeoutMillis: 30000,
-          reapIntervalMillis: 1000,
-          createRetryIntervalMillis: 200,
-        },
-      },
-    },
+    // Simplified connection configuration to avoid prepared statement conflicts
+    // Remove complex pooling that might cause issues
   }));
 
 // Database operation wrapper with retry logic and better connection management
@@ -54,6 +40,16 @@ export async function withDatabase(operation) {
         $queryRaw: currentPrisma.$queryRaw,
         $executeRaw: currentPrisma.$executeRaw
       };
+      
+      // Debug logging to verify wrapper properties
+      console.log('🔍 Database wrapper created with properties:', {
+        hasTeam: !!dbWrapper.Team,
+        hasUser: !!dbWrapper.User,
+        hasNFT: !!dbWrapper.NFT,
+        teamType: typeof dbWrapper.Team,
+        userType: typeof dbWrapper.User,
+        nftType: typeof dbWrapper.NFT
+      });
       
       return await operation(dbWrapper);
     } catch (error) {
@@ -92,22 +88,7 @@ export async function withDatabase(operation) {
                   url: process.env.DATABASE_URL,
                 },
               },
-              // Add connection pool configuration
-              __internal: {
-                engine: {
-                  connectionLimit: 5,
-                  pool: {
-                    min: 2,
-                    max: 10,
-                    acquireTimeoutMillis: 30000,
-                    createTimeoutMillis: 30000,
-                    destroyTimeoutMillis: 5000,
-                    idleTimeoutMillis: 30000,
-                    reapIntervalMillis: 1000,
-                    createRetryIntervalMillis: 200,
-                  },
-                },
-              },
+              // Simplified configuration to avoid prepared statement conflicts
             });
             
             console.log(`✅ Database reconnection successful`);
