@@ -34,6 +34,17 @@ export default async function handler(req, res) {
             const teamsWithNFTs = await withDatabase(async (db) => {
               console.log('🔍 Database client in withDatabase:', typeof db, db ? Object.keys(db) : 'null');
               
+              // Verify that the db wrapper has the expected properties
+              if (!db || !db.Team || !db.NFT) {
+                console.error('❌ Database wrapper is missing expected properties:', {
+                  hasDb: !!db,
+                  hasTeam: !!(db && db.Team),
+                  hasNFT: !!(db && db.NFT),
+                  dbKeys: db ? Object.keys(db) : 'null'
+                });
+                throw new Error('Database wrapper is not properly configured');
+              }
+              
               // Get all teams for the authenticated user
               const teams = await db.Team.findMany({
                 where: { ownerId: user.id },
@@ -88,7 +99,8 @@ export default async function handler(req, res) {
             // If it's a database connection error, return empty teams instead of failing
             if (error.message.includes('prepared statement') || 
                 error.message.includes('already exists') ||
-                error.message.includes('Cannot read properties of undefined')) {
+                error.message.includes('Cannot read properties of undefined') ||
+                error.message.includes('Database wrapper is not properly configured')) {
               console.log('🔄 Database connection issue detected, returning empty teams list');
               return res.status(200).json([]);
             }
@@ -109,6 +121,17 @@ export default async function handler(req, res) {
 
             // Use withDatabase wrapper to ensure proper connection
             const createdTeam = await withDatabase(async (db) => {
+              // Verify that the db wrapper has the expected properties
+              if (!db || !db.Team || !db.NFT) {
+                console.error('❌ Database wrapper is missing expected properties:', {
+                  hasDb: !!db,
+                  hasTeam: !!(db && db.Team),
+                  hasNFT: !!(db && db.NFT),
+                  dbKeys: db ? Object.keys(db) : 'null'
+                });
+                throw new Error('Database wrapper is not properly configured');
+              }
+              
               // Verify that all NFTs belong to the user
               const userNfts = await db.NFT.findMany({
                 where: { 
@@ -158,6 +181,10 @@ export default async function handler(req, res) {
             console.error('❌ Error creating team:', error);
             if (error.message === 'Some NFTs do not belong to the user') {
               return res.status(400).json({ error: error.message });
+            }
+            if (error.message.includes('Database wrapper is not properly configured')) {
+              console.log('🔄 Database connection issue detected during team creation');
+              return res.status(503).json({ error: 'Database temporarily unavailable', message: 'Please try again in a moment.' });
             }
             return res.status(500).json({ error: 'Failed to create team', details: error.message });
           }
