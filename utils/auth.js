@@ -49,19 +49,24 @@ export async function authenticateUser(req, res, next) {
           
           // Force disconnect and reconnect
           try {
-            await prisma.$disconnect();
+            // Disconnect the current client
+            if (globalForPrisma.prisma) {
+              await globalForPrisma.prisma.$disconnect();
+            }
+            
+            // Create a new Prisma client
             globalForPrisma.prisma = new PrismaClient({
               log: ['query', 'info', 'warn', 'error'],
               errorFormat: 'pretty',
             });
             
             // Try the operation again with the new connection
-            let user = await prisma.User.findUnique({
+            let user = await globalForPrisma.prisma.user.findUnique({
               where: { address: walletAddress }
             });
 
             if (!user) {
-              user = await prisma.User.create({
+              user = await globalForPrisma.prisma.user.create({
                 data: {
                   address: walletAddress,
                   createdAt: new Date(),
