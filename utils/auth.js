@@ -58,6 +58,11 @@ export async function authenticateUser(req, res, next) {
             globalForPrisma.prisma = new PrismaClient({
               log: ['query', 'info', 'warn', 'error'],
               errorFormat: 'pretty',
+              datasources: {
+                db: {
+                  url: process.env.DATABASE_URL,
+                },
+              },
             });
             
             // Try the operation again with the new connection
