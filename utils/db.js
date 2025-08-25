@@ -39,7 +39,20 @@ export async function withDatabase(operation) {
   
   while (retries < maxRetries) {
     try {
-      return await operation(prisma);
+      // Create a wrapper object that maps the expected model names to the actual Prisma client
+      const dbWrapper = {
+        Team: prisma.team,
+        User: prisma.user,
+        NFT: prisma.nFT,
+        // Add any other models that might be needed
+        $connect: prisma.$connect,
+        $disconnect: prisma.$disconnect,
+        $transaction: prisma.$transaction,
+        $queryRaw: prisma.$queryRaw,
+        $executeRaw: prisma.$executeRaw
+      };
+      
+      return await operation(dbWrapper);
     } catch (error) {
       retries++;
       
