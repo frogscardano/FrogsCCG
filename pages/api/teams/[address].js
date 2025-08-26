@@ -373,8 +373,110 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: `Failed to add teams: ${error.message}` });
         }
 
+      case 'PUT':
+        try {
+          const { id, name, nftIds } = req.body;
+          
+          if (!id || !name || !nftIds || !Array.isArray(nftIds)) {
+            return res.status(400).json({ error: 'Invalid team data' });
+          }
+
+          // Use withDatabase wrapper to ensure proper connection
+          const updatedTeam = await withDatabase(async (db) => {
+            // Verify the team belongs to the user
+            const team = await db.Team.findFirst({
+              where: {
+                id: id,
+                ownerId: user.id
+              }
+            });
+
+            if (!team) {
+              throw new Error('Team not found or does not belong to user');
+            }
+
+            // Verify that all NFTs belong to the user
+            const userNfts = await db.NFT.findMany({
+              where: { 
+                id: { in: nftIds },
+                ownerId: user.id
+              }
+            });
+
+            if (userNfts.length !== nftIds.length) {
+              throw new Error('Some NFTs do not belong to the user');
+            }
+
+            // Update the team
+            const updated = await db.Team.update({
+              where: { id: id },
+              data: {
+                name: name,
+                nftIds: nftIds,
+                updatedAt: new Date()
+              }
+            });
+
+            // Return team with NFTs in the expected format
+            return {
+              ...updated,
+              cards: userNfts
+            };
+          });
+
+          console.log(`✅ Team updated successfully: ${updatedTeam.name}`);
+          return res.status(200).json(updatedTeam);
+        } catch (error) {
+          console.error('❌ Error updating team:', error);
+          if (error.message === 'Team not found or does not belong to user') {
+            return res.status(403).json({ error: error.message });
+          }
+          if (error.message === 'Some NFTs do not belong to the user') {
+            return res.status(400).json({ error: error.message });
+          }
+          return res.status(500).json({ error: 'Failed to update team', details: error.message });
+        }
+
+      case 'DELETE':
+        try {
+          const { id } = req.body;
+          
+          if (!id) {
+            return res.status(400).json({ error: 'Team ID is required' });
+          }
+
+          // Use withDatabase wrapper to ensure proper connection
+          await withDatabase(async (db) => {
+            // Verify the team belongs to the user
+            const team = await db.Team.findFirst({
+              where: {
+                id: id,
+                ownerId: user.id
+              }
+            });
+
+            if (!team) {
+              throw new Error('Team not found or does not belong to user');
+            }
+
+            // Delete the team
+            await db.Team.delete({
+              where: { id: id }
+            });
+          });
+
+          console.log(`✅ Team deleted successfully: ${id}`);
+          return res.status(200).json({ message: 'Team deleted successfully' });
+        } catch (error) {
+          console.error('❌ Error deleting team:', error);
+          if (error.message === 'Team not found or does not belong to user') {
+            return res.status(403).json({ error: error.message });
+          }
+          return res.status(500).json({ error: 'Failed to delete team', details: error.message });
+        }
+
       default:
-        res.setHeader('Allow', ['GET', 'POST']);
+        res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (e) {
