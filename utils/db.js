@@ -35,9 +35,9 @@ export async function withDatabase(operation) {
       
       // Create a wrapper object that maps the expected model names to the actual Prisma client
       const dbWrapper = {
-        Team: currentPrisma.Team,
-        User: currentPrisma.User,
-        NFT: currentPrisma.NFT,
+        Team: currentPrisma.team,
+        User: currentPrisma.user,
+        NFT: currentPrisma.nFT,
         // Add any other models that might be needed
         $connect: currentPrisma.$connect,
         $disconnect: currentPrisma.$disconnect,
