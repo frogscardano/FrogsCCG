@@ -132,6 +132,7 @@ export default async function handler(req, res) {
         try {
           console.log(`🔍 Fetching teams for user ID: ${user.id}`);
           
+          // Use withDatabase wrapper for consistency
           const userTeams = await withDatabase(async (db) => {
             return await db.Team.findMany({
               where: { ownerId: user.id },
@@ -191,6 +192,23 @@ export default async function handler(req, res) {
           return res.status(200).json(responseData);
         } catch (error) {
           console.error('❌ Error fetching teams:', error);
+          
+          // Check if it's a database connection issue
+          if (error.message.includes('prepared statement') || 
+              error.message.includes('already exists') ||
+              error.message.includes('Database wrapper is not properly configured')) {
+            console.log('🔄 Database connection issue detected, returning empty teams list');
+            return res.status(200).json({
+              teams: [],
+              userInfo: {
+                id: user.id,
+                address: user.address,
+                hasTeams: false
+              },
+              message: "Database temporarily unavailable. Please try again in a moment."
+            });
+          }
+          
           return res.status(500).json({ error: 'Failed to fetch teams' });
         }
 
@@ -199,9 +217,6 @@ export default async function handler(req, res) {
           const newTeamsData = req.body;
           console.log(`📥 Received POST data for ${newTeamsData?.length || 0} teams`);
           console.log(`📥 POST data structure:`, JSON.stringify(newTeamsData, null, 2));
-          console.log(`📥 Request headers:`, req.headers);
-          console.log(`📥 Request method: ${req.method}`);
-          console.log(`📥 Request URL: ${req.url}`);
           
           if (!Array.isArray(newTeamsData)) {
             // Handle single team from direct API call
@@ -281,19 +296,23 @@ export default async function handler(req, res) {
                 throw new Error(`OwnerId truncation detected: ${teamDataForUpsert.ownerId} vs ${user.id}`);
               }
 
-              const teamRecord = await withDatabase(async (db) => {
-                try {
-                  // Check if team with same name already exists for this user
-                  const existingTeam = await db.Team.findFirst({
+              // Direct Prisma usage without wrapper
+              let teamRecord;
+              try {
+                // Check if team with same name already exists for this user
+                const existingTeam = await withDatabase(async (db) => {
+                  return await db.Team.findFirst({
                     where: {
                       name: teamDataForUpsert.name,
                       ownerId: teamDataForUpsert.ownerId
                     }
                   });
+                });
 
-                  if (existingTeam) {
-                    console.log(`🔄 Updating existing team: ${existingTeam.name} (ID: ${existingTeam.id})`);
-                    // Update existing team
+                if (existingTeam) {
+                  console.log(`🔄 Updating existing team: ${existingTeam.name} (ID: ${existingTeam.id})`);
+                  // Update existing team
+                  teamRecord = await withDatabase(async (db) => {
                     return await db.Team.update({
                       where: { id: existingTeam.id },
                       data: { 
@@ -304,27 +323,29 @@ export default async function handler(req, res) {
                         updatedAt: new Date() 
                       }
                     });
-                  } else {
-                    console.log(`🆕 Creating new team: ${teamDataForUpsert.name}`);
-                    // Create new team
+                  });
+                } else {
+                  console.log(`🆕 Creating new team: ${teamDataForUpsert.name}`);
+                  // Create new team
+                  teamRecord = await withDatabase(async (db) => {
                     return await db.Team.create({
                       data: {
                         ...teamDataForUpsert,
                         id: generateTeamId(teamDataForUpsert.name, teamDataForUpsert.ownerId),
                       }
                     });
-                  }
-                } catch (dbError) {
-                  console.error(`❌ Database operation failed for team ${teamDataForUpsert.name}:`, dbError);
-                  console.error(`❌ Database error details:`, {
-                    message: dbError.message,
-                    code: dbError.code,
-                    meta: dbError.meta,
-                    teamData: teamDataForUpsert
                   });
-                  throw dbError;
                 }
-              });
+              } catch (dbError) {
+                console.error(`❌ Database operation failed for team ${teamDataForUpsert.name}:`, dbError);
+                console.error(`❌ Database error details:`, {
+                  message: dbError.message,
+                  code: dbError.code,
+                  meta: dbError.meta,
+                  teamData: teamDataForUpsert
+                });
+                throw dbError;
+              }
               
               // Verify the saved team has the correct ownerId
               console.log(`🔍 Saved team verification:`, {
@@ -338,16 +359,20 @@ export default async function handler(req, res) {
               if (teamRecord.ownerId !== user.id) {
                 console.error(`❌ CRITICAL ERROR: Saved team has wrong ownerId! Expected: ${user.id}, Got: ${teamRecord.ownerId}`);
                 // Try to fix it immediately
-                await withDatabase(async (db) => {
-                  await db.Team.update({
-                    where: { id: teamRecord.id },
-                    data: { 
-                      ownerId: user.id,
-                      updatedAt: new Date()
-                    }
+                try {
+                  await withDatabase(async (db) => {
+                    return await db.Team.update({
+                      where: { id: teamRecord.id },
+                      data: { 
+                        ownerId: user.id,
+                        updatedAt: new Date()
+                      }
+                    });
                   });
-                });
-                console.log(`✅ Fixed team ownerId after save from "${teamRecord.ownerId}" to "${user.id}"`);
+                  console.log(`✅ Fixed team ownerId after save from "${teamRecord.ownerId}" to "${user.id}"`);
+                } catch (fixError) {
+                  console.error(`❌ Failed to fix team ownerId:`, fixError);
+                }
               }
               
               // Return team with NFTs in the expected format
@@ -381,34 +406,37 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Invalid team data' });
           }
 
-          // Use withDatabase wrapper to ensure proper connection
+          // Direct Prisma usage without wrapper
           const updatedTeam = await withDatabase(async (db) => {
-            // Verify the team belongs to the user
-            const team = await db.Team.findFirst({
+            return await db.Team.findFirst({
               where: {
                 id: id,
                 ownerId: user.id
               }
             });
+          });
 
-            if (!team) {
-              throw new Error('Team not found or does not belong to user');
-            }
+          if (!updatedTeam) {
+            throw new Error('Team not found or does not belong to user');
+          }
 
-            // Verify that all NFTs belong to the user
-            const userNfts = await db.NFT.findMany({
+          // Verify that all NFTs belong to the user
+          const userNfts = await withDatabase(async (db) => {
+            return await db.NFT.findMany({
               where: { 
                 id: { in: nftIds },
                 ownerId: user.id
               }
             });
+          });
 
-            if (userNfts.length !== nftIds.length) {
-              throw new Error('Some NFTs do not belong to the user');
-            }
+          if (userNfts.length !== nftIds.length) {
+            throw new Error('Some NFTs do not belong to the user');
+          }
 
-            // Update the team
-            const updated = await db.Team.update({
+          // Update the team
+          const updated = await withDatabase(async (db) => {
+            return await db.Team.update({
               where: { id: id },
               data: {
                 name: name,
@@ -416,16 +444,16 @@ export default async function handler(req, res) {
                 updatedAt: new Date()
               }
             });
-
-            // Return team with NFTs in the expected format
-            return {
-              ...updated,
-              cards: userNfts
-            };
           });
 
-          console.log(`✅ Team updated successfully: ${updatedTeam.name}`);
-          return res.status(200).json(updatedTeam);
+          // Return team with NFTs in the expected format
+          const result = {
+            ...updated,
+            cards: userNfts
+          };
+
+          console.log(`✅ Team updated successfully: ${updated.name}`);
+          return res.status(200).json(result);
         } catch (error) {
           console.error('❌ Error updating team:', error);
           if (error.message === 'Team not found or does not belong to user') {
@@ -445,22 +473,23 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Team ID is required' });
           }
 
-          // Use withDatabase wrapper to ensure proper connection
-          await withDatabase(async (db) => {
-            // Verify the team belongs to the user
-            const team = await db.Team.findFirst({
+          // Direct Prisma usage without wrapper
+          const team = await withDatabase(async (db) => {
+            return await db.Team.findFirst({
               where: {
                 id: id,
                 ownerId: user.id
               }
             });
+          });
 
-            if (!team) {
-              throw new Error('Team not found or does not belong to user');
-            }
+          if (!team) {
+            throw new Error('Team not found or does not belong to user');
+          }
 
-            // Delete the team
-            await db.Team.delete({
+          // Delete the team
+          await withDatabase(async (db) => {
+            return await db.Team.delete({
               where: { id: id }
             });
           });
@@ -476,11 +505,24 @@ export default async function handler(req, res) {
         }
 
       default:
-        res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
+        res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (e) {
     console.error('❌ Error processing user or team data:', e);
+    
+    // Check if it's a database connection issue
+    if (e.message.includes('prepared statement') || 
+        e.message.includes('already exists') ||
+        e.message.includes('Database wrapper is not properly configured')) {
+      console.log('🔄 Database connection issue detected, returning service unavailable');
+      return res.status(503).json({ 
+        error: 'Service temporarily unavailable', 
+        message: 'Database connection issue detected. Please try again in a moment.',
+        retryAfter: 5
+      });
+    }
+    
     return res.status(500).json({ error: `Failed to process request: ${e.message}` });
   }
 }
