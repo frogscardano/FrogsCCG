@@ -66,7 +66,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     const fetchTeams = async () => {
       try {
         console.log('🔍 Fetching teams for address:', address);
-        const response = await fetch(`/api/teams?walletAddress=${address}`);
+        const response = await fetch(`/api/teams/${address}`);
         console.log('🔍 Teams API response status:', response.status);
         
         if (!response.ok) {
@@ -77,7 +77,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
         
         const data = await response.json();
         console.log('✅ Teams API response data:', data);
-        setTeams(data);
+        setTeams(data.teams || []);
       } catch (error) {
         console.error('❌ Error fetching teams:', error);
         setError('Failed to load teams. Please try again later.');
@@ -105,7 +105,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     if (!isBrowser || !address) return;
     
     try {
-      const response = await fetch(`/api/teams?walletAddress=${address}`, {
+              const response = await fetch(`/api/teams/${address}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -145,15 +145,15 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     
     try {
       const nftIds = cards.map(card => card.id);
-      const method = selectedTeam ? 'PUT' : 'POST';
-      const url = '/api/teams';
+      const method = selectedTeam ? 'PUT' : 'POST'; // Use PUT for updates, POST for new teams
+      const url = `/api/teams/${address}`;
       const body = selectedTeam 
         ? { id: selectedTeam.id, name, nftIds }
         : { name, nftIds };
 
       console.log('🔍 Saving team with:', { method, url, body });
 
-      const response = await fetch(`${url}?walletAddress=${address}`, {
+      const response = await fetch(`${url}`, {
         method,
         headers: {
           'Content-Type': 'application/json'
