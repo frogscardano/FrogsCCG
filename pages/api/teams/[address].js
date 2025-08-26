@@ -46,6 +46,16 @@ export default async function handler(req, res) {
   
   console.log(`🔍 Teams API called with address: ${address}, method: ${req.method}`);
   
+  // Add CORS headers for development
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Handle preflight request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
   // Validate and clean the wallet address
   let cleanAddress = address;
   if (address) {
@@ -81,7 +91,7 @@ export default async function handler(req, res) {
   
   if (!prisma.user) {
     console.error('❌ Prisma.user is undefined');
-    console.log('Available Prisma methods:', Object.keys(prisma));
+    console.log('Available Prisma methods:', prisma ? Object.keys(prisma).filter(key => !key.startsWith('$')) : 'null');
     return res.status(500).json({ error: 'Database user model not available' });
   }
 
@@ -205,7 +215,7 @@ export default async function handler(req, res) {
             });
           }
           
-          return res.status(500).json({ error: 'Failed to fetch teams' });
+          return res.status(500).json({ error: 'Failed to fetch teams', details: error.message });
         }
 
       case 'POST':
