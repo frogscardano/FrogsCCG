@@ -4,24 +4,43 @@ const globalForPrisma = globalThis;
 
 export { globalForPrisma };
 
-export const prisma =
-  globalForPrisma.prisma ??
-  (globalForPrisma.prisma = new PrismaClient({
-    log: ['query', 'info', 'warn', 'error'],
+// Validate environment variables
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL environment variable is not set');
+  throw new Error('DATABASE_URL environment variable is required');
+}
+
+// Create a new Prisma client with optimized settings for serverless
+function createPrismaClient() {
+  return new PrismaClient({
+    log: ['error', 'warn'], // Reduce logging in production
     errorFormat: 'pretty',
     datasources: {
       db: {
         url: process.env.DATABASE_URL,
       },
     },
-    // Simplified connection configuration to avoid prepared statement conflicts
-    // Remove complex pooling that might cause issues
+    // Optimized for serverless environments
     __internal: {
       engine: {
         enableEngineDebugMode: false,
       },
     },
-  }));
+    // Disable connection pooling to avoid prepared statement conflicts
+    // In serverless, each function instance should have its own connection
+  });
+}
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+// Test database connection on startup
+prisma.$connect()
+  .then(() => {
+    console.log('✅ Database connection established successfully');
+  })
+  .catch((error) => {
+    console.error('❌ Failed to connect to database:', error);
+  });
 
 // Database operation wrapper with retry logic and better connection management
 export async function withDatabase(operation) {
@@ -31,9 +50,21 @@ export async function withDatabase(operation) {
   while (retries < maxRetries) {
     try {
       // Get the current Prisma client (it might have been updated during reconnection)
-      const currentPrisma = globalForPrisma.prisma || prisma;
+      let currentPrisma = globalForPrisma.prisma || prisma;
+      
+      // Validate that the Prisma client is properly initialized
+      if (!currentPrisma || !currentPrisma.team || !currentPrisma.user || !currentPrisma.nFT) {
+        console.error('❌ Prisma client is not properly initialized:', {
+          hasPrisma: !!currentPrisma,
+          hasTeam: !!(currentPrisma && currentPrisma.team),
+          hasUser: !!(currentPrisma && currentPrisma.user),
+          hasNFT: !!(currentPrisma && currentPrisma.nFT)
+        });
+        throw new Error('Prisma client is not properly initialized');
+      }
       
       // Create a wrapper object that maps the expected model names to the actual Prisma client
+      // Note: Prisma models are lowercase in the actual client
       const dbWrapper = {
         Team: currentPrisma.team,
         User: currentPrisma.user,
@@ -60,6 +91,13 @@ export async function withDatabase(operation) {
     } catch (error) {
       retries++;
       
+      console.error(`❌ Database operation failed (attempt ${retries}/${maxRetries}):`, {
+        message: error.message,
+        code: error.code,
+        meta: error.meta,
+        stack: error.stack
+      });
+      
       // Check if it's a connection error that might be retryable
       if (error.code === 'P2024' || 
           error.message.includes('prepared statement') || 
@@ -68,8 +106,11 @@ export async function withDatabase(operation) {
           error.message.includes('connection') ||
           error.message.includes('s0') ||
           error.message.includes('s1') ||
-          error.message.includes('s2')) {
-        console.warn(`Database operation failed (attempt ${retries}/${maxRetries}):`, error.message);
+          error.message.includes('s2') ||
+          error.message.includes('s3') ||
+          error.message.includes('s4') ||
+          error.message.includes('s5')) {
+        console.warn(`🔄 Retryable error detected, attempting retry ${retries}/${maxRetries}`);
         
         if (retries < maxRetries) {
           // Wait before retrying with exponential backoff
@@ -85,21 +126,7 @@ export async function withDatabase(operation) {
             }
             
             // Force a new connection with fresh configuration
-            globalForPrisma.prisma = new PrismaClient({
-              log: ['query', 'info', 'warn', 'error'],
-              errorFormat: 'pretty',
-              datasources: {
-                db: {
-                  url: process.env.DATABASE_URL,
-                },
-              },
-              // Simplified configuration to avoid prepared statement conflicts
-              __internal: {
-                engine: {
-                  enableEngineDebugMode: false,
-                },
-              },
-            });
+            globalForPrisma.prisma = createPrismaClient();
             
             console.log(`✅ Database reconnection successful`);
           } catch (disconnectError) {
