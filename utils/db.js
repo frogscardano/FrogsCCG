@@ -277,3 +277,173 @@ export async function ensureUserExists(address) {
 export async function getUserByAddress(address) {
   return getWalletByAddress(address);
 }
+
+// Team related functions
+export async function getUserTeams(address) {
+  if (!address) throw new Error('User address is required');
+
+  try {
+    console.log(`Fetching teams for user: ${address}`);
+
+    const user = await prisma.User.findUnique({
+      where: { address },
+      include: {
+        teams: true
+      }
+    });
+
+    if (!user) {
+      console.log(`No user found for address ${address}`);
+      return [];
+    }
+
+    console.log(`Found ${user.teams.length} teams for user ${address}`);
+    return user.teams;
+  } catch (error) {
+    console.error(`Error fetching teams for user ${address}:`, error);
+    return [];
+  }
+}
+
+export async function getTeamWithNFTs(teamId) {
+  if (!teamId) throw new Error('Team ID is required');
+
+  try {
+    const team = await prisma.Team.findUnique({
+      where: { id: teamId }
+    });
+
+    if (!team) {
+      console.log(`No team found with ID ${teamId}`);
+      return null;
+    }
+
+    // Fetch the NFTs for this team
+    if (team.nftIds && team.nftIds.length > 0) {
+      const nfts = await prisma.NFT.findMany({
+        where: { 
+          id: { in: team.nftIds }
+        }
+      });
+      
+      return {
+        ...team,
+        cards: nfts
+      };
+    } else {
+      return {
+        ...team,
+        cards: []
+      };
+    }
+  } catch (error) {
+    console.error(`Error fetching team with NFTs ${teamId}:`, error);
+    throw error;
+  }
+}
+
+export async function saveTeam(address, teamData) {
+  if (!address || !teamData) {
+    throw new Error('Address and team data are required');
+  }
+
+  try {
+    // First ensure user exists and get their ID
+    const user = await ensureUserExists(address);
+
+    // Validate team data
+    if (!teamData.name || !teamData.nftIds || !Array.isArray(teamData.nftIds)) {
+      throw new Error('Team must have a name and an array of NFT IDs');
+    }
+
+    if (teamData.nftIds.length === 0) {
+      throw new Error('Team must have at least one NFT');
+    }
+
+    if (teamData.nftIds.length > 5) {
+      throw new Error('Team cannot have more than 5 NFTs');
+    }
+
+    // Verify that all NFTs belong to the user
+    const userNfts = await prisma.NFT.findMany({
+      where: { 
+        id: { in: teamData.nftIds },
+        ownerId: user.id
+      }
+    });
+
+    if (userNfts.length !== teamData.nftIds.length) {
+      throw new Error('Some NFTs do not belong to the user');
+    }
+
+    // Check if team with same name already exists for this user
+    const existingTeam = await prisma.Team.findFirst({
+      where: {
+        name: teamData.name,
+        ownerId: user.id
+      }
+    });
+
+    if (existingTeam) {
+      // Update existing team
+      return await prisma.Team.update({
+        where: { id: existingTeam.id },
+        data: {
+          nftIds: teamData.nftIds,
+          isActive: teamData.isActive !== false,
+          battlesWon: teamData.battlesWon || 0,
+          battlesLost: teamData.battlesLost || 0,
+          updatedAt: new Date()
+        }
+      });
+    } else {
+      // Create new team
+      return await prisma.Team.create({
+        data: {
+          name: teamData.name,
+          ownerId: user.id,
+          nftIds: teamData.nftIds,
+          isActive: teamData.isActive !== false,
+          battlesWon: teamData.battlesWon || 0,
+          battlesLost: teamData.battlesLost || 0
+        }
+      });
+    }
+  } catch (error) {
+    console.error(`Error saving team for user ${address}:`, error);
+    throw error;
+  }
+}
+
+export async function deleteTeam(address, teamId) {
+  if (!address || !teamId) {
+    throw new Error('Address and team ID are required');
+  }
+
+  try {
+    // First ensure user exists and get their ID
+    const user = await ensureUserExists(address);
+
+    // Verify the team belongs to the user
+    const team = await prisma.Team.findFirst({
+      where: {
+        id: teamId,
+        ownerId: user.id
+      }
+    });
+
+    if (!team) {
+      throw new Error('Team not found or does not belong to user');
+    }
+
+    // Delete the team
+    await prisma.Team.delete({
+      where: { id: teamId }
+    });
+
+    return { message: 'Team deleted successfully' };
+  } catch (error) {
+    console.error(`Error deleting team ${teamId} for user ${address}:`, error);
+    throw error;
+  }
+}
