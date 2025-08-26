@@ -1,4 +1,4 @@
-import { prisma, withDatabase } from '../../../utils/db.js';
+import { prisma } from '../../../utils/db.js';
 import { v4 as uuid4 } from 'uuid';
 
 // Helper function to generate team ID
@@ -103,38 +103,37 @@ export default async function handler(req, res) {
   try {
     console.log(`🔄 Attempting to upsert user with address: ${cleanAddress}`);
     
-    // Use withDatabase wrapper like the collections API does
-    const user = await withDatabase(async (db) => {
-      try {
-        // First try to find existing user
-        const existingUser = await db.User.findUnique({
-          where: { address: cleanAddress }
-        });
+    // Use direct Prisma calls to avoid prepared statement conflicts
+    let user;
+    try {
+      // First try to find existing user
+      const existingUser = await prisma.user.findUnique({
+        where: { address: cleanAddress }
+      });
 
-        if (existingUser) {
-          console.log(`🔄 Updating existing user: ${existingUser.id}`);
-          // Update existing user
-          return await db.User.update({
-            where: { address: cleanAddress },
-            data: {
-              updatedAt: new Date(),
-            }
-          });
-        } else {
-          console.log(`🆕 Creating new user for address: ${cleanAddress}`);
-          // Create new user
-          return await db.User.create({
-            data: {
-              id: uuid4(),
-              address: cleanAddress,
-            }
-          });
-        }
-      } catch (userError) {
-        console.error(`❌ User operation failed for address ${cleanAddress}:`, userError);
-        throw userError;
+      if (existingUser) {
+        console.log(`🔄 Updating existing user: ${existingUser.id}`);
+        // Update existing user
+        user = await prisma.user.update({
+          where: { address: cleanAddress },
+          data: {
+            updatedAt: new Date(),
+          }
+        });
+      } else {
+        console.log(`🆕 Creating new user for address: ${cleanAddress}`);
+        // Create new user
+        user = await prisma.user.create({
+          data: {
+            id: uuid4(),
+            address: cleanAddress,
+          }
+        });
       }
-    });
+    } catch (userError) {
+      console.error(`❌ User operation failed for address ${cleanAddress}:`, userError);
+      throw userError;
+    }
     
     console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
 
@@ -143,12 +142,10 @@ export default async function handler(req, res) {
         try {
           console.log(`🔍 Fetching teams for user ID: ${user.id}`);
           
-          // Use withDatabase wrapper like the collections API does
-          const userTeams = await withDatabase(async (db) => {
-            return await db.Team.findMany({
-              where: { ownerId: user.id },
-              orderBy: { updatedAt: 'desc' }
-            });
+          // Use direct Prisma calls to avoid prepared statement conflicts
+          const userTeams = await prisma.team.findMany({
+            where: { ownerId: user.id },
+            orderBy: { updatedAt: 'desc' }
           });
           
           console.log(`📊 Found ${userTeams.length} teams for user ID: ${user.id}`);
@@ -161,12 +158,10 @@ export default async function handler(req, res) {
           const teamsWithNFTs = await Promise.all(
             userTeams.map(async (team) => {
               if (team.nftIds && team.nftIds.length > 0) {
-                const nfts = await withDatabase(async (db) => {
-                  return await db.NFT.findMany({
-                    where: { 
-                      id: { in: team.nftIds }
-                    }
-                  });
+                const nfts = await prisma.nFT.findMany({
+                  where: { 
+                    id: { in: team.nftIds }
+                  }
                 });
                 
                 console.log(`✅ Team ${team.name} has ${nfts.length} NFTs`);
@@ -260,13 +255,11 @@ export default async function handler(req, res) {
               console.log(`🔄 Processing team data:`, JSON.stringify(newTeamData, null, 2));
               
               // Validate that all NFTs belong to the user
-              const userNfts = await withDatabase(async (db) => {
-                return await db.NFT.findMany({
-                  where: { 
-                    id: { in: newTeamData.nftIds },
-                    ownerId: user.id
-                  }
-                });
+              const userNfts = await prisma.nFT.findMany({
+                where: { 
+                  id: { in: newTeamData.nftIds },
+                  ownerId: user.id
+                }
               });
 
               console.log(`🔍 Found user NFTs: ${userNfts.length} out of ${newTeamData.nftIds.length}`);
@@ -307,44 +300,38 @@ export default async function handler(req, res) {
                 throw new Error(`OwnerId truncation detected: ${teamDataForUpsert.ownerId} vs ${user.id}`);
               }
 
-              // Use withDatabase wrapper like the collections API does
+              // Use direct Prisma calls to avoid prepared statement conflicts
               let teamRecord;
               try {
                 // Check if team with same name already exists for this user
-                const existingTeam = await withDatabase(async (db) => {
-                  return await db.Team.findFirst({
-                    where: {
-                      name: teamDataForUpsert.name,
-                      ownerId: teamDataForUpsert.ownerId
-                    }
-                  });
+                const existingTeam = await prisma.team.findFirst({
+                  where: {
+                    name: teamDataForUpsert.name,
+                    ownerId: teamDataForUpsert.ownerId
+                  }
                 });
 
                 if (existingTeam) {
                   console.log(`🔄 Updating existing team: ${existingTeam.name} (ID: ${existingTeam.id})`);
                   // Update existing team
-                  teamRecord = await withDatabase(async (db) => {
-                    return await db.Team.update({
-                      where: { id: existingTeam.id },
-                      data: { 
-                        nftIds: teamDataForUpsert.nftIds,
-                        isActive: teamDataForUpsert.isActive,
-                        battlesWon: teamDataForUpsert.battlesWon,
-                        battlesLost: teamDataForUpsert.battlesLost,
-                        updatedAt: new Date() 
-                      }
-                    });
+                  teamRecord = await prisma.team.update({
+                    where: { id: existingTeam.id },
+                    data: { 
+                      nftIds: teamDataForUpsert.nftIds,
+                      isActive: teamDataForUpsert.isActive,
+                      battlesWon: teamDataForUpsert.battlesWon,
+                      battlesLost: teamDataForUpsert.battlesLost,
+                      updatedAt: new Date() 
+                    }
                   });
                 } else {
                   console.log(`🆕 Creating new team: ${teamDataForUpsert.name}`);
                   // Create new team
-                  teamRecord = await withDatabase(async (db) => {
-                    return await db.Team.create({
-                      data: {
-                        ...teamDataForUpsert,
-                        id: generateTeamId(teamDataForUpsert.name, teamDataForUpsert.ownerId),
-                      }
-                    });
+                  teamRecord = await prisma.team.create({
+                    data: {
+                      ...teamDataForUpsert,
+                      id: generateTeamId(teamDataForUpsert.name, teamDataForUpsert.ownerId),
+                    }
                   });
                 }
               } catch (dbError) {
@@ -371,14 +358,12 @@ export default async function handler(req, res) {
                 console.error(`❌ CRITICAL ERROR: Saved team has wrong ownerId! Expected: ${user.id}, Got: ${teamRecord.ownerId}`);
                 // Try to fix it immediately
                 try {
-                  await withDatabase(async (db) => {
-                    return await db.Team.update({
-                      where: { id: teamRecord.id },
-                      data: { 
-                        ownerId: user.id,
-                        updatedAt: new Date()
-                      }
-                    });
+                  await prisma.team.update({
+                    where: { id: teamRecord.id },
+                    data: { 
+                      ownerId: user.id,
+                      updatedAt: new Date()
+                    }
                   });
                   console.log(`✅ Fixed team ownerId after save from "${teamRecord.ownerId}" to "${user.id}"`);
                 } catch (fixError) {
@@ -417,14 +402,12 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Invalid team data' });
           }
 
-          // Use withDatabase wrapper like the collections API does
-          const updatedTeam = await withDatabase(async (db) => {
-            return await db.Team.findFirst({
-              where: {
-                id: id,
-                ownerId: user.id
-              }
-            });
+          // Use direct Prisma calls to avoid prepared statement conflicts
+          const updatedTeam = await prisma.team.findFirst({
+            where: {
+              id: id,
+              ownerId: user.id
+            }
           });
 
           if (!updatedTeam) {
@@ -432,13 +415,11 @@ export default async function handler(req, res) {
           }
 
           // Verify that all NFTs belong to the user
-          const userNfts = await withDatabase(async (db) => {
-            return await db.NFT.findMany({
-              where: { 
-                id: { in: nftIds },
-                ownerId: user.id
-              }
-            });
+          const userNfts = await prisma.nFT.findMany({
+            where: { 
+              id: { in: nftIds },
+              ownerId: user.id
+            }
           });
 
           if (userNfts.length !== nftIds.length) {
@@ -446,15 +427,13 @@ export default async function handler(req, res) {
           }
 
           // Update the team
-          const updated = await withDatabase(async (db) => {
-            return await db.Team.update({
-              where: { id: id },
-              data: {
-                name: name,
-                nftIds: nftIds,
-                updatedAt: new Date()
-              }
-            });
+          const updated = await prisma.team.update({
+            where: { id: id },
+            data: {
+              name: name,
+              nftIds: nftIds,
+              updatedAt: new Date()
+            }
           });
 
           // Return team with NFTs in the expected format
@@ -484,14 +463,12 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Team ID is required' });
           }
 
-          // Use withDatabase wrapper like the collections API does
-          const team = await withDatabase(async (db) => {
-            return await db.Team.findFirst({
-              where: {
-                id: id,
-                ownerId: user.id
-              }
-            });
+          // Use direct Prisma calls to avoid prepared statement conflicts
+          const team = await prisma.team.findFirst({
+            where: {
+              id: id,
+              ownerId: user.id
+            }
           });
 
           if (!team) {
@@ -499,10 +476,8 @@ export default async function handler(req, res) {
           }
 
           // Delete the team
-          await withDatabase(async (db) => {
-            return await db.Team.delete({
-              where: { id: id }
-            });
+          await prisma.team.delete({
+            where: { id: id }
           });
 
           console.log(`✅ Team deleted successfully: ${id}`);
