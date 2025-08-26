@@ -16,6 +16,11 @@ export const prisma =
     },
     // Simplified connection configuration to avoid prepared statement conflicts
     // Remove complex pooling that might cause issues
+    __internal: {
+      engine: {
+        enableEngineDebugMode: false,
+      },
+    },
   }));
 
 // Database operation wrapper with retry logic and better connection management
@@ -30,9 +35,9 @@ export async function withDatabase(operation) {
       
       // Create a wrapper object that maps the expected model names to the actual Prisma client
       const dbWrapper = {
-        Team: currentPrisma.team,
-        User: currentPrisma.user,
-        NFT: currentPrisma.nFT,
+        Team: currentPrisma.Team,
+        User: currentPrisma.User,
+        NFT: currentPrisma.NFT,
         // Add any other models that might be needed
         $connect: currentPrisma.$connect,
         $disconnect: currentPrisma.$disconnect,
@@ -89,6 +94,11 @@ export async function withDatabase(operation) {
                 },
               },
               // Simplified configuration to avoid prepared statement conflicts
+              __internal: {
+                engine: {
+                  enableEngineDebugMode: false,
+                },
+              },
             });
             
             console.log(`✅ Database reconnection successful`);
