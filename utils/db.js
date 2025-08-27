@@ -224,7 +224,7 @@ export async function addCardToUserCollection(address, tokenId, contractAddress,
 
     // Then handle the NFT
     // First try to find existing NFT
-    const existingNFT = await prisma.NFT.findFirst({
+    const existingNFT = await prisma.nFT.findFirst({
       where: {
         tokenId,
         contractAddress
@@ -233,7 +233,7 @@ export async function addCardToUserCollection(address, tokenId, contractAddress,
 
     if (existingNFT) {
       // Update existing NFT
-      return await prisma.NFT.update({
+      return await prisma.nFT.update({
         where: { id: existingNFT.id },
         data: {
           ownerId: user.id,
@@ -242,7 +242,7 @@ export async function addCardToUserCollection(address, tokenId, contractAddress,
       });
     } else {
       // Create new NFT
-      return await prisma.NFT.create({
+      return await prisma.nFT.create({
         data: {
           tokenId,
           contractAddress,
@@ -270,7 +270,7 @@ export async function ensureUserExists(address) {
 
   try {
     // First try to find existing user
-    const existingUser = await prisma.User.findUnique({
+    const existingUser = await prisma.user.findUnique({
       where: { address }
     });
 
@@ -278,7 +278,7 @@ export async function ensureUserExists(address) {
       return existingUser;
     } else {
       // Create new user
-      return await prisma.User.create({
+      return await prisma.user.create({
         data: { address }
       });
     }
