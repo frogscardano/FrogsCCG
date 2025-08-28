@@ -562,9 +562,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
           )}
         </div>
       ) : isCreatingTeam ? (
-        <div className={styles.teamCreation} style={{ border: '2px solid red', padding: '1rem', backgroundColor: '#f0f0f0' }}>
-          <h3>🔧 TEAM CREATION MODE ACTIVE</h3>
-          <p>Debug: isCreatingTeam = {isCreatingTeam.toString()}</p>
+        <div className={styles.teamCreation}>
           <Team
             cards={selectedCards}
             onAddCard={() => {
