@@ -72,38 +72,72 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
         
         console.log('🔍 Attempting to fetch teams for address:', address);
         
-        // First check if the API is available
-        const healthResponse = await fetch('/api/health');
-        if (!healthResponse.ok) {
-          console.log('⚠️ Health check failed, using local storage');
-          setApiAvailable(false);
-          loadTeamsFromLocalStorage();
-          return;
-        }
-        
-        const response = await fetch(`/api/teams/${address}`);
-        console.log('🔍 Teams API response status:', response.status);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ Teams API response data:', data);
+        // First try the API endpoint
+        try {
+          const response = await fetch(`/api/teams/${address}`);
+          console.log('🔍 Teams API response status:', response.status);
           
-          // Check if the API returned a fallback response
-          if (data.fallback) {
-            console.log('⚠️ API returned fallback response, using local storage');
-            setApiAvailable(false);
-            setTeams(data.teams || []);
+          if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Teams API response data:', data);
+            
+            // Check if the API returned a fallback response
+            if (data.fallback) {
+              console.log('⚠️ API returned fallback response, trying direct database access');
+              setApiAvailable(false);
+            } else {
+              setTeams(data.teams || []);
+              setApiAvailable(true);
+              setIsLoading(false);
+              return;
+            }
           } else {
-            setTeams(data.teams || []);
-            setApiAvailable(true);
+            console.log('⚠️ Teams API failed, trying direct database access');
+            setApiAvailable(false);
           }
-        } else {
-          console.log('⚠️ Teams API not available, loading from local storage');
+        } catch (error) {
+          console.log('⚠️ Teams API failed, trying direct database access:', error.message);
           setApiAvailable(false);
+        }
+        
+        // Fallback: Try direct database access using Prisma
+        try {
+          console.log('🔍 Attempting direct database access using Prisma');
+          
+          // Import Prisma client dynamically to avoid SSR issues
+          const { PrismaClient } = await import('@prisma/client');
+          const prisma = new PrismaClient();
+          
+          // Find user by address
+          const user = await prisma.user.findUnique({
+            where: { address: address }
+          });
+          
+          if (user) {
+            // Fetch teams for the user
+            const userTeams = await prisma.team.findMany({
+              where: { ownerId: user.id },
+              orderBy: { createdAt: 'desc' }
+            });
+            
+            console.log('✅ Teams loaded from database directly via Prisma:', userTeams.length);
+            setTeams(userTeams);
+            setApiAvailable(true);
+          } else {
+            console.log('ℹ️ No user found in database, using local storage');
+            loadTeamsFromLocalStorage();
+          }
+          
+          await prisma.$disconnect();
+          
+        } catch (dbError) {
+          console.error('❌ Direct database access failed:', dbError);
+          console.log('⚠️ Falling back to local storage');
           loadTeamsFromLocalStorage();
         }
+        
       } catch (error) {
-        console.log('⚠️ Teams API not available, loading from local storage:', error.message);
+        console.log('⚠️ All database methods failed, using local storage:', error.message);
         setApiAvailable(false);
         loadTeamsFromLocalStorage();
       } finally {
@@ -166,8 +200,60 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     setIsCreatingTeam(true);
   };
 
-  const handleDeleteTeam = (teamToDelete) => {
-    // Remove from local state only
+  const handleDeleteTeam = async (teamToDelete) => {
+    console.log('🔍 Attempting to delete team:', teamToDelete);
+    
+    try {
+      // Try to delete from database first
+      if (apiAvailable) {
+        try {
+          const response = await fetch('/api/teams', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+              teamId: teamToDelete.id,
+              address: address 
+            })
+          });
+          
+          if (response.ok) {
+            console.log('✅ Team deleted from database successfully');
+          } else {
+            console.log('⚠️ API delete failed, trying direct database delete');
+          }
+        } catch (error) {
+          console.log('⚠️ API delete failed, trying direct database delete:', error.message);
+        }
+      }
+      
+      // Fallback: Try direct database delete using Prisma
+      try {
+        console.log('🔍 Attempting direct database delete using Prisma');
+        
+        // Import Prisma client dynamically to avoid SSR issues
+        const { PrismaClient } = await import('@prisma/client');
+        const prisma = new PrismaClient();
+        
+        // Delete the team from the database
+        await prisma.team.delete({
+          where: { id: teamToDelete.id }
+        });
+        
+        console.log('✅ Team deleted from database directly via Prisma');
+        await prisma.$disconnect();
+        
+      } catch (dbError) {
+        console.error('❌ Direct database delete failed:', dbError);
+        // Continue with local deletion even if database delete fails
+      }
+      
+    } catch (error) {
+      console.error('❌ Error during team deletion:', error);
+    }
+    
+    // Remove from local state
     setTeams(teams.filter(team => team.id !== teamToDelete.id));
     if (selectedTeam?.id === teamToDelete.id) {
       setSelectedTeam(null);
@@ -203,17 +289,19 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
       updatedAt: new Date().toISOString()
     };
 
-    // Try to save to database if API is available, but don't fail if it doesn't work
-    if (apiAvailable) {
-      try {
-        const nftIds = cards.map(card => card.id);
+    // Try to save to database using direct Prisma operations first
+    try {
+      const nftIds = cards.map(card => card.id);
+      
+      // First try the API endpoint
+      if (apiAvailable) {
         const method = selectedTeam ? 'PUT' : 'POST';
         const url = `/api/teams/${address}`;
         const body = selectedTeam 
           ? { id: selectedTeam.id, name, nftIds }
           : { name, nftIds };
 
-        console.log('🔍 Attempting to save team to database:', { method, url, body });
+        console.log('🔍 Attempting to save team via API:', { method, url, body });
 
         const response = await fetch(`${url}`, {
           method,
@@ -225,7 +313,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
 
         if (response.ok) {
           const savedTeam = await response.json();
-          console.log('✅ Team saved to database successfully:', savedTeam);
+          console.log('✅ Team saved to database via API successfully:', savedTeam);
           
           // Update local state with the database response
           if (selectedTeam) {
@@ -246,28 +334,108 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
           setSelectedCards([]);
           return;
         } else {
-          console.log('⚠️ Database save failed, falling back to local storage');
-          setApiAvailable(false);
+          console.log('⚠️ API save failed, trying direct database save');
         }
-      } catch (error) {
-        console.log('⚠️ Database save failed, falling back to local storage:', error.message);
-        setApiAvailable(false);
       }
-    }
 
-    // Fallback to local storage
-    console.log('💾 Saving team to local storage');
-    if (selectedTeam) {
-      setTeams(teams.map(team => 
-        team.id === selectedTeam.id ? newTeam : team
-      ));
-    } else {
-      setTeams([...teams, newTeam]);
-    }
+      // Fallback: Try direct database save using Prisma
+      console.log('🔍 Attempting direct database save using Prisma');
+      
+      // Import Prisma client dynamically to avoid SSR issues
+      const { PrismaClient } = await import('@prisma/client');
+      const prisma = new PrismaClient();
+      
+      try {
+        // First ensure the user exists in the database
+        let user = await prisma.user.findUnique({
+          where: { address: address }
+        });
+        
+        if (!user) {
+          console.log('🔍 Creating new user for address:', address);
+          user = await prisma.user.create({
+            data: {
+              address: address,
+              provider: 'eternl'
+            }
+          });
+        }
+        
+        // Save the team to the database
+        let savedTeam;
+        if (selectedTeam) {
+          // Update existing team
+          savedTeam = await prisma.team.update({
+            where: { id: selectedTeam.id },
+            data: {
+              name: name.trim(),
+              nftIds: nftIds,
+              updatedAt: new Date()
+            }
+          });
+        } else {
+          // Create new team
+          savedTeam = await prisma.team.create({
+            data: {
+              name: name.trim(),
+              nftIds: nftIds,
+              ownerId: user.id,
+              isActive: true,
+              battlesWon: 0,
+              battlesLost: 0
+            }
+          });
+        }
+        
+        console.log('✅ Team saved to database directly via Prisma:', savedTeam);
+        
+        // Update local state with the database response
+        if (selectedTeam) {
+          setTeams(teams.map(team => 
+            team.id === savedTeam.id ? savedTeam : team
+          ));
+        } else {
+          setTeams([...teams, savedTeam]);
+        }
+        
+        // Show success message
+        if (typeof onBattleComplete === 'function') {
+          onBattleComplete({ type: 'team_saved', team: savedTeam });
+        }
+        
+        setApiAvailable(true); // Mark API as available again
+        setIsCreatingTeam(false);
+        setSelectedTeam(null);
+        setSelectedCards([]);
+        
+        // Close Prisma connection
+        await prisma.$disconnect();
+        return;
+        
+      } catch (dbError) {
+        console.error('❌ Direct database save failed:', dbError);
+        await prisma.$disconnect();
+        throw dbError; // Re-throw to be caught by outer catch
+      }
+      
+    } catch (error) {
+      console.log('⚠️ All database save methods failed, falling back to local storage:', error.message);
+      setApiAvailable(false);
+      
+      // Fallback to local storage
+      console.log('💾 Saving team to local storage');
+      if (selectedTeam) {
+        setTeams(teams.map(team => 
+          team.id === selectedTeam.id ? newTeam : team
+        ));
+      } else {
+        setTeams([...teams, newTeam]);
+      }
 
-    setIsCreatingTeam(false);
-    setSelectedTeam(null);
-    setSelectedCards([]);
+      setIsCreatingTeam(false);
+      setSelectedTeam(null);
+      setSelectedCards([]);
+    }
   };
 
   const handleStartBattle = () => {
