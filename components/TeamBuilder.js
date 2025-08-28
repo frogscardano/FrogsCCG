@@ -18,8 +18,9 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   const [team2, setTeam2] = useState(null);
   const [battleResult, setBattleResult] = useState(null);
   const [isBattleLoading, setIsBattleLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(false); // Changed to false since we're not loading from DB
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [apiAvailable, setApiAvailable] = useState(false);
 
   // Debug: Log the cards prop
   console.log('🔍 TeamBuilder received cards:', cards);
@@ -66,20 +67,44 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     
     const fetchTeams = async () => {
       try {
+        setIsLoading(true);
+        setError(null);
+        
         console.log('🔍 Attempting to fetch teams for address:', address);
+        
+        // First check if the API is available
+        const healthResponse = await fetch('/api/health');
+        if (!healthResponse.ok) {
+          console.log('⚠️ Health check failed, using local storage');
+          setApiAvailable(false);
+          loadTeamsFromLocalStorage();
+          return;
+        }
+        
         const response = await fetch(`/api/teams/${address}`);
         console.log('🔍 Teams API response status:', response.status);
         
         if (response.ok) {
           const data = await response.json();
           console.log('✅ Teams API response data:', data);
-          setTeams(data.teams || []);
+          
+          // Check if the API returned a fallback response
+          if (data.fallback) {
+            console.log('⚠️ API returned fallback response, using local storage');
+            setApiAvailable(false);
+            setTeams(data.teams || []);
+          } else {
+            setTeams(data.teams || []);
+            setApiAvailable(true);
+          }
         } else {
           console.log('⚠️ Teams API not available, loading from local storage');
+          setApiAvailable(false);
           loadTeamsFromLocalStorage();
         }
       } catch (error) {
         console.log('⚠️ Teams API not available, loading from local storage:', error.message);
+        setApiAvailable(false);
         loadTeamsFromLocalStorage();
       } finally {
         setIsLoading(false);
@@ -103,7 +128,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
         setTeams([]);
       }
     } catch (error) {
-      console.log('⚠️ Error loading from local storage:', error.message);
+      console.error('❌ Error loading teams from local storage:', error);
       setTeams([]);
     }
   };
@@ -117,7 +142,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
       localStorage.setItem(storageKey, JSON.stringify(teams));
       console.log('💾 Saved teams to local storage:', teams.length);
     } catch (error) {
-      console.log('⚠️ Error saving to local storage:', error.message);
+      console.error('❌ Error saving teams to local storage:', error);
     }
   }, [teams, address, isBrowser]);
 
@@ -178,58 +203,66 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
       updatedAt: new Date().toISOString()
     };
 
-    // Try to save to database, but don't fail if it doesn't work
-    try {
-      const nftIds = cards.map(card => card.id);
-      const method = selectedTeam ? 'PUT' : 'POST';
-      const url = `/api/teams/${address}`;
-      const body = selectedTeam 
-        ? { id: selectedTeam.id, name, nftIds }
-        : { name, nftIds };
+    // Try to save to database if API is available, but don't fail if it doesn't work
+    if (apiAvailable) {
+      try {
+        const nftIds = cards.map(card => card.id);
+        const method = selectedTeam ? 'PUT' : 'POST';
+        const url = `/api/teams/${address}`;
+        const body = selectedTeam 
+          ? { id: selectedTeam.id, name, nftIds }
+          : { name, nftIds };
 
-      console.log('🔍 Attempting to save team to database:', { method, url, body });
+        console.log('🔍 Attempting to save team to database:', { method, url, body });
 
-      const response = await fetch(`${url}`, {
-        method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
+        const response = await fetch(`${url}`, {
+          method,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
 
-      if (response.ok) {
-        const savedTeam = await response.json();
-        console.log('✅ Team saved to database successfully:', savedTeam);
-        
-        // Update local state with the database response
-        if (selectedTeam) {
-          setTeams(teams.map(team => 
-            team.id === savedTeam.id ? savedTeam : team
-          ));
+        if (response.ok) {
+          const savedTeam = await response.json();
+          console.log('✅ Team saved to database successfully:', savedTeam);
+          
+          // Update local state with the database response
+          if (selectedTeam) {
+            setTeams(teams.map(team => 
+              team.id === savedTeam.id ? savedTeam : team
+            ));
+          } else {
+            setTeams([...teams, savedTeam]);
+          }
+          
+          // Show success message
+          if (typeof onBattleComplete === 'function') {
+            onBattleComplete({ type: 'team_saved', team: savedTeam });
+          }
+          
+          setIsCreatingTeam(false);
+          setSelectedTeam(null);
+          setSelectedCards([]);
+          return;
         } else {
-          setTeams([...teams, savedTeam]);
+          console.log('⚠️ Database save failed, falling back to local storage');
+          setApiAvailable(false);
         }
-      } else {
-        console.log('⚠️ Database save failed, but team created locally');
-        // Still create the team locally even if database save fails
-        if (selectedTeam) {
-          setTeams(teams.map(team => 
-            team.id === selectedTeam.id ? newTeam : team
-          ));
-        } else {
-          setTeams([...teams, newTeam]);
-        }
+      } catch (error) {
+        console.log('⚠️ Database save failed, falling back to local storage:', error.message);
+        setApiAvailable(false);
       }
-    } catch (error) {
-      console.log('⚠️ Database save failed, but team created locally:', error.message);
-      // Still create the team locally even if database save fails
-      if (selectedTeam) {
-        setTeams(teams.map(team => 
-          team.id === selectedTeam.id ? newTeam : team
-        ));
-      } else {
-        setTeams([...teams, newTeam]);
-      }
+    }
+
+    // Fallback to local storage
+    console.log('💾 Saving team to local storage');
+    if (selectedTeam) {
+      setTeams(teams.map(team => 
+        team.id === selectedTeam.id ? newTeam : team
+      ));
+    } else {
+      setTeams([...teams, newTeam]);
     }
 
     setIsCreatingTeam(false);
