@@ -428,16 +428,6 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
             <button onClick={handleCreateTeam} className={styles.createButton}>
               Create New Team
             </button>
-            <button 
-              onClick={() => {
-                console.log('🧪 Manual test: setting isCreatingTeam to true');
-                setIsCreatingTeam(true);
-              }} 
-              className={styles.createButton}
-              style={{ backgroundColor: '#28a745' }}
-            >
-              Test Create
-            </button>
             {teams.length >= 2 && (
               <button onClick={handleStartBattle} className={styles.battleButton}>
                 Start Battle
@@ -461,18 +451,7 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
         </div>
       )}
       
-      {/* Debug info */}
-      <div style={{ fontSize: '12px', color: '#666', marginBottom: '1rem', padding: '0.5rem', backgroundColor: '#f0f0f0', border: '1px solid #ccc' }}>
-        <strong>Debug Info:</strong><br/>
-        isCreatingTeam: {isCreatingTeam.toString()}<br/>
-        selectedCards: {selectedCards.length}<br/>
-        teams: {teams.length}<br/>
-        availableCards: {cards?.length || 0}<br/>
-        battleMode: {battleMode.toString()}<br/>
-        <button onClick={() => console.log('Current state:', { isCreatingTeam, selectedCards, teams, battleMode })}>
-          Log State
-        </button>
-      </div>
+
 
       {battleMode ? (
         <div className={styles.battleMode}>
