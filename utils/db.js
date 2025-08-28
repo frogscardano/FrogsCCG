@@ -4,6 +4,12 @@ const globalForPrisma = globalThis;
 
 export { globalForPrisma };
 
+// Check if DATABASE_URL is available
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.warn('⚠️ DATABASE_URL environment variable is not set. Database operations will fail.');
+}
+
 export const prisma =
   globalForPrisma.prisma ??
   (globalForPrisma.prisma = new PrismaClient({
@@ -11,7 +17,7 @@ export const prisma =
     errorFormat: 'pretty',
     datasources: {
       db: {
-        url: process.env.DATABASE_URL,
+        url: DATABASE_URL,
       },
     },
     // Simplified connection configuration to avoid prepared statement conflicts
@@ -22,6 +28,30 @@ export const prisma =
       },
     },
   }));
+
+// Test database connection
+export async function testDatabaseConnection() {
+  try {
+    if (!DATABASE_URL) {
+      return { 
+        connected: false, 
+        error: 'DATABASE_URL not set',
+        message: 'Database connection string is not configured'
+      };
+    }
+
+    await prisma.$connect();
+    console.log('✅ Database connection successful');
+    return { connected: true, message: 'Database connection successful' };
+  } catch (error) {
+    console.error('❌ Database connection failed:', error);
+    return { 
+      connected: false, 
+      error: error.message,
+      message: 'Failed to connect to database'
+    };
+  }
+}
 
 // Database operation wrapper with retry logic and better connection management
 export async function withDatabase(operation) {
@@ -94,7 +124,7 @@ export async function withDatabase(operation) {
               errorFormat: 'pretty',
               datasources: {
                 db: {
-                  url: process.env.DATABASE_URL,
+                  url: DATABASE_URL,
                 },
               },
               // Simplified configuration to avoid prepared statement conflicts
