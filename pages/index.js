@@ -3,6 +3,7 @@ import { fetchFromIpfs, fetchCardanoAsset } from '../utils/ipfs';
 import { showAlert, isTelegramWebApp } from '../utils/telegram';
 import CardCollection from '../components/CardCollection';
 import TeamBuilder from '../components/TeamBuilder';
+import ErrorBoundary from '../components/ErrorBoundary';
 import Head from 'next/head';
 import styles from '../styles/Home.module.css';
 import WalletConnect from '../components/WalletConnect';
@@ -609,18 +610,20 @@ export default function Home() {
         ) : currentTab === 'teams' ? (
           <div className={styles.teamsTab}>
             <h2>Team Builder</h2>
-            <TeamBuilder 
-              cards={currentCards}
-              onBattleComplete={(result) => {
-                if (result.winner === 'draw') {
-                  showAlert(`Battle ended in a draw!`);
-                } else {
-                  const winnerCollection = result.winner === 'teamA' ? result.teamACollection : result.teamBCollection;
-                  const loserCollection = result.winner === 'teamA' ? result.teamBCollection : result.teamACollection;
-                  showAlert(`${winnerCollection} won the battle against ${loserCollection}!`);
-                }
-              }}
-            />
+            <ErrorBoundary>
+              <TeamBuilder 
+                cards={currentCards}
+                onBattleComplete={(result) => {
+                  if (result.winner === 'draw') {
+                    showAlert(`Battle ended in a draw!`);
+                  } else {
+                    const winnerCollection = result.winner === 'teamA' ? result.teamACollection : result.teamBCollection;
+                    const loserCollection = result.winner === 'teamA' ? result.teamBCollection : result.teamACollection;
+                    showAlert(`${winnerCollection} won the battle against ${loserCollection}!`);
+                  }
+                }}
+              />
+            </ErrorBoundary>
           </div>
         ) : (
           <div className={styles.gamesTab}>
