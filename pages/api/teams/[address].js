@@ -1,95 +1,65 @@
 import { prisma } from '../../../utils/db.js';
-import { getFrogStats } from '../../../utils/frogData.js';
 import { v4 as uuid4 } from 'uuid';
 
-// Add this helper function at the top after imports
-const generateNFTId = (tokenId, contractAddress) => {
+// Helper function to generate team ID
+const generateTeamId = (name, ownerId) => {
   const timestamp = Date.now().toString(36);
   const randomStr = Math.random().toString(36).substr(2, 5);
-  return `nft_${timestamp}_${randomStr}`;
+  return `team_${timestamp}_${randomStr}`;
 };
 
-// CRITICAL FIX: Function to sanitize tokenId to prevent binary interpretation
-const sanitizeTokenId = (tokenId) => {
-  if (!tokenId) return null;
-  
-  // Convert to string and trim
-  let sanitized = String(tokenId).trim();
-  
-  // If it's all hex characters, add prefix to prevent binary interpretation
-  if (/^[0-9a-fA-F]+$/.test(sanitized) && sanitized.length > 10) {
-    sanitized = `cardano_${sanitized}`;
+// Function to validate team data
+function validateTeamData(teamData) {
+  if (!teamData.name || !teamData.nftIds || !Array.isArray(teamData.nftIds)) {
+    return {
+      isValid: false,
+      error: 'Team must have a name and an array of NFT IDs'
+    };
   }
-  
-  return sanitized;
-};
 
-// Function to calculate game stats based on NFT data
-function calculateGameStats(nftData) {
-  const rarity = nftData.rarity || 'Common';
-  
-  // Extract number from NFT name or use a default
-  let nftNumber = 1;
-  
-  // Try to extract number from name (e.g., "Frogs #123", "Snekkies #4267")
-  const nameMatch = nftData.name?.match(/#(\d+)/);
-  if (nameMatch) {
-    nftNumber = parseInt(nameMatch[1]);
-  } else {
-    // Try to extract from attributes
-    const numberAttr = nftData.attributes?.find(attr => 
-      attr.trait_type === "Number" || attr.trait_type === "Asset Name"
-    );
-    if (numberAttr && numberAttr.value) {
-      const numMatch = numberAttr.value.toString().match(/\d+/);
-      if (numMatch) {
-        nftNumber = parseInt(numMatch[0]);
-      }
-    }
+  if (teamData.name.trim().length === 0) {
+    return {
+      isValid: false,
+      error: 'Team name cannot be empty'
+    };
   }
-  
-  console.log(`🎮 Calculating stats for NFT #${nftNumber} with rarity ${rarity}`);
-  
-  // Use getFrogStats for now - can be extended for other collections
-  const stats = getFrogStats(nftNumber, rarity);
-  
-  // Add some collection-specific bonuses
-  const collection = nftData.attributes?.find(attr => attr.trait_type === "Collection")?.value || 'Unknown';
-  let bonus = { attack: 0, health: 0, speed: 0 };
-  
-  switch (collection.toLowerCase()) {
-    case 'snekkies':
-      bonus = { attack: 5, health: 0, speed: 10 }; // Snekkies are fast
-      break;
-    case 'titans':
-      bonus = { attack: 10, health: 15, speed: -5 }; // Titans are strong but slow
-      break;
-    case 'frogs':
-    default:
-      bonus = { attack: 0, health: 5, speed: 5 }; // Frogs are balanced
-      break;
+
+  if (teamData.nftIds.length === 0) {
+    return {
+      isValid: false,
+      error: 'Team must have at least one NFT'
+    };
   }
-  
-  return {
-    attack: Math.max(1, stats.attack + bonus.attack),
-    health: Math.max(1, stats.health + bonus.health),
-    speed: Math.max(1, stats.speed + bonus.speed),
-    special: stats.special
-  };
+
+  if (teamData.nftIds.length > 5) {
+    return {
+      isValid: false,
+      error: 'Team cannot have more than 5 NFTs'
+    };
+  }
+
+  return { isValid: true };
 }
 
 export default async function handler(req, res) {
   const { address } = req.query;
   
-  console.log(`🔍 Collections API called with address: ${address}, method: ${req.method}`);
+  console.log(`🔍 Teams API called with address: ${address}, method: ${req.method}`);
   
-  // CRITICAL FIX: Validate and clean the wallet address
+  // Add CORS headers for development
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Handle preflight request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  // Validate and clean the wallet address
   let cleanAddress = address;
   if (address) {
-    // Basic validation - just check format and length
-    // Cardano addresses are complex and strict validation can cause false positives
-    
-    // Check if the address has the right format
+    // Basic validation - check format and length
     if (!address.startsWith('addr1') && !address.startsWith('stake1')) {
       console.error(`❌ Invalid wallet address format: ${address}`);
       return res.status(400).json({ 
@@ -114,6 +84,25 @@ export default async function handler(req, res) {
     console.log(`🔍 Validated wallet address: ${cleanAddress} (length: ${cleanAddress.length})`);
   }
   
+  if (!prisma) {
+    console.error('❌ Prisma client is completely undefined');
+    return res.status(503).json({ 
+      error: 'Database temporarily unavailable',
+      message: 'Database connection is not available. Teams will be stored locally.',
+      fallback: true
+    });
+  }
+  
+  if (!prisma.user) {
+    console.error('❌ Prisma.user is undefined');
+    console.log('Available Prisma methods:', prisma ? Object.keys(prisma).filter(key => !key.startsWith('$')) : 'null');
+    return res.status(503).json({ 
+      error: 'Database models not available',
+      message: 'Database models are not properly initialized. Teams will be stored locally.',
+      fallback: true
+    });
+  }
+
   if (!cleanAddress) {
     console.log('❌ No address provided');
     return res.status(400).json({ error: 'Wallet address is required' });
@@ -122,184 +111,417 @@ export default async function handler(req, res) {
   try {
     console.log(`🔄 Attempting to upsert user with address: ${cleanAddress}`);
     
-    // Use direct Prisma calls to avoid conflicts with withDatabase wrapper
-    const user = await (async () => {
-      try {
-        // First try to find existing user
-        const existingUser = await prisma.user.findUnique({
-          where: { address: cleanAddress }
-        });
+    // Use direct Prisma calls to avoid prepared statement conflicts
+    let user;
+    try {
+      // First try to find existing user
+      const existingUser = await prisma.user.findUnique({
+        where: { address: cleanAddress }
+      });
 
-        if (existingUser) {
-          console.log(`🔄 Updating existing user: ${existingUser.id}`);
-          // Update existing user
-          return await prisma.user.update({
-            where: { address: cleanAddress },
-            data: {
-              updatedAt: new Date(),
-            }
-          });
-        } else {
-          console.log(`🆕 Creating new user for address: ${cleanAddress}`);
-          // Create new user
-          return await prisma.user.create({
-            data: {
-              id: uuid4(),
-              address: cleanAddress,
-            }
-          });
-        }
-      } catch (userError) {
-        console.error(`❌ User operation failed for address ${cleanAddress}:`, userError);
-        throw userError;
+      if (existingUser) {
+        console.log(`🔄 Updating existing user: ${existingUser.id}`);
+        // Update existing user
+        user = await prisma.user.update({
+          where: { address: cleanAddress },
+          data: {
+            updatedAt: new Date(),
+          }
+        });
+      } else {
+        console.log(`🆕 Creating new user for address: ${cleanAddress}`);
+        // Create new user
+        user = await prisma.user.create({
+          data: {
+            id: uuid4(),
+            address: cleanAddress,
+          }
+        });
       }
-    })();
+    } catch (userError) {
+      console.error(`❌ User operation failed for address ${cleanAddress}:`, userError);
+      throw userError;
+    }
     
     console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
 
     switch (req.method) {
       case 'GET':
         try {
-          console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
+          console.log(`🔍 Fetching teams for user ID: ${user.id}`);
           
-          // Use direct Prisma calls to avoid conflicts
-          let userNfts = await prisma.nFT.findMany({
+          // Use direct Prisma calls to avoid prepared statement conflicts
+          const userTeams = await prisma.team.findMany({
             where: { ownerId: user.id },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { updatedAt: 'desc' }
           });
           
-          console.log(`📊 Found ${userNfts.length} NFTs for user ID: ${user.id}`);
+          console.log(`📊 Found ${userTeams.length} teams for user ID: ${user.id}`);
           
-          if (userNfts.length === 0) {
-            console.log(`ℹ️ User ${user.id} has no NFTs yet. This is normal for new users.`);
+          if (userTeams.length === 0) {
+            console.log(`ℹ️ User ${user.id} has no teams yet. This is normal for new users.`);
           }
           
-          // Add game stats to each NFT
-          const nftsWithStats = userNfts.map(nft => {
-            const stats = calculateGameStats(nft);
-            return {
-              ...nft,
-              attack: stats.attack,
-              health: stats.health,
-              speed: stats.speed,
-              special: stats.special
-            };
-          });
+          // For each team, fetch the associated NFTs
+          const teamsWithNFTs = await Promise.all(
+            userTeams.map(async (team) => {
+              if (team.nftIds && team.nftIds.length > 0) {
+                const nfts = await prisma.nFT.findMany({
+                  where: { 
+                    id: { in: team.nftIds }
+                  }
+                });
+                
+                console.log(`✅ Team ${team.name} has ${nfts.length} NFTs`);
+                
+                return {
+                  ...team,
+                  cards: nfts
+                };
+              } else {
+                console.log(`ℹ️ Team ${team.name} has no NFTs`);
+                return {
+                  ...team,
+                  cards: []
+                };
+              }
+            })
+          );
           
-          console.log(`✅ Returning collection with ${nftsWithStats.length} items`);
+          console.log(`✅ Returning teams with ${teamsWithNFTs.length} items`);
           
-          return res.status(200).json({
-            collection: nftsWithStats,
+          // Add helpful metadata to the response
+          const responseData = {
+            teams: teamsWithNFTs,
             userInfo: {
               id: user.id,
               address: user.address,
-              nftCount: nftsWithStats.length
-            }
-          });
+              hasTeams: teamsWithNFTs.length > 0
+            },
+            message: teamsWithNFTs.length > 0 
+              ? `Found ${teamsWithNFTs.length} teams` 
+              : "You have no teams yet. Create your first team to get started!"
+          };
+          
+          return res.status(200).json(responseData);
         } catch (error) {
-          console.error('❌ Error fetching NFTs:', error);
-          return res.status(500).json({ error: 'Failed to fetch NFTs' });
+          console.error('❌ Error fetching teams:', error);
+          
+          // Check if it's a database connection issue
+          if (error.message.includes('prepared statement') || 
+              error.message.includes('already exists') ||
+              error.message.includes('Database wrapper is not properly configured') ||
+              error.message.includes('connection') ||
+              error.message.includes('timeout') ||
+              error.message.includes('ECONNREFUSED') ||
+              error.message.includes('ENOTFOUND')) {
+            console.log('🔄 Database connection issue detected, returning empty teams list');
+            return res.status(200).json({
+              teams: [],
+              userInfo: {
+                id: user.id,
+                address: user.address,
+                hasTeams: false
+              },
+              message: "Database temporarily unavailable. Teams will be stored locally.",
+              fallback: true
+            });
+          }
+          
+          return res.status(500).json({ error: 'Failed to fetch teams', details: error.message });
         }
 
       case 'POST':
         try {
-          const nftData = req.body;
-          console.log(`📥 Received POST data for ${nftData?.length || 0} NFTs`);
+          const newTeamsData = req.body;
+          console.log(`📥 Received POST data for ${newTeamsData?.length || 0} teams`);
+          console.log(`📥 POST data structure:`, JSON.stringify(newTeamsData, null, 2));
           
-          if (!Array.isArray(nftData)) {
-            nftData = [nftData];
+          if (!Array.isArray(newTeamsData)) {
+            // Handle single team from direct API call
+            newTeamsData = [newTeamsData];
+            console.log(`📥 Converted single team to array`);
           }
           
-          if (nftData.length === 0) {
-            return res.status(400).json({ error: 'No NFT data provided' });
+          if (newTeamsData.length === 0) {
+            console.log('❌ Invalid or empty team data');
+            return res.status(400).json({ error: 'Invalid or empty team data' });
           }
 
-          const savedNfts = [];
+          // Validate the data structure
+          for (const teamData of newTeamsData) {
+            const validation = validateTeamData(teamData);
+            if (!validation.isValid) {
+              console.error(`❌ Invalid team data structure:`, teamData);
+              return res.status(400).json({ 
+                error: 'Invalid team data structure', 
+                details: validation.error,
+                receivedData: teamData
+              });
+            }
+          }
 
-          for (const nft of nftData) {
+          const savedTeams = [];
+
+          for (const newTeamData of newTeamsData) {
             try {
-              console.log(`🔄 Processing NFT: ${nft.name || 'Unknown'}`);
+              console.log(`🔄 Processing team data:`, JSON.stringify(newTeamData, null, 2));
               
-              // CRITICAL FIX: Sanitize the tokenId to prevent binary interpretation issues
-              const sanitizedTokenId = sanitizeTokenId(nft.tokenId);
-              if (!sanitizedTokenId) {
-                console.error(`❌ Invalid tokenId for NFT: ${nft.name}`);
-                continue;
-              }
-              
-              // Check if NFT already exists
-              const existingNFT = await prisma.nFT.findFirst({
-                where: {
-                  tokenId: sanitizedTokenId,
-                  contractAddress: nft.contractAddress
+              // Validate that all NFTs belong to the user
+              const userNfts = await prisma.nFT.findMany({
+                where: { 
+                  id: { in: newTeamData.nftIds },
+                  ownerId: user.id
                 }
               });
 
-              if (existingNFT) {
-                console.log(`🔄 Updating existing NFT: ${existingNFT.name}`);
-                // Update existing NFT
-                const updatedNFT = await prisma.nFT.update({
-                  where: { id: existingNFT.id },
-                  data: {
-                    ownerId: user.id,
-                    name: nft.name || existingNFT.name,
-                    imageUrl: nft.imageUrl || existingNFT.imageUrl,
-                    description: nft.description || existingNFT.description,
-                    rarity: nft.rarity || existingNFT.rarity,
-                    attack: nft.attack || existingNFT.attack,
-                    health: nft.health || existingNFT.health,
-                    speed: nft.speed || existingNFT.speed,
-                    special: nft.special || existingNFT.special,
-                    metadata: nft.metadata || existingNFT.metadata,
-                    updatedAt: new Date()
+              console.log(`🔍 Found user NFTs: ${userNfts.length} out of ${newTeamData.nftIds.length}`);
+
+              if (userNfts.length !== newTeamData.nftIds.length) {
+                console.error(`❌ Some NFTs do not belong to user:`, { 
+                  requested: newTeamData.nftIds.length, 
+                  found: userNfts.length,
+                  userNftIds: userNfts.map(nft => nft.id),
+                  requestedIds: newTeamData.nftIds
+                });
+                throw new Error('Some NFTs do not belong to the user');
+              }
+
+              // Create standardized team data for upserting
+              const teamDataForUpsert = {
+                name: String(newTeamData.name || '').trim(),
+                nftIds: newTeamData.nftIds,
+                ownerId: String(user.id),
+                isActive: Boolean(newTeamData.isActive !== false), // Default to true
+                battlesWon: parseInt(newTeamData.battlesWon) || 0,
+                battlesLost: parseInt(newTeamData.battlesLost) || 0
+              };
+
+              // Validate that ownerId is not truncated
+              console.log(`🔍 Team data validation:`, {
+                userFullId: user.id,
+                userFullIdLength: user.id.length,
+                ownerIdToSave: teamDataForUpsert.ownerId,
+                ownerIdLength: teamDataForUpsert.ownerId.length,
+                isTruncated: teamDataForUpsert.ownerId !== user.id,
+                name: teamDataForUpsert.name,
+                nftCount: teamDataForUpsert.nftIds.length
+              });
+
+              if (teamDataForUpsert.ownerId !== user.id) {
+                console.error(`❌ CRITICAL ERROR: ownerId is truncated! Expected: ${user.id}, Got: ${teamDataForUpsert.ownerId}`);
+                throw new Error(`OwnerId truncation detected: ${teamDataForUpsert.ownerId} vs ${user.id}`);
+              }
+
+              // Use direct Prisma calls to avoid prepared statement conflicts
+              let teamRecord;
+              try {
+                // Check if team with same name already exists for this user
+                const existingTeam = await prisma.team.findFirst({
+                  where: {
+                    name: teamDataForUpsert.name,
+                    ownerId: teamDataForUpsert.ownerId
                   }
                 });
-                savedNfts.push(updatedNFT);
-              } else {
-                console.log(`🆕 Creating new NFT: ${nft.name}`);
-                // Create new NFT
-                const newNFT = await prisma.nFT.create({
-                  data: {
-                    id: generateNFTId(sanitizedTokenId, nft.contractAddress),
-                    tokenId: sanitizedTokenId,
-                    contractAddress: nft.contractAddress,
-                    ownerId: user.id,
-                    name: nft.name,
-                    imageUrl: nft.imageUrl,
-                    description: nft.description,
-                    rarity: nft.rarity,
-                    attack: nft.attack,
-                    health: nft.health,
-                    speed: nft.speed,
-                    special: nft.special,
-                    metadata: nft.metadata,
-                    attributes: nft.attributes
-                  }
+
+                if (existingTeam) {
+                  console.log(`🔄 Updating existing team: ${existingTeam.name} (ID: ${existingTeam.id})`);
+                  // Update existing team
+                  teamRecord = await prisma.team.update({
+                    where: { id: existingTeam.id },
+                    data: { 
+                      nftIds: teamDataForUpsert.nftIds,
+                      isActive: teamDataForUpsert.isActive,
+                      battlesWon: teamDataForUpsert.battlesWon,
+                      battlesLost: teamDataForUpsert.battlesLost,
+                      updatedAt: new Date() 
+                    }
+                  });
+                } else {
+                  console.log(`🆕 Creating new team: ${teamDataForUpsert.name}`);
+                  // Create new team
+                  teamRecord = await prisma.team.create({
+                    data: {
+                      ...teamDataForUpsert,
+                      id: generateTeamId(teamDataForUpsert.name, teamDataForUpsert.ownerId),
+                    }
+                  });
+                }
+              } catch (dbError) {
+                console.error(`❌ Database operation failed for team ${teamDataForUpsert.name}:`, dbError);
+                console.error(`❌ Database error details:`, {
+                  message: dbError.message,
+                  code: dbError.code,
+                  meta: dbError.meta,
+                  teamData: teamDataForUpsert
                 });
-                savedNfts.push(newNFT);
+                throw dbError;
               }
               
-              console.log(`✅ Successfully saved NFT: ${nft.name}`);
-            } catch (nftError) {
-              console.error(`❌ Failed to save NFT ${nft.name}:`, nftError);
-              // Continue with next NFT instead of failing completely
+              // Verify the saved team has the correct ownerId
+              console.log(`🔍 Saved team verification:`, {
+                savedOwnerId: teamRecord.ownerId,
+                expectedOwnerId: user.id,
+                isCorrect: teamRecord.ownerId === user.id,
+                savedOwnerIdLength: teamRecord.ownerId.length,
+                expectedOwnerIdLength: user.id.length
+              });
+              
+              if (teamRecord.ownerId !== user.id) {
+                console.error(`❌ CRITICAL ERROR: Saved team has wrong ownerId! Expected: ${user.id}, Got: ${teamRecord.ownerId}`);
+                // Try to fix it immediately
+                try {
+                  await prisma.team.update({
+                    where: { id: teamRecord.id },
+                    data: { 
+                      ownerId: user.id,
+                      updatedAt: new Date()
+                    }
+                  });
+                  console.log(`✅ Fixed team ownerId after save from "${teamRecord.ownerId}" to "${user.id}"`);
+                } catch (fixError) {
+                  console.error(`❌ Failed to fix team ownerId:`, fixError);
+                }
+              }
+              
+              // Return team with NFTs in the expected format
+              const teamWithNFTs = {
+                ...teamRecord,
+                cards: userNfts
+              };
+              
+              console.log(`✅ Successfully upserted team: ${teamRecord.name} with ${userNfts.length} NFTs`);
+              savedTeams.push(teamWithNFTs);
+            } catch (teamError) {
+              console.error(`❌ Failed to process team:`, teamError);
+              console.error(`❌ Team data that failed:`, JSON.stringify(newTeamData, null, 2));
+              // Continue with next team instead of failing completely
               continue;
             }
           }
           
-          console.log(`✅ POST complete. Successfully saved ${savedNfts.length} NFTs`);
-          return res.status(200).json(savedNfts);
+          console.log(`✅ POST complete. Successfully saved ${savedTeams.length} teams`);
+          return res.status(200).json(savedTeams);
         } catch (error) {
-          console.error('❌ Error adding NFTs:', error);
-          return res.status(500).json({ error: `Failed to add NFTs: ${error.message}` });
+          console.error('❌ Error adding teams:', error);
+          return res.status(500).json({ error: `Failed to add teams: ${error.message}` });
+        }
+
+      case 'PUT':
+        try {
+          const { id, name, nftIds } = req.body;
+          
+          if (!id || !name || !nftIds || !Array.isArray(nftIds)) {
+            return res.status(400).json({ error: 'Invalid team data' });
+          }
+
+          // Use direct Prisma calls to avoid prepared statement conflicts
+          const updatedTeam = await prisma.team.findFirst({
+            where: {
+              id: id,
+              ownerId: user.id
+            }
+          });
+
+          if (!updatedTeam) {
+            throw new Error('Team not found or does not belong to user');
+          }
+
+          // Verify that all NFTs belong to the user
+          const userNfts = await prisma.nFT.findMany({
+            where: { 
+              id: { in: nftIds },
+              ownerId: user.id
+            }
+          });
+
+          if (userNfts.length !== nftIds.length) {
+            throw new Error('Some NFTs do not belong to the user');
+          }
+
+          // Update the team
+          const updated = await prisma.team.update({
+            where: { id: id },
+            data: {
+              name: name,
+              nftIds: nftIds,
+              updatedAt: new Date()
+            }
+          });
+
+          // Return team with NFTs in the expected format
+          const result = {
+            ...updated,
+            cards: userNfts
+          };
+
+          console.log(`✅ Team updated successfully: ${updated.name}`);
+          return res.status(200).json(result);
+        } catch (error) {
+          console.error('❌ Error updating team:', error);
+          if (error.message === 'Team not found or does not belong to user') {
+            return res.status(403).json({ error: error.message });
+          }
+          if (error.message === 'Some NFTs do not belong to the user') {
+            return res.status(400).json({ error: error.message });
+          }
+          return res.status(500).json({ error: 'Failed to update team', details: error.message });
+        }
+
+      case 'DELETE':
+        try {
+          const { id } = req.body;
+          
+          if (!id) {
+            return res.status(400).json({ error: 'Team ID is required' });
+          }
+
+          // Use direct Prisma calls to avoid prepared statement conflicts
+          const team = await prisma.team.findFirst({
+            where: {
+              id: id,
+              ownerId: user.id
+            }
+          });
+
+          if (!team) {
+            throw new Error('Team not found or does not belong to user');
+          }
+
+          // Delete the team
+          await prisma.team.delete({
+            where: { id: id }
+          });
+
+          console.log(`✅ Team deleted successfully: ${id}`);
+          return res.status(200).json({ message: 'Team deleted successfully' });
+        } catch (error) {
+          console.error('❌ Error deleting team:', error);
+          if (error.message === 'Team not found or does not belong to user') {
+            return res.status(403).json({ error: error.message });
+          }
+          return res.status(500).json({ error: 'Failed to delete team', details: error.message });
         }
 
       default:
-        res.setHeader('Allow', ['GET', 'POST']);
+        res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (e) {
-    console.error('❌ Error processing user or NFT data:', e);
+    console.error('❌ Error processing user or team data:', e);
+    
+    // Check if it's a database connection issue
+    if (e.message.includes('prepared statement') || 
+        e.message.includes('already exists') ||
+        e.message.includes('Database wrapper is not properly configured')) {
+      console.log('🔄 Database connection issue detected, returning service unavailable');
+      return res.status(503).json({ 
+        error: 'Service temporarily unavailable', 
+        message: 'Database connection issue detected. Please try again in a moment.',
+        retryAfter: 5
+      });
+    }
+    
     return res.status(500).json({ error: `Failed to process request: ${e.message}` });
   }
 }
