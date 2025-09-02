@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styles from './Team.module.css';
 import Card from './Card';
 import { getTeamSynergies } from '../utils/frogData';
+import { checkTitanSynergies } from '../utils/titansData';
 
 const MAX_TEAM_SIZE = 5; // Maximum number of cards in a team
 
@@ -27,7 +28,21 @@ const Team = ({
       }).filter(num => num !== null);
       
       if (cardNumbers.length > 0) {
-        const synergies = getTeamSynergies(cardNumbers);
+        // Determine collection type to use appropriate synergy function
+        const collection = cards[0]?.attributes?.find(attr => attr.trait_type === "Collection")?.value || 'Unknown';
+        let synergies = [];
+        
+        switch (collection.toLowerCase()) {
+          case 'titans':
+            synergies = checkTitanSynergies(cardNumbers);
+            break;
+          case 'frogs':
+          case 'snekkies':
+          default:
+            synergies = getTeamSynergies(cardNumbers);
+            break;
+        }
+        
         setTeamSynergies(synergies);
       } else {
         setTeamSynergies([]);
