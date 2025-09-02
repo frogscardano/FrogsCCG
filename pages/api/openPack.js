@@ -1,5 +1,6 @@
 import { BlockFrostAPI } from '@blockfrost/blockfrost-js';
 import { getFrogStats } from '../../utils/frogData.js';
+import { getTitanStats } from '../../utils/titansData.js';
 
 const blockfrost = new BlockFrostAPI({
   projectId: process.env.BLOCKFROST_API_KEY,
@@ -137,7 +138,7 @@ function generateRandomCard(collectionConfig, userCards) {
   console.log(`Using IPFS: ${collectionConfig.fallbackIpfs}`);
   
   const rarity = determineRarity(randomNumber, collectionConfig.id);
-  const stats = getFrogStats(randomNumber, rarity);
+  const stats = collectionConfig.id === 'titans' ? getTitanStats(randomNumber, rarity) : getFrogStats(randomNumber, rarity);
   
   return {
     id: `${collectionConfig.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -334,7 +335,7 @@ export default async function handler(req, res) {
         
         // Determine rarity and get stats
         const rarity = determineRarity(validNumber, collectionConfig.id);
-        const stats = getFrogStats(validNumber, rarity);
+        const stats = collectionConfig.id === 'titans' ? getTitanStats(validNumber, rarity) : getFrogStats(validNumber, rarity);
         
         // Create the card data
         const card = {
