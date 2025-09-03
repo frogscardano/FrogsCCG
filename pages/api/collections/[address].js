@@ -58,7 +58,7 @@ function calculateGameStats(nftData) {
   // Use appropriate stats function based on collection
   switch (collection.toLowerCase()) {
     case 'titans':
-      stats = getTitanStats(nftNumber, rarity);
+      stats = getTitanStats(nftNumber, rarity, nftData.attributes);
       break;
     case 'frogs':
     case 'snekkies':
