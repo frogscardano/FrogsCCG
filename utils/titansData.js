@@ -65,22 +65,7 @@ const teamSynergies = [
       // Check if we have at least 3 Fibonacci numbers in the team
       return fibInTeam.length >= 3;
     }
-  },
-  {
-    name: "Century Titans",
-    description: "All titans with numbers over 100",
-    bonus: { attack: 15, health: 40, speed: 5 },
-    checkSynergy: (numbers) => numbers.length >= 3 && numbers.every(n => n >= 100)
-  },
-  {
-    name: "Divine Titans",
-    description: "Contains titans with numbers divisible by 7",
-    bonus: { attack: 35, health: 20, speed: 20 },
-    checkSynergy: (numbers) => {
-      const divineTitans = numbers.filter(n => n % 7 === 0);
-      return divineTitans.length >= 2;
-    }
-  },
+  },  
   {
     name: "Ancient Titans",
     description: "Contains titans with numbers under 50",
@@ -141,8 +126,8 @@ function generateStatsForTitan(titanNumber) {
     speed = Math.min(60, speed + 10);
   }
   
-  // Numbers over 1000 get massive health boost (true titans)
-  if (titanNumber >= 1000) {
+  // Numbers over 4000 get massive health boost (true titans)
+  if (titanNumber >= 4000) {
     health = Math.min(100, health + 25);
     attack = Math.min(100, attack + 10);
   }
@@ -172,8 +157,121 @@ function isFibonacci(num) {
   return fibonacci.includes(num);
 }
 
+// Class-based stat ranges
+const classStats = {
+  "Peasants": { attack: [15, 45], health: [25, 50], speed: [35, 80] },
+  "Townsfolk": { attack: [25, 55], health: [30, 65], speed: [20, 50] },
+  "Warrior": { attack: [50, 80], health: [45, 75], speed: [25, 70] },
+  "Mystics": { attack: [60, 85], health: [30, 60], speed: [30, 75] },
+  "Royals": { attack: [50, 99], health: [70, 99], speed: [40, 70] },
+  "Titans": { attack: [100, 100], health: [100, 100], speed: [100, 100] } // 1/1s
+};
+
+// Special combinations based on classes
+const classSynergies = [
+  {
+    name: "Balanced Council",
+    description: "Having 1 of each class in a squad",
+    bonus: { attack: 10, health: 10, speed: 10 },
+    checkSynergy: (classes) => {
+      const uniqueClasses = [...new Set(classes)];
+      return uniqueClasses.length >= 5 && // At least 5 different classes
+             uniqueClasses.includes("Peasants") &&
+             uniqueClasses.includes("Townsfolk") &&
+             uniqueClasses.includes("Warrior") &&
+             uniqueClasses.includes("Mystics") &&
+             uniqueClasses.includes("Royals");
+    }
+  },
+  {
+    name: "Warrior's Might",
+    description: "Having at least 3 warriors in the squad",
+    bonus: { attack: 15, health: 0, speed: 0 },
+    checkSynergy: (classes) => {
+      const warriorCount = classes.filter(c => c === "Warrior").length;
+      return warriorCount >= 3;
+    }
+  },
+  {
+    name: "Mystic Blessing",
+    description: "Having at least 3 mystics in the squad",
+    bonus: { attack: 0, health: 15, speed: 0 },
+    checkSynergy: (classes) => {
+      const mysticCount = classes.filter(c => c === "Mystics").length;
+      return mysticCount >= 3;
+    }
+  },
+  {
+    name: "Royal Ascendancy",
+    description: "Having full squad of Royals",
+    bonus: { attack: 20, health: 20, speed: 20 },
+    checkSynergy: (classes) => {
+      return classes.length >= 5 && classes.every(c => c === "Royals");
+    }
+  }
+];
+
+// Function to get class from titan attributes
+function getTitanClass(titanAttributes) {
+  if (!titanAttributes || !Array.isArray(titanAttributes)) {
+    return "Peasants"; // Default class
+  }
+  
+  const classAttr = titanAttributes.find(attr => attr.trait_type === "Class");
+  return classAttr ? classAttr.value : "Peasants";
+}
+
+// Function to generate stats based on class
+function generateClassBasedStats(titanNumber, titanClass, rarity) {
+  const classStatRanges = classStats[titanClass] || classStats["Peasants"];
+  
+  // Use titan number as seed for deterministic generation
+  let seed = titanNumber;
+  const nextRandom = () => {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+  
+  // Generate stats within class ranges
+  const attackRange = classStatRanges.attack[1] - classStatRanges.attack[0];
+  const healthRange = classStatRanges.health[1] - classStatRanges.health[0];
+  const speedRange = classStatRanges.speed[1] - classStatRanges.speed[0];
+  
+  let attack = Math.floor(classStatRanges.attack[0] + (nextRandom() * attackRange));
+  let health = Math.floor(classStatRanges.health[0] + (nextRandom() * healthRange));
+  let speed = Math.floor(classStatRanges.speed[0] + (nextRandom() * speedRange));
+  
+  // Apply rarity bonuses
+  switch (rarity) {
+    case "Legendary":
+      attack = Math.min(100, attack + 15);
+      health = Math.min(100, health + 15);
+      speed = Math.min(100, speed + 15);
+      break;
+    case "Epic":
+      attack = Math.min(100, attack + 10);
+      health = Math.min(100, health + 10);
+      speed = Math.min(100, speed + 10);
+      break;
+    case "Rare":
+      attack = Math.min(100, attack + 5);
+      health = Math.min(100, health + 5);
+      speed = Math.min(100, speed + 5);
+      break;
+  }
+  
+  // Special case for Asset Head Pepe (assuming it's titan #4546)
+  if (titanNumber === 4546) {
+    attack = 69;
+    health = 69;
+    speed = 69;
+  }
+  
+  return { attack, health, speed };
+}
+
 // Function to get stats for a specific titan
-function getTitanStats(titanNumber, rarity) {
+function getTitanStats(titanNumber, rarity, attributes = null) {
   const titanNum = parseInt(titanNumber);
   
   // If explicit stats exist for this titan, use them
@@ -181,8 +279,11 @@ function getTitanStats(titanNumber, rarity) {
     return titanStats[titanNum];
   }
   
-  // Generate stats based on titan number
-  return generateStatsForTitan(titanNum);
+  // Get class from attributes if available
+  const titanClass = attributes ? getTitanClass(attributes) : "Peasants";
+  
+  // Generate stats based on class
+  return generateClassBasedStats(titanNum, titanClass, rarity);
 }
 
 // Function to generate HTML stat bars
@@ -209,13 +310,28 @@ function generateStatBars(stats) {
   `;
 }
 
-// Function to check team synergies for titans
-function checkTitanSynergies(teamNumbers) {
+// Function to check team synergies for titans (both number-based and class-based)
+function checkTitanSynergies(teamNumbers, teamCards = null) {
   const activeSynergies = [];
   
+  // Check number-based synergies
   for (const synergy of teamSynergies) {
     if (synergy.checkSynergy(teamNumbers)) {
       activeSynergies.push(synergy);
+    }
+  }
+  
+  // Check class-based synergies if team cards are provided
+  if (teamCards && teamCards.length > 0) {
+    const teamClasses = teamCards.map(card => {
+      const classAttr = card.attributes?.find(attr => attr.trait_type === "Class");
+      return classAttr ? classAttr.value : "Peasants";
+    });
+    
+    for (const synergy of classSynergies) {
+      if (synergy.checkSynergy(teamClasses)) {
+        activeSynergies.push(synergy);
+      }
     }
   }
   
@@ -223,8 +339,8 @@ function checkTitanSynergies(teamNumbers) {
 }
 
 // Function to calculate total team bonus from synergies
-function calculateTitanTeamBonus(teamNumbers) {
-  const synergies = checkTitanSynergies(teamNumbers);
+function calculateTitanTeamBonus(teamNumbers, teamCards = null) {
+  const synergies = checkTitanSynergies(teamNumbers, teamCards);
   let totalBonus = { attack: 0, health: 0, speed: 0 };
   
   for (const synergy of synergies) {
@@ -239,8 +355,12 @@ function calculateTitanTeamBonus(teamNumbers) {
 export {
   titanStats,
   teamSynergies,
+  classStats,
+  classSynergies,
   getTitanStats,
   generateStatsForTitan,
+  generateClassBasedStats,
+  getTitanClass,
   generateStatBars,
   checkTitanSynergies,
   calculateTitanTeamBonus
