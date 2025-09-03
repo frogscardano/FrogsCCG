@@ -138,7 +138,13 @@ function generateRandomCard(collectionConfig, userCards) {
   console.log(`Using IPFS: ${collectionConfig.fallbackIpfs}`);
   
   const rarity = determineRarity(randomNumber, collectionConfig.id);
-  const stats = collectionConfig.id === 'titans' ? getTitanStats(randomNumber, rarity) : getFrogStats(randomNumber, rarity);
+  // For random generation, we'll create basic attributes
+  const basicAttributes = [
+    { trait_type: "Collection", value: collectionConfig.name },
+    { trait_type: "Number", value: `${randomNumber}` },
+    { trait_type: "Class", value: "Peasants" } // Default class for random generation
+  ];
+  const stats = collectionConfig.id === 'titans' ? getTitanStats(randomNumber, rarity, basicAttributes) : getFrogStats(randomNumber, rarity);
   
   return {
     id: `${collectionConfig.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -335,7 +341,7 @@ export default async function handler(req, res) {
         
         // Determine rarity and get stats
         const rarity = determineRarity(validNumber, collectionConfig.id);
-        const stats = collectionConfig.id === 'titans' ? getTitanStats(validNumber, rarity) : getFrogStats(validNumber, rarity);
+        const stats = collectionConfig.id === 'titans' ? getTitanStats(validNumber, rarity, assetDetails.onchain_metadata?.attributes) : getFrogStats(validNumber, rarity);
         
         // Create the card data
         const card = {
