@@ -34,7 +34,7 @@ const Team = ({
         
         switch (collection.toLowerCase()) {
           case 'titans':
-            synergies = checkTitanSynergies(cardNumbers);
+            synergies = checkTitanSynergies(cardNumbers, cards);
             break;
           case 'frogs':
           case 'snekkies':
