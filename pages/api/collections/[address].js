@@ -11,8 +11,15 @@ const generateNFTId = (tokenId, contractAddress) => {
 };
 
 // CRITICAL FIX: Function to sanitize tokenId to prevent binary interpretation
-const sanitizeTokenId = (tokenId) => {
-  if (!tokenId) return null;
+const sanitizeTokenId = (tokenId, nftName = null) => {
+  // If no tokenId provided, try to use the name as fallback
+  if (!tokenId) {
+    if (nftName) {
+      console.log(`⚠️ No tokenId provided, using name as fallback: ${nftName}`);
+      return nftName;
+    }
+    return null;
+  }
   
   // Convert to string and trim
   let sanitized = String(tokenId).trim();
@@ -266,11 +273,23 @@ export default async function handler(req, res) {
           for (const nft of nftData) {
             try {
               console.log(`🔄 Processing NFT: ${nft.name || 'Unknown'}`);
+              console.log(`🔍 NFT data received:`, JSON.stringify(nft, null, 2));
               
               // CRITICAL FIX: Sanitize the tokenId to prevent binary interpretation issues
-              const sanitizedTokenId = sanitizeTokenId(nft.tokenId);
+              const sanitizedTokenId = sanitizeTokenId(nft.tokenId, nft.name);
+              console.log(`🔍 TokenId sanitization:`, { 
+                original: nft.tokenId, 
+                sanitized: sanitizedTokenId,
+                type: typeof nft.tokenId 
+              });
+              
               if (!sanitizedTokenId) {
-                console.error(`❌ Invalid tokenId for NFT: ${nft.name}`);
+                console.error(`❌ Invalid tokenId for NFT: ${nft.name}`, { 
+                  tokenId: nft.tokenId, 
+                  type: typeof nft.tokenId,
+                  isNull: nft.tokenId === null,
+                  isUndefined: nft.tokenId === undefined
+                });
                 continue;
               }
               
