@@ -17,6 +17,11 @@ const sanitizeTokenId = (tokenId) => {
   // Convert to string and trim
   let sanitized = String(tokenId).trim();
   
+  // If it's a name like "Titans #852", keep it as is
+  if (sanitized.includes('#') || sanitized.includes('Frogs') || sanitized.includes('Snekkies') || sanitized.includes('Titans')) {
+    return sanitized;
+  }
+  
   // If it's all hex characters, add prefix to prevent binary interpretation
   if (/^[0-9a-fA-F]+$/.test(sanitized) && sanitized.length > 10) {
     sanitized = `cardano_${sanitized}`;
@@ -52,7 +57,14 @@ function calculateGameStats(nftData) {
   console.log(`🎮 Calculating stats for NFT #${nftNumber} with rarity ${rarity}`);
   
   // Get collection type to determine which stats function to use
-  const collection = nftData.attributes?.find(attr => attr.trait_type === "Collection")?.value || 'Unknown';
+  let collection = nftData.attributes?.find(attr => attr.trait_type === "Collection")?.value || 'Unknown';
+  
+  // If collection is still Unknown, try to detect from NFT name
+  if (collection === 'Unknown' && nftData.name) {
+    if (nftData.name.includes('Frogs')) collection = 'Frogs';
+    else if (nftData.name.includes('Snekkies')) collection = 'Snekkies';
+    else if (nftData.name.includes('Titans')) collection = 'Titans';
+  }
   let stats;
   
   // Use appropriate stats function based on collection
@@ -187,15 +199,37 @@ export default async function handler(req, res) {
             console.log(`ℹ️ User ${user.id} has no NFTs yet. This is normal for new users.`);
           }
           
-          // Add game stats to each NFT
+          // Add game stats to each NFT and ensure proper attributes structure
           const nftsWithStats = userNfts.map(nft => {
             const stats = calculateGameStats(nft);
+            
+            // Extract collection name from NFT name or metadata
+            let collectionName = 'Unknown';
+            if (nft.name) {
+              if (nft.name.includes('Frogs')) collectionName = 'Frogs';
+              else if (nft.name.includes('Snekkies')) collectionName = 'Snekkies';
+              else if (nft.name.includes('Titans')) collectionName = 'Titans';
+            }
+            
+            // Ensure attributes array exists for frontend compatibility
+            const attributes = Array.isArray(nft.metadata) ? nft.metadata : 
+                             (nft.metadata && typeof nft.metadata === 'object') ? 
+                             Object.entries(nft.metadata).map(([key, value]) => ({ trait_type: key, value })) :
+                             [
+                               { trait_type: "Collection", value: collectionName },
+                               { trait_type: "Number", value: nft.tokenId },
+                               { trait_type: "Policy ID", value: nft.contractAddress }
+                             ];
+            
             return {
               ...nft,
               attack: stats.attack,
               health: stats.health,
               speed: stats.speed,
-              special: stats.special
+              special: stats.special,
+              attributes: attributes,
+              // Ensure image field is properly named for frontend
+              image: nft.imageUrl || nft.image
             };
           });
           
