@@ -100,41 +100,9 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
           setApiAvailable(false);
         }
         
-        // Fallback: Try direct database access using Prisma
-        try {
-          console.log('🔍 Attempting direct database access using Prisma');
-          
-          // Import Prisma client dynamically to avoid SSR issues
-          const { PrismaClient } = await import('@prisma/client');
-          const prisma = new PrismaClient();
-          
-          // Find user by address
-          const user = await prisma.user.findUnique({
-            where: { address: address }
-          });
-          
-          if (user) {
-            // Fetch teams for the user
-            const userTeams = await prisma.team.findMany({
-              where: { ownerId: user.id },
-              orderBy: { createdAt: 'desc' }
-            });
-            
-            console.log('✅ Teams loaded from database directly via Prisma:', userTeams.length);
-            setTeams(userTeams);
-            setApiAvailable(true);
-          } else {
-            console.log('ℹ️ No user found in database, using local storage');
-            loadTeamsFromLocalStorage();
-          }
-          
-          await prisma.$disconnect();
-          
-        } catch (dbError) {
-          console.error('❌ Direct database access failed:', dbError);
-          console.log('⚠️ Falling back to local storage');
-          loadTeamsFromLocalStorage();
-        }
+        // Fallback: Use local storage only
+        console.log('⚠️ API not available, using local storage only');
+        loadTeamsFromLocalStorage();
         
       } catch (error) {
         console.log('⚠️ All database methods failed, using local storage:', error.message);
@@ -228,26 +196,8 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
         }
       }
       
-      // Fallback: Try direct database delete using Prisma
-      try {
-        console.log('🔍 Attempting direct database delete using Prisma');
-        
-        // Import Prisma client dynamically to avoid SSR issues
-        const { PrismaClient } = await import('@prisma/client');
-        const prisma = new PrismaClient();
-        
-        // Delete the team from the database
-        await prisma.team.delete({
-          where: { id: teamToDelete.id }
-        });
-        
-        console.log('✅ Team deleted from database directly via Prisma');
-        await prisma.$disconnect();
-        
-      } catch (dbError) {
-        console.error('❌ Direct database delete failed:', dbError);
-        // Continue with local deletion even if database delete fails
-      }
+      // Fallback: Use local storage only
+      console.log('⚠️ API not available, using local storage only');
       
     } catch (error) {
       console.error('❌ Error during team deletion:', error);
@@ -338,85 +288,8 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
         }
       }
 
-      // Fallback: Try direct database save using Prisma
-      console.log('🔍 Attempting direct database save using Prisma');
-      
-      // Import Prisma client dynamically to avoid SSR issues
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
-      
-      try {
-        // First ensure the user exists in the database
-        let user = await prisma.user.findUnique({
-          where: { address: address }
-        });
-        
-        if (!user) {
-          console.log('🔍 Creating new user for address:', address);
-          user = await prisma.user.create({
-            data: {
-              address: address,
-              provider: 'eternl'
-            }
-          });
-        }
-        
-        // Save the team to the database
-        let savedTeam;
-        if (selectedTeam) {
-          // Update existing team
-          savedTeam = await prisma.team.update({
-            where: { id: selectedTeam.id },
-            data: {
-              name: name.trim(),
-              nftIds: nftIds,
-              updatedAt: new Date()
-            }
-          });
-        } else {
-          // Create new team
-          savedTeam = await prisma.team.create({
-            data: {
-              name: name.trim(),
-              nftIds: nftIds,
-              ownerId: user.id,
-              isActive: true,
-              battlesWon: 0,
-              battlesLost: 0
-            }
-          });
-        }
-        
-        console.log('✅ Team saved to database directly via Prisma:', savedTeam);
-        
-        // Update local state with the database response
-        if (selectedTeam) {
-          setTeams(teams.map(team => 
-            team.id === savedTeam.id ? savedTeam : team
-          ));
-        } else {
-          setTeams([...teams, savedTeam]);
-        }
-        
-        // Show success message
-        if (typeof onBattleComplete === 'function') {
-          onBattleComplete({ type: 'team_saved', team: savedTeam });
-        }
-        
-        setApiAvailable(true); // Mark API as available again
-        setIsCreatingTeam(false);
-        setSelectedTeam(null);
-        setSelectedCards([]);
-        
-        // Close Prisma connection
-        await prisma.$disconnect();
-        return;
-        
-      } catch (dbError) {
-        console.error('❌ Direct database save failed:', dbError);
-        await prisma.$disconnect();
-        throw dbError; // Re-throw to be caught by outer catch
-      }
+      // Fallback: Use local storage only
+      console.log('⚠️ API not available, using local storage only');
       
     } catch (error) {
       console.log('⚠️ All database save methods failed, falling back to local storage:', error.message);
