@@ -55,6 +55,18 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
+
+  // Test database connection before proceeding
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch (connectionError) {
+    console.error('❌ Database connection test failed:', connectionError);
+    return res.status(503).json({ 
+      error: 'Database connection failed', 
+      message: 'Unable to connect to database. Please try again later.',
+      retryAfter: 10
+    });
+  }
   
   // Validate and clean the wallet address
   let cleanAddress = address;
@@ -111,36 +123,45 @@ export default async function handler(req, res) {
   try {
     console.log(`🔄 Attempting to upsert user with address: ${cleanAddress}`);
     
-    // Use direct Prisma calls to avoid prepared statement conflicts
+    // Use upsert to avoid race conditions and prepared statement conflicts
     let user;
     try {
-      // First try to find existing user
-      const existingUser = await prisma.user.findUnique({
-        where: { address: cleanAddress }
+      user = await prisma.user.upsert({
+        where: { address: cleanAddress },
+        update: {
+          updatedAt: new Date(),
+        },
+        create: {
+          id: uuid4(),
+          address: cleanAddress,
+        }
       });
-
-      if (existingUser) {
-        console.log(`🔄 Updating existing user: ${existingUser.id}`);
-        // Update existing user
-        user = await prisma.user.update({
-          where: { address: cleanAddress },
-          data: {
-            updatedAt: new Date(),
-          }
-        });
-      } else {
-        console.log(`🆕 Creating new user for address: ${cleanAddress}`);
-        // Create new user
-        user = await prisma.user.create({
-          data: {
-            id: uuid4(),
-            address: cleanAddress,
-          }
-        });
-      }
     } catch (userError) {
       console.error(`❌ User operation failed for address ${cleanAddress}:`, userError);
-      throw userError;
+      
+      // If it's a prepared statement error, try to reconnect
+      if (userError.message && userError.message.includes('prepared statement')) {
+        console.log('🔄 Prepared statement error detected, attempting to reconnect...');
+        try {
+          await prisma.$disconnect();
+          await new Promise(resolve => setTimeout(resolve, 100)); // Brief delay
+          user = await prisma.user.upsert({
+            where: { address: cleanAddress },
+            update: {
+              updatedAt: new Date(),
+            },
+            create: {
+              id: uuid4(),
+              address: cleanAddress,
+            }
+          });
+        } catch (retryError) {
+          console.error(`❌ Retry failed:`, retryError);
+          throw retryError;
+        }
+      } else {
+        throw userError;
+      }
     }
     
     console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
