@@ -331,7 +331,7 @@ export default async function handler(req, res) {
                     health: nft.health || existingNFT.health,
                     speed: nft.speed || existingNFT.speed,
                     special: nft.special || existingNFT.special,
-                    metadata: nft.metadata || existingNFT.metadata,
+                    metadata: nft.attributes || nft.metadata || existingNFT.metadata,
                     updatedAt: new Date()
                   }
                 });
@@ -353,8 +353,7 @@ export default async function handler(req, res) {
                     health: nft.health,
                     speed: nft.speed,
                     special: nft.special,
-                    metadata: nft.metadata,
-                    attributes: nft.attributes
+                    metadata: nft.attributes || nft.metadata
                   }
                 });
                 savedNfts.push(newNFT);
