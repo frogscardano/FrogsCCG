@@ -293,11 +293,26 @@ export default async function handler(req, res) {
                 continue;
               }
               
+              // Extract contractAddress from attributes if not provided directly
+              let contractAddress = nft.contractAddress;
+              if (!contractAddress && nft.attributes) {
+                const policyIdAttr = nft.attributes.find(attr => attr.trait_type === "Policy ID");
+                if (policyIdAttr) {
+                  contractAddress = policyIdAttr.value;
+                  console.log(`🔍 Extracted contractAddress from attributes: ${contractAddress}`);
+                }
+              }
+              
+              if (!contractAddress) {
+                console.error(`❌ Missing contractAddress for NFT: ${nft.name}`);
+                continue;
+              }
+              
               // Check if NFT already exists
               const existingNFT = await prisma.nFT.findFirst({
                 where: {
                   tokenId: sanitizedTokenId,
-                  contractAddress: nft.contractAddress
+                  contractAddress: contractAddress
                 }
               });
 
@@ -326,9 +341,9 @@ export default async function handler(req, res) {
                 // Create new NFT
                 const newNFT = await prisma.nFT.create({
                   data: {
-                    id: generateNFTId(sanitizedTokenId, nft.contractAddress),
+                    id: generateNFTId(sanitizedTokenId, contractAddress),
                     tokenId: sanitizedTokenId,
-                    contractAddress: nft.contractAddress,
+                    contractAddress: contractAddress,
                     ownerId: user.id,
                     name: nft.name,
                     imageUrl: nft.imageUrl,
