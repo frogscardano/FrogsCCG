@@ -228,7 +228,7 @@ export default async function handler(req, res) {
                                { trait_type: "Policy ID", value: nft.contractAddress }
                              ];
             
-            return {
+            const result = {
               ...nft,
               attack: stats.attack,
               health: stats.health,
@@ -238,6 +238,15 @@ export default async function handler(req, res) {
               // Ensure image field is properly named for frontend
               image: nft.imageUrl || nft.image
             };
+            
+            // Debug logging for image URLs
+            console.log(`🖼️ NFT ${nft.name} image data:`, {
+              imageUrl: nft.imageUrl,
+              image: nft.image,
+              finalImage: result.image
+            });
+            
+            return result;
           });
           
           console.log(`✅ Returning collection with ${nftsWithStats.length} items`);
@@ -324,7 +333,7 @@ export default async function handler(req, res) {
                   data: {
                     ownerId: user.id,
                     name: nft.name || existingNFT.name,
-                    imageUrl: nft.imageUrl || existingNFT.imageUrl,
+                    imageUrl: nft.image || nft.imageUrl || existingNFT.imageUrl,
                     description: nft.description || existingNFT.description,
                     rarity: nft.rarity || existingNFT.rarity,
                     attack: nft.attack || existingNFT.attack,
@@ -346,7 +355,7 @@ export default async function handler(req, res) {
                     contractAddress: contractAddress,
                     ownerId: user.id,
                     name: nft.name,
-                    imageUrl: nft.imageUrl,
+                    imageUrl: nft.image || nft.imageUrl,
                     description: nft.description,
                     rarity: nft.rarity,
                     attack: nft.attack,
