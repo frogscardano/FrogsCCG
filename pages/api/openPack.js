@@ -329,15 +329,18 @@ export default async function handler(req, res) {
     if (validNumber) {
       try {
         // Get the actual image URL from the metadata
-        const imageUrl = extractImageUrl(assetDetails) || 
-                        // Fallback to known IPFS URLs for this collection  
-                        `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`;
+        const extractedImageUrl = extractImageUrl(assetDetails);
+        const fallbackImageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`;
+        const imageUrl = extractedImageUrl || fallbackImageUrl;
         
         console.log('Asset ID:', selectedAsset.asset);
         console.log('NFT Name:', assetDetails.onchain_metadata?.name || assetDetails.asset_name);
         console.log('Original digits:', assetDetails.asset_name?.match(/\d+/)?.[0]);
         console.log(`Valid ${collectionConfig.name} #:`, validNumber);
-        console.log('Image URL:', imageUrl);
+        console.log('Extracted image URL:', extractedImageUrl);
+        console.log('Fallback image URL:', fallbackImageUrl);
+        console.log('Final image URL:', imageUrl);
+        console.log('Metadata structure:', JSON.stringify(assetDetails.onchain_metadata, null, 2));
         
         // Determine rarity and get stats
         const rarity = determineRarity(validNumber, collectionConfig.id);
