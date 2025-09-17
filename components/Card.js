@@ -28,7 +28,7 @@ const Card = ({ card, onClick, onDoubleClick }) => {
         <>
           <div className={styles.cardImage}>
             <Image
-              src={card.image || '/placeholder.png'}
+              src={card.image || card.imageUrl || '/placeholder.png'}
               alt={card.name || 'Card'}
               width={160}
               height={160}
@@ -40,6 +40,10 @@ const Card = ({ card, onClick, onDoubleClick }) => {
               }}
               priority
               unoptimized={true}
+              onError={(e) => {
+                console.error('Failed to load image for card:', card.name, 'URL:', card.image || card.imageUrl);
+                e.target.src = '/placeholder.png';
+              }}
             />
             {frogNumber && <div className={styles.cardNumber}>#{frogNumber}</div>}
           </div>
