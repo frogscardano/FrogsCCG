@@ -238,88 +238,54 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   const handleSaveTeam = async ({ name, cards }) => {
     console.log('🔍 Attempting to save team:', { name, cardsCount: cards.length, address });
     
-    // Create a local team object
-    const newTeam = {
-      id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      name: name.trim(),
-      cards: cards,
-      ownerId: address,
-      isActive: true,
-      battlesWon: 0,
-      battlesLost: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    // Try to save to database using direct Prisma operations first
     try {
       const nftIds = cards.map(card => card.id);
       
-      // First try the API endpoint
-      if (apiAvailable) {
-        const method = selectedTeam ? 'PUT' : 'POST';
-        const url = `/api/teams/${address}`;
-        const body = selectedTeam 
-          ? { id: selectedTeam.id, name, nftIds }
-          : { name, nftIds };
+      // Use the same direct API call pattern as openPack.js
+      const teamData = {
+        name: name.trim(),
+        nftIds: nftIds,
+        isActive: true,
+        battlesWon: selectedTeam ? selectedTeam.battlesWon : 0,
+        battlesLost: selectedTeam ? selectedTeam.battlesLost : 0
+      };
 
-        console.log('🔍 Attempting to save team via API:', { method, url, body });
+      console.log('🔍 Saving team with data:', teamData);
 
-        const response = await fetch(`${url}`, {
-          method,
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(body)
-        });
+      const response = await fetch(`/api/teams/${address}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify([teamData]) // Send as array like the NFT API
+      });
 
-        if (response.ok) {
-          const savedTeam = await response.json();
-          console.log('✅ Team saved to database via API successfully:', savedTeam);
-          
-          // Update local state with the database response
-          if (selectedTeam) {
-            setTeams(teams.map(team => 
-              team.id === savedTeam.id ? savedTeam : team
-            ));
-          } else {
-            setTeams([...teams, savedTeam]);
-          }
-          
-          // Show success message
-          if (typeof onBattleComplete === 'function') {
-            onBattleComplete({ type: 'team_saved', team: savedTeam });
-          }
-          
-          setIsCreatingTeam(false);
-          setSelectedTeam(null);
-          setSelectedCards([]);
-          return;
-        } else {
-          console.log('⚠️ API save failed, trying direct database save');
-        }
+      console.log('🔍 Save team response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Save team error response:', errorText);
+        throw new Error('Failed to save team');
       }
 
-      // Fallback: Use local storage only
-      console.log('⚠️ API not available, using local storage only');
+      const savedTeams = await response.json();
+      const savedTeam = savedTeams[0]; // Get the first (and only) team
+      console.log('✅ Team saved successfully:', savedTeam);
       
-    } catch (error) {
-      console.log('⚠️ All database save methods failed, falling back to local storage:', error.message);
-      setApiAvailable(false);
-      
-      // Fallback to local storage
-      console.log('💾 Saving team to local storage');
       if (selectedTeam) {
         setTeams(teams.map(team => 
-          team.id === selectedTeam.id ? newTeam : team
+          team.id === savedTeam.id ? savedTeam : team
         ));
       } else {
-        setTeams([...teams, newTeam]);
+        setTeams([...teams, savedTeam]);
       }
 
       setIsCreatingTeam(false);
       setSelectedTeam(null);
       setSelectedCards([]);
+    } catch (error) {
+      console.error('❌ Error saving team:', error);
+      setError('Failed to save team');
     }
   };
 
