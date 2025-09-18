@@ -198,6 +198,18 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
       
       // Fallback: Use local storage only
       console.log('⚠️ API not available, using local storage only');
+      // Save to local state/local storage when API isn't available
+      if (selectedTeam) {
+        setTeams(teams.map(team => 
+          team.id === selectedTeam.id ? newTeam : team
+        ));
+      } else {
+        setTeams([...teams, newTeam]);
+      }
+
+      setIsCreatingTeam(false);
+      setSelectedTeam(null);
+      setSelectedCards([]);
       
     } catch (error) {
       console.error('❌ Error during team deletion:', error);
