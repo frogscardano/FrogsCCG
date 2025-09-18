@@ -32,7 +32,9 @@ const teamSynergies = [
     description: "Contains at least 3 titans with numbers over 1000",
     bonus: { attack: 25, health: 30, speed: 5 },
     checkSynergy: (numbers) => {
-      return numbers.length >= 3 && numbers.every(n => n >= 1000);
+      // At least 3 team members over 1000 (not all required)
+      const high = numbers.filter(n => n >= 1000).length;
+      return high >= 3;
     }
   },
   {
@@ -50,7 +52,9 @@ const teamSynergies = [
         return true;
       };
 
-      return numbers.length >= 3 && numbers.every(isPrime);
+      // At least 3 primes in the team
+      const primeCount = numbers.filter(isPrime).length;
+      return primeCount >= 3;
     }
   },
   {
