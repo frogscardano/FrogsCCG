@@ -194,6 +194,50 @@ export default function Home() {
       setError(`Load collection failed: ${e.message}`);
     }
   };
+
+  // Handle card deletion
+  const handleDeleteCard = async (cardToDelete) => {
+    if (!connected || !address) {
+      console.error('No wallet connected for deletion');
+      return;
+    }
+
+    try {
+      console.log(`🗑️ Deleting card: ${cardToDelete.name} (ID: ${cardToDelete.id})`);
+      
+      // Remove from local state immediately for better UX
+      setCurrentCards(prevCards => prevCards.filter(card => card.id !== cardToDelete.id));
+      
+      // Make API call to delete from database
+      const response = await fetch(`/api/collections/${address}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cardId: cardToDelete.id })
+      });
+
+      if (!response.ok) {
+        // If deletion failed, reload the collection to restore the card
+        console.error('Failed to delete card from database, reloading collection...');
+        loadCollection();
+        throw new Error('Failed to delete card from database');
+      }
+
+      console.log(`✅ Card deleted successfully: ${cardToDelete.name}`);
+      setStatusMessage(`Deleted "${cardToDelete.name}" from your collection`);
+      
+      // Clear status message after 3 seconds
+      setTimeout(() => setStatusMessage(''), 3000);
+      
+    } catch (error) {
+      console.error('Error deleting card:', error);
+      setStatusMessage(`Failed to delete "${cardToDelete.name}". Please try again.`);
+      
+      // Reload collection to ensure consistency
+      loadCollection();
+    }
+  };
   
   useEffect(() => {
     if (connected && address) {
@@ -604,6 +648,7 @@ export default function Home() {
                 cards={filteredCards}
                 title="My Collection"
                 isLoading={statusMessage === 'Loading your collection...'}
+                onDeleteCard={handleDeleteCard}
               />
             )}
           </div>
