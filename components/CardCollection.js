@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Card from './Card';
 import styles from './CardCollection.module.css';
 
-const CardCollection = ({ cards, title, isLoading, onCardClick }) => {
+const CardCollection = ({ cards, title, isLoading, onCardClick, onDeleteCard }) => {
   const [filteredCards, setFilteredCards] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRarity, setFilterRarity] = useState('');
@@ -251,6 +251,7 @@ const CardCollection = ({ cards, title, isLoading, onCardClick }) => {
                   card={card}
                   onClick={onCardClick}
                   onDoubleClick={handleCardDoubleClick}
+                  onDelete={onDeleteCard}
                 />
               </div>
             ))
@@ -271,6 +272,7 @@ const CardCollection = ({ cards, title, isLoading, onCardClick }) => {
                     card={card}
                     onClick={onCardClick}
                     onDoubleClick={handleCardDoubleClick}
+                    onDelete={onDeleteCard}
                   />
                 </div>
               ))}
