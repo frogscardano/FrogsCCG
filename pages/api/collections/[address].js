@@ -383,8 +383,38 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: `Failed to add NFTs: ${error.message}` });
         }
 
+      case 'DELETE':
+        try {
+          const { cardId } = req.body;
+          
+          if (!cardId) {
+            return res.status(400).json({ error: 'Card ID is required for deletion' });
+          }
+
+          console.log(`🗑️ Deleting NFT with ID: ${cardId} for user: ${user.id}`);
+
+          // Find and delete the NFT
+          const deletedNFT = await prisma.nFT.deleteMany({
+            where: {
+              id: cardId,
+              ownerId: user.id
+            }
+          });
+
+          if (deletedNFT.count === 0) {
+            console.log(`⚠️ No NFT found with ID: ${cardId} for user: ${user.id}`);
+            return res.status(404).json({ error: 'NFT not found or not owned by user' });
+          }
+
+          console.log(`✅ Successfully deleted NFT with ID: ${cardId}`);
+          return res.status(200).json({ message: 'NFT deleted successfully', deletedCount: deletedNFT.count });
+        } catch (error) {
+          console.error('❌ Error deleting NFT:', error);
+          return res.status(500).json({ error: `Failed to delete NFT: ${error.message}` });
+        }
+
       default:
-        res.setHeader('Allow', ['GET', 'POST']);
+        res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
   } catch (e) {
