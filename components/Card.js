@@ -3,7 +3,7 @@ import Image from 'next/image';
 import styles from './Card.module.css';
 import { generateStatBars } from '../utils/frogData';
 
-const Card = ({ card, onClick, onDoubleClick }) => {
+const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
   const stats = {
     attack: card?.attack || 0,
     health: card?.health || 0,
@@ -21,6 +21,13 @@ const Card = ({ card, onClick, onDoubleClick }) => {
   };
 
   const frogNumber = getFrogNumber();
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    if (onDelete && window.confirm(`Are you sure you want to delete "${card.name}"?`)) {
+      onDelete(card);
+    }
+  };
 
   return (
     <div className={styles.card} onClick={() => onClick && onClick(card)} onDoubleClick={onDoubleClick ? (e) => { e.stopPropagation(); onDoubleClick(card); } : undefined}>
@@ -46,6 +53,16 @@ const Card = ({ card, onClick, onDoubleClick }) => {
               }}
             />
             {frogNumber && <div className={styles.cardNumber}>#{frogNumber}</div>}
+            {onDelete && (
+              <button 
+                className={styles.deleteButton}
+                onClick={handleDelete}
+                title="Delete card"
+                aria-label="Delete card"
+              >
+                ×
+              </button>
+            )}
           </div>
           <div className={styles.stats}>
             <div className={styles.statLine}>
