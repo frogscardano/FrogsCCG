@@ -86,7 +86,9 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
               console.log('⚠️ API returned fallback response, trying direct database access');
               setApiAvailable(false);
             } else {
-              setTeams(data.teams || []);
+              // Handle both wrapped and direct array responses
+              const teamsData = data.teams || data;
+              setTeams(Array.isArray(teamsData) ? teamsData : []);
               setApiAvailable(true);
               setIsLoading(false);
               return;
@@ -198,18 +200,6 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
       
       // Fallback: Use local storage only
       console.log('⚠️ API not available, using local storage only');
-      // Save to local state/local storage when API isn't available
-      if (selectedTeam) {
-        setTeams(teams.map(team => 
-          team.id === selectedTeam.id ? newTeam : team
-        ));
-      } else {
-        setTeams([...teams, newTeam]);
-      }
-
-      setIsCreatingTeam(false);
-      setSelectedTeam(null);
-      setSelectedCards([]);
       
     } catch (error) {
       console.error('❌ Error during team deletion:', error);
@@ -269,7 +259,10 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
       }
 
       const savedTeams = await response.json();
-      const savedTeam = savedTeams[0]; // Get the first (and only) team
+      console.log('🔍 Save team response data:', savedTeams);
+      
+      // Handle both array and single object responses
+      const savedTeam = Array.isArray(savedTeams) ? savedTeams[0] : savedTeams;
       console.log('✅ Team saved successfully:', savedTeam);
       
       if (selectedTeam) {
@@ -360,8 +353,10 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
         try {
           const teamsResponse = await fetch(`/api/teams/${address}`);
           if (teamsResponse.ok) {
-            const updatedTeams = await teamsResponse.json();
-            setTeams(updatedTeams);
+            const updatedTeamsData = await teamsResponse.json();
+            // Handle both wrapped and direct array responses
+            const updatedTeams = updatedTeamsData.teams || updatedTeamsData;
+            setTeams(Array.isArray(updatedTeams) ? updatedTeams : []);
           }
         } catch (refreshError) {
           console.log('⚠️ Could not refresh teams from API, using local state');
