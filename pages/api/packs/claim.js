@@ -31,10 +31,12 @@ export default async function handler(req, res) {
       });
     }
 
+    const currentBalance = typeof user.balance === 'string' ? parseInt(user.balance || '0', 10) : (user.balance ?? 0);
+    const newBalance = currentBalance + DAILY_AMOUNT;
     const updated = await prisma.user.update({
       where: { address },
       data: {
-        balance: (user.balance ?? 0) + DAILY_AMOUNT,
+        balance: String(newBalance),
         lastDailyClaimAt: now,
       },
       select: { balance: true, lastDailyClaimAt: true }
@@ -42,7 +44,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      balance: updated.balance,
+      balance: typeof updated.balance === 'string' ? parseInt(updated.balance || '0', 10) : (updated.balance ?? 0),
       lastDailyClaimAt: updated.lastDailyClaimAt?.toISOString()
     });
   } catch (error) {
