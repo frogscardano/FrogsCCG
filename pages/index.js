@@ -504,18 +504,10 @@ export default function Home() {
         <div className={styles.walletSection}>
           {connected ? (
             <div className={styles.walletInfo}>
-              <div className={styles.walletStatus}>
-                <span className={styles.connectedDot}></span>
-                <span>Connected: {api?.name || 'Wallet'}</span>
-              </div>
-              {address && displayAddressInfo && (
-                <div className={styles.walletAddress}>
-                  {displayAddressInfo.formatted}
-                  {displayAddressInfo.isHex && (
-                    <span className={styles.hexIndicator} title="This is a hexadecimal address from CIP-30">
-                      (hex)
-                    </span>
-                  )}
+              <div className={styles.walletToolbar}>
+                <span className={styles.connectedDot} />
+                <div className={`${styles.badge} ${styles.badgeMono}`} title="Connected address">
+                  {displayAddressInfo?.formatted}
                   <button 
                     className={styles.copyButton}
                     onClick={() => {
@@ -527,30 +519,28 @@ export default function Home() {
                     📋
                   </button>
                 </div>
-              )}
-              {balance && (
-                <div className={styles.walletBalance}>
-                  Balance: {lovelaceToAda(balance.find(b => b.unit === 'lovelace')?.quantity || '0')} ADA
+                <div className={styles.badge} title="Wallet ADA balance">
+                  Balance: {lovelaceToAda(balance?.find(b => b.unit === 'lovelace')?.quantity || '0')} ADA
                 </div>
-              )}
-              <div className={styles.packRow}>
-                <div className={styles.packCount}>Packs: {packsBalance}</div>
+                <div className={styles.badge} title="Remaining packs">
+                  Packs: {packsBalance}
+                </div>
                 <button 
-                  className={styles.actionBtn}
+                  className={styles.smallActionBtn}
                   onClick={handleClaimDaily}
                   disabled={!canClaimDaily || claimLoading}
                   title={canClaimDaily ? 'Claim +5 packs' : (nextClaimAt ? `Next claim at ${new Date(nextClaimAt).toLocaleString()}` : 'Claim unavailable')}
                 >
                   {claimLoading ? 'Claiming...' : 'Free Daily +5 Pack'}
                 </button>
+                <button 
+                  className={styles.smallSecondaryBtn}
+                  onClick={handleDisconnectWallet}
+                  disabled={loading}
+                >
+                  {loading ? 'Processing...' : 'Disconnect'}
+                </button>
               </div>
-              <button 
-                className={styles.disconnectButton}
-                onClick={handleDisconnectWallet}
-                disabled={loading}
-              >
-                {loading ? 'Processing...' : 'Disconnect'}
-              </button>
             </div>
           ) : (
             <div className={styles.walletConnector}>
