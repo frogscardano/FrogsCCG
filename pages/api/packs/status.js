@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       user = await prisma.user.create({ data: { address } });
     }
 
-    const balance = user.balance ?? 0;
+    const balance = typeof user.balance === 'string' ? parseInt(user.balance || '0', 10) : (user.balance ?? 0);
     const last = user.lastDailyClaimAt ? new Date(user.lastDailyClaimAt) : null;
     const now = new Date();
     const nextClaimAt = last ? new Date(last.getTime() + 24 * 60 * 60 * 1000) : new Date(0);
