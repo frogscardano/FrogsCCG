@@ -1,0 +1,54 @@
+import { prisma } from '../../../utils/db';
+
+const DAILY_AMOUNT = 5;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ message: 'Method not allowed' });
+  }
+
+  try {
+    const { address } = req.body || {};
+    if (!address) {
+      return res.status(400).json({ message: 'Address is required' });
+    }
+
+    let user = await prisma.user.findUnique({ where: { address } });
+    if (!user) {
+      user = await prisma.user.create({ data: { address } });
+    }
+
+    const now = new Date();
+    const last = user.lastDailyClaimAt ? new Date(user.lastDailyClaimAt) : null;
+    const nextAllowed = last ? new Date(last.getTime() + DAY_MS) : new Date(0);
+
+    if (last && now < nextAllowed) {
+      return res.status(429).json({
+        message: 'Daily claim not available yet',
+        nextClaimAt: nextAllowed.toISOString(),
+        balance: user.balance ?? 0
+      });
+    }
+
+    const updated = await prisma.user.update({
+      where: { address },
+      data: {
+        balance: (user.balance ?? 0) + DAILY_AMOUNT,
+        lastDailyClaimAt: now,
+      },
+      select: { balance: true, lastDailyClaimAt: true }
+    });
+
+    return res.status(200).json({
+      success: true,
+      balance: updated.balance,
+      lastDailyClaimAt: updated.lastDailyClaimAt?.toISOString()
+    });
+  } catch (error) {
+    console.error('Error in packs/claim:', error);
+    return res.status(500).json({ message: 'Failed to claim daily packs', error: error.message });
+  }
+}
+
+
