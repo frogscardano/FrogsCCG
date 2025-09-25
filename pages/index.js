@@ -531,7 +531,7 @@ export default function Home() {
                   disabled={!canClaimDaily || claimLoading}
                   title={canClaimDaily ? 'Claim +5 packs' : (nextClaimAt ? `Next claim at ${new Date(nextClaimAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : 'Claim unavailable')}
                 >
-                  {claimLoading ? 'Claiming...' : 'Free Daily +5 Pack'}
+                  {claimLoading ? 'Claiming...' : 'Free +5 Pack'}
                 </button>
                 <button 
                   className={styles.smallSecondaryBtn}
