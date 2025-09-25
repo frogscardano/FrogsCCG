@@ -188,6 +188,28 @@ export default async function handler(req, res) {
     }
 
     console.log(`🔍 Validated wallet address: ${walletAddress} (length: ${walletAddress.length})`);
+
+    // Enforce pack balance using Prisma User.balance
+    try {
+      const { prisma } = await import('../../utils/db');
+      // Ensure user exists
+      let user = await prisma.user.findUnique({ where: { address: walletAddress } });
+      if (!user) {
+        user = await prisma.user.create({ data: { address: walletAddress, balance: 0 } });
+      }
+      const currentBalance = user.balance ?? 0;
+      if (currentBalance <= 0) {
+        return res.status(402).json({ message: 'No packs remaining. Claim your daily +5 packs.' });
+      }
+      // Reserve one pack by decrementing first to avoid race conditions
+      await prisma.user.update({
+        where: { address: walletAddress },
+        data: { balance: currentBalance - 1 }
+      });
+    } catch (balanceError) {
+      console.error('Balance check/decrement failed:', balanceError);
+      return res.status(500).json({ message: 'Failed to verify pack balance' });
+    }
     
     // Get current collection from request query
     const userCards = req.query.collection ? JSON.parse(req.query.collection) : [];
