@@ -533,17 +533,17 @@ export default function Home() {
                   Balance: {lovelaceToAda(balance.find(b => b.unit === 'lovelace')?.quantity || '0')} ADA
                 </div>
               )}
-              <div className={styles.walletBalance}>
-                Packs: {packsBalance}
+              <div className={styles.packRow}>
+                <div className={styles.packCount}>Packs: {packsBalance}</div>
+                <button 
+                  className={styles.actionBtn}
+                  onClick={handleClaimDaily}
+                  disabled={!canClaimDaily || claimLoading}
+                  title={canClaimDaily ? 'Claim +5 packs' : (nextClaimAt ? `Next claim at ${new Date(nextClaimAt).toLocaleString()}` : 'Claim unavailable')}
+                >
+                  {claimLoading ? 'Claiming...' : 'Free Daily +5 Pack'}
+                </button>
               </div>
-              <button 
-                className={styles.actionBtn}
-                onClick={handleClaimDaily}
-                disabled={!canClaimDaily || claimLoading}
-                title={canClaimDaily ? 'Claim +5 packs' : (nextClaimAt ? `Next claim at ${new Date(nextClaimAt).toLocaleString()}` : 'Claim unavailable')}
-              >
-                {claimLoading ? 'Claiming...' : 'Free Daily +5 Pack'}
-              </button>
               <button 
                 className={styles.disconnectButton}
                 onClick={handleDisconnectWallet}
