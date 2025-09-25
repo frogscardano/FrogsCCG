@@ -20,7 +20,8 @@ export default async function handler(req, res) {
     }
 
     const now = new Date();
-    const last = user.lastDailyClaimAt ? new Date(user.lastDailyClaimAt) : null;
+    // Backward-compatible: use lastUpdated as the daily-claim timestamp
+    const last = user.lastDailyClaimAt ? new Date(user.lastDailyClaimAt) : (user.lastUpdated ? new Date(user.lastUpdated) : null);
     const nextAllowed = last ? new Date(last.getTime() + DAY_MS) : new Date(0);
 
     if (last && now < nextAllowed) {
@@ -37,15 +38,15 @@ export default async function handler(req, res) {
       where: { address },
       data: {
         balance: String(newBalance),
-        lastDailyClaimAt: now,
+        lastUpdated: now,
       },
-      select: { balance: true, lastDailyClaimAt: true }
+      select: { balance: true, lastUpdated: true }
     });
 
     return res.status(200).json({
       success: true,
       balance: typeof updated.balance === 'string' ? parseInt(updated.balance || '0', 10) : (updated.balance ?? 0),
-      lastDailyClaimAt: updated.lastDailyClaimAt?.toISOString()
+      lastDailyClaimAt: updated.lastUpdated ? new Date(updated.lastUpdated).toISOString() : null
     });
   } catch (error) {
     console.error('Error in packs/claim:', error);
