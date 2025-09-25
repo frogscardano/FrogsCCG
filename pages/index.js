@@ -69,6 +69,10 @@ export default function Home() {
   const [gameResults, setGameResults] = useState(null);
   const [rewardPoints, setRewardPoints] = useState(0);
   const [error, setError] = useState(null);
+  const [packsBalance, setPacksBalance] = useState(0);
+  const [canClaimDaily, setCanClaimDaily] = useState(false);
+  const [nextClaimAt, setNextClaimAt] = useState(null);
+  const [claimLoading, setClaimLoading] = useState(false);
 
   // Add a formatted address state to store a more user-friendly address
   const [displayAddressInfo, setDisplayAddressInfo] = useState(null);
@@ -247,9 +251,35 @@ export default function Home() {
     }
   }, [connected, address]);
 
+  useEffect(() => {
+    const fetchPackStatus = async () => {
+      if (!connected || !address) {
+        setPacksBalance(0);
+        setCanClaimDaily(false);
+        setNextClaimAt(null);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/packs/status?address=${encodeURIComponent(address)}`);
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        setPacksBalance(data.balance || 0);
+        setCanClaimDaily(!!data.canClaim);
+        setNextClaimAt(data.nextClaimAt || null);
+      } catch (e) {
+        console.error('Failed to load pack status:', e);
+      }
+    };
+    fetchPackStatus();
+  }, [connected, address]);
+
   const openPack = async (packType) => {
     if (!connected) {
       alert("Please connect your wallet to open a pack.");
+      return;
+    }
+    if (packsBalance <= 0) {
+      alert('No packs remaining. Claim your daily +5 packs first.');
       return;
     }
     setSelectedPack(packType);
@@ -261,6 +291,9 @@ export default function Home() {
 
   const handlePackClick = async () => {
     if (isPackOpening) return;
+    
+    // optimistic reduce balance
+    setPacksBalance(prev => (prev > 0 ? prev - 1 : 0));
     
     setIsPackOpening(true);
     setIsRevealed(false);
@@ -281,6 +314,8 @@ export default function Home() {
       const response = await fetch(apiUrl);
       
       if (!response.ok) {
+        // rollback optimistic change on failure
+        setPacksBalance(prev => prev + 1);
         const errorText = await response.text();
         console.error(`API error (${response.status}):`, errorText);
         
@@ -312,6 +347,8 @@ export default function Home() {
         throw new Error('No card data received');
       }
     } catch (error) {
+      // rollback optimistic change on error
+      setPacksBalance(prev => prev + 1);
       console.error('Error opening pack:', error);
       setStatusMessage(`Error: ${error.message}. Please try again.`);
       // Reset after 3 seconds
@@ -321,6 +358,32 @@ export default function Home() {
       }, 3000);
     }
     setIsPackOpening(false);
+  };
+
+  const handleClaimDaily = async () => {
+    if (!connected || !address) return;
+    if (!canClaimDaily) return;
+    setClaimLoading(true);
+    try {
+      const res = await fetch('/api/packs/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address })
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text);
+      }
+      const data = await res.json();
+      setPacksBalance(data.balance || 0);
+      setCanClaimDaily(false);
+      setNextClaimAt(data.lastDailyClaimAt ? new Date(new Date(data.lastDailyClaimAt).getTime() + 24*60*60*1000).toISOString() : null);
+    } catch (e) {
+      console.error('Daily claim failed:', e);
+      alert('Daily claim failed. Please try again later.');
+    } finally {
+      setClaimLoading(false);
+    }
   };
 
   const addToCollection = async () => {
@@ -470,6 +533,17 @@ export default function Home() {
                   Balance: {lovelaceToAda(balance.find(b => b.unit === 'lovelace')?.quantity || '0')} ADA
                 </div>
               )}
+              <div className={styles.walletBalance}>
+                Packs: {packsBalance}
+              </div>
+              <button 
+                className={styles.actionBtn}
+                onClick={handleClaimDaily}
+                disabled={!canClaimDaily || claimLoading}
+                title={canClaimDaily ? 'Claim +5 packs' : (nextClaimAt ? `Next claim at ${new Date(nextClaimAt).toLocaleString()}` : 'Claim unavailable')}
+              >
+                {claimLoading ? 'Claiming...' : 'Free Daily +5 Pack'}
+              </button>
               <button 
                 className={styles.disconnectButton}
                 onClick={handleDisconnectWallet}
