@@ -195,16 +195,16 @@ export default async function handler(req, res) {
       // Ensure user exists
       let user = await prisma.user.findUnique({ where: { address: walletAddress } });
       if (!user) {
-        user = await prisma.user.create({ data: { address: walletAddress, balance: 0 } });
+        user = await prisma.user.create({ data: { address: walletAddress, balance: '0' } });
       }
-      const currentBalance = user.balance ?? 0;
+      const currentBalance = typeof user.balance === 'string' ? parseInt(user.balance || '0', 10) : (user.balance ?? 0);
       if (currentBalance <= 0) {
         return res.status(402).json({ message: 'No packs remaining. Claim your daily +5 packs.' });
       }
       // Reserve one pack by decrementing first to avoid race conditions
       await prisma.user.update({
         where: { address: walletAddress },
-        data: { balance: currentBalance - 1 }
+        data: { balance: String(currentBalance - 1) }
       });
     } catch (balanceError) {
       console.error('Balance check/decrement failed:', balanceError);
