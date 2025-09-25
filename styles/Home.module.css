@@ -1641,3 +1641,19 @@
   margin-left: 0.5rem;
   font-style: italic;
 }
+
+.packRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.packCount {
+  font-family: monospace;
+  background: #333;
+  color: #ddd;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 0.9rem;
+}
