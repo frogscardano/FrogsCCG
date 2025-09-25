@@ -520,7 +520,7 @@ export default function Home() {
                   </button>
                 </div>
                 <div className={styles.badge} title="Wallet ADA balance">
-                  Balance: {lovelaceToAda(balance?.find(b => b.unit === 'lovelace')?.quantity || '0')} ADA
+                  Balance: {lovelaceToAda(balance?.find(b => b.unit === 'lovelace')?.quantity || '0').toFixed(1)} ADA
                 </div>
                 <div className={styles.badge} title="Remaining packs">
                   Packs: {packsBalance}
@@ -529,7 +529,7 @@ export default function Home() {
                   className={styles.smallActionBtn}
                   onClick={handleClaimDaily}
                   disabled={!canClaimDaily || claimLoading}
-                  title={canClaimDaily ? 'Claim +5 packs' : (nextClaimAt ? `Next claim at ${new Date(nextClaimAt).toLocaleString()}` : 'Claim unavailable')}
+                  title={canClaimDaily ? 'Claim +5 packs' : (nextClaimAt ? `Next claim at ${new Date(nextClaimAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : 'Claim unavailable')}
                 >
                   {claimLoading ? 'Claiming...' : 'Free Daily +5 Pack'}
                 </button>
