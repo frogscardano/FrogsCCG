@@ -18,7 +18,8 @@ export default async function handler(req, res) {
     }
 
     const balance = typeof user.balance === 'string' ? parseInt(user.balance || '0', 10) : (user.balance ?? 0);
-    const last = user.lastDailyClaimAt ? new Date(user.lastDailyClaimAt) : null;
+    // Backward-compatible: use lastUpdated if lastDailyClaimAt isn't present
+    const last = user.lastDailyClaimAt ? new Date(user.lastDailyClaimAt) : (user.lastUpdated ? new Date(user.lastUpdated) : null);
     const now = new Date();
     const nextClaimAt = last ? new Date(last.getTime() + 24 * 60 * 60 * 1000) : new Date(0);
     const canClaim = last === null || now >= nextClaimAt;
