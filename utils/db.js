@@ -13,18 +13,10 @@ if (!DATABASE_URL) {
 export const prisma =
   globalForPrisma.prisma ??
   (globalForPrisma.prisma = new PrismaClient({
-    log: ['query', 'info', 'warn', 'error'],
-    errorFormat: 'pretty',
+    log: process.env.NODE_ENV === 'development' ? ['error'] : [],
     datasources: {
       db: {
         url: DATABASE_URL,
-      },
-    },
-    // Simplified connection configuration to avoid prepared statement conflicts
-    // Remove complex pooling that might cause issues
-    __internal: {
-      engine: {
-        enableEngineDebugMode: false,
       },
     },
   }));
@@ -53,100 +45,13 @@ export async function testDatabaseConnection() {
   }
 }
 
-// Database operation wrapper with retry logic and better connection management
+// Simplified database operation wrapper
 export async function withDatabase(operation) {
-  const maxRetries = 3;
-  let retries = 0;
-  
-  while (retries < maxRetries) {
-    try {
-      // Get the current Prisma client (it might have been updated during reconnection)
-      const currentPrisma = globalForPrisma.prisma || prisma;
-      
-      // Create a wrapper object that maps the expected model names to the actual Prisma client
-      // Note: Prisma models are lowercase in the actual client
-      const dbWrapper = {
-        Team: currentPrisma.team,
-        User: currentPrisma.user,
-        NFT: currentPrisma.nFT,
-        // Add any other models that might be needed
-        $connect: currentPrisma.$connect,
-        $disconnect: currentPrisma.$disconnect,
-        $transaction: currentPrisma.$transaction,
-        $queryRaw: currentPrisma.$queryRaw,
-        $executeRaw: currentPrisma.$executeRaw
-      };
-      
-      // Debug logging to verify wrapper properties
-      console.log('🔍 Database wrapper created with properties:', {
-        hasTeam: !!dbWrapper.Team,
-        hasUser: !!dbWrapper.User,
-        hasNFT: !!dbWrapper.NFT,
-        teamType: typeof dbWrapper.Team,
-        userType: typeof dbWrapper.User,
-        nftType: typeof dbWrapper.NFT
-      });
-      
-      return await operation(dbWrapper);
-    } catch (error) {
-      retries++;
-      
-      // Check if it's a connection error that might be retryable
-      if (error.code === 'P2024' || 
-          error.message.includes('prepared statement') || 
-          error.message.includes('already exists') ||
-          error.message.includes('there is no unique or exclusion constraint') ||
-          error.message.includes('connection') ||
-          error.message.includes('s0') ||
-          error.message.includes('s1') ||
-          error.message.includes('s2') ||
-          error.message.includes('s3') ||
-          error.message.includes('s4') ||
-          error.message.includes('s5')) {
-        console.warn(`Database operation failed (attempt ${retries}/${maxRetries}):`, error.message);
-        
-        if (retries < maxRetries) {
-          // Wait before retrying with exponential backoff
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 1000));
-          
-          // Try to disconnect and reconnect
-          try {
-            console.log(`🔄 Attempting to reconnect to database (attempt ${retries})...`);
-            
-            // Disconnect the current client
-            if (globalForPrisma.prisma) {
-              await globalForPrisma.prisma.$disconnect();
-            }
-            
-            // Force a new connection with fresh configuration
-            globalForPrisma.prisma = new PrismaClient({
-              log: ['query', 'info', 'warn', 'error'],
-              errorFormat: 'pretty',
-              datasources: {
-                db: {
-                  url: DATABASE_URL,
-                },
-              },
-              // Simplified configuration to avoid prepared statement conflicts
-              __internal: {
-                engine: {
-                  enableEngineDebugMode: false,
-                },
-              },
-            });
-            
-            console.log(`✅ Database reconnection successful`);
-          } catch (disconnectError) {
-            console.warn('⚠️ Error during disconnect/reconnect:', disconnectError.message);
-          }
-          
-          continue;
-        }
-      }
-      
-      // If it's not a retryable error or we've exceeded max retries, throw the error
-      throw error;
-    }
+  try {
+    return await operation(prisma);
+  } catch (error) {
+    console.error('Database operation failed:', error);
+    throw error;
   }
 }
 
