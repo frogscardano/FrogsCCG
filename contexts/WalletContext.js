@@ -51,31 +51,21 @@ export function WalletProvider({ children }) {
         throw new Error('Failed to connect to wallet');
       }
 
-      // Get wallet address - try used addresses first, then fallback to reward addresses
-      let walletAddress;
-      try {
-        const usedAddresses = await connectedWallet.getUsedAddresses();
-        walletAddress = usedAddresses[0];
-      } catch (err) {
-        console.warn('Failed to get used addresses, trying reward addresses:', err);
-        try {
-          const rewardAddresses = await connectedWallet.getRewardAddresses();
-          walletAddress = rewardAddresses[0];
-        } catch (rewardErr) {
-          console.error('Failed to get reward addresses:', rewardErr);
-          throw new Error('Could not get wallet address');
-        }
-      }
+      // Simplified address retrieval
+      const walletAddress = await connectedWallet.getUsedAddresses()
+        .then(addresses => addresses[0])
+        .catch(() => connectedWallet.getRewardAddresses())
+        .then(addresses => addresses[0]);
 
       if (!walletAddress) {
         throw new Error('No wallet address found');
       }
 
-      // Get balance
-      const walletBalance = await connectedWallet.getBalance();
-      
-      // Get assets
-      const assets = await connectedWallet.getAssets();
+      // Get balance and assets in parallel
+      const [walletBalance, assets] = await Promise.all([
+        connectedWallet.getBalance(),
+        connectedWallet.getAssets()
+      ]);
 
       console.log('Connected wallet address:', walletAddress);
       console.log('Wallet assets:', assets);
@@ -85,28 +75,9 @@ export function WalletProvider({ children }) {
       setBalance(walletBalance);
       setConnected(true);
 
-      // Store wallet info in database
-      try {
-        const lovelaceBalance = walletBalance.find(b => b.unit === 'lovelace')?.quantity || '0';
-        const response = await fetch('/api/wallet', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            address: walletAddress,
-            provider: walletName,
-            balance: lovelaceBalance,
-            assets: JSON.stringify(assets)
-          }),
-        });
-
-        if (!response.ok) {
-          console.warn('Failed to save wallet info to database');
-        }
-      } catch (err) {
-        console.warn('Error saving wallet info:', err);
-      }
+      // Store wallet info in database (non-blocking)
+      saveWalletInfo(walletAddress, walletName, walletBalance, assets)
+        .catch(err => console.warn('Error saving wallet info:', err));
 
     } catch (err) {
       console.error('Wallet connection error:', err);
@@ -125,6 +96,25 @@ export function WalletProvider({ children }) {
     setAddress('');
     setBalance(0);
     setApi(null);
+  };
+
+  // Non-blocking wallet info save
+  const saveWalletInfo = async (address, provider, balance, assets) => {
+    try {
+      const lovelaceBalance = balance.find(b => b.unit === 'lovelace')?.quantity || '0';
+      await fetch('/api/wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address,
+          provider,
+          balance: lovelaceBalance,
+          assets: JSON.stringify(assets)
+        }),
+      });
+    } catch (err) {
+      console.warn('Error saving wallet info:', err);
+    }
   };
 
   return (
