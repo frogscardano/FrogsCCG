@@ -133,6 +133,16 @@ export default function Home() {
       return;
     }
     
+    // Check client-side cache first
+    const cacheKey = `client-collection-${address}`;
+    const cached = global.clientCache?.get(cacheKey);
+    if (cached) {
+      console.log('📦 Using cached collection data');
+      setCurrentCards(cached);
+      setStatusMessage(`Found ${cached.length} cards in your collection`);
+      return;
+    }
+    
     console.log(`🔍 Loading collection for address: ${address}`);
     
     try {
@@ -173,23 +183,17 @@ export default function Home() {
         throw new Error('Unexpected response format from API');
       }
       
-      // Debug: Log the structure of the first card
-      if (cardData.length > 0) {
-        console.log(`🔍 First card structure:`, {
-          id: cardData[0].id,
-          name: cardData[0].name,
-          image: cardData[0].image,
-          imageUrl: cardData[0].imageUrl,
-          attack: cardData[0].attack,
-          health: cardData[0].health,
-          speed: cardData[0].speed,
-          attributes: cardData[0].attributes,
-          metadata: cardData[0].metadata
-        });
-      }
-      
       setCurrentCards(cardData);
       setStatusMessage(userMessage || '');
+      
+      // Cache client-side for 1 minute
+      if (!global.clientCache) {
+        global.clientCache = new Map();
+      }
+      global.clientCache.set(cacheKey, cardData);
+      setTimeout(() => {
+        global.clientCache?.delete(cacheKey);
+      }, 60000);
       
       console.log(`🎯 Collection loaded successfully with ${cardData.length} NFTs`);
     } catch (e) {
