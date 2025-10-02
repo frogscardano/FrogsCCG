@@ -27,14 +27,13 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
   console.log('🔍 TeamBuilder cards length:', cards?.length || 0);
   console.log('🔍 TeamBuilder cards sample:', cards?.slice(0, 3));
 
-  // Handle case when context is not available (during build time)
-  if (!isBrowser || !walletContext) {
-    console.log('❌ TeamBuilder: Browser or wallet context not available');
-    return (
-      <div className={styles.notAuthenticated}>
-        <p>Wallet context not available. Please refresh the page.</p>
-      </div>
-    );
+  // Handle case when rendering on the server – defer rendering until client
+  if (!isBrowser) {
+    return null;
+  }
+  if (!walletContext) {
+    console.log('❌ TeamBuilder: Wallet context not available on first render');
+    return null;
   }
 
   const { connected, address, loading } = walletContext;

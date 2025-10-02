@@ -22,22 +22,81 @@ export function WalletProvider({ children }) {
   const [error, setError] = useState(null);
   const [api, setApi] = useState(null);
   const [availableWallets, setAvailableWallets] = useState([]);
+  const [checkingWallets, setCheckingWallets] = useState(false);
 
-  // Check for available wallets
+  // Robustly detect installed wallets with retries and event listeners
   useEffect(() => {
-    const checkWallets = async () => {
+    if (typeof window === 'undefined') return;
+
+    let cancelled = false;
+    let retryTimer = null;
+    let attempts = 0;
+
+    const detect = async () => {
       try {
+        setCheckingWallets(true);
         const wallets = await BrowserWallet.getInstalledWallets();
-        setAvailableWallets(wallets);
+        if (!cancelled) {
+          setAvailableWallets(wallets || []);
+          // Stop retrying once any wallet is detected
+          if (wallets && wallets.length > 0) {
+            clearInterval(retryTimer);
+            retryTimer = null;
+          }
+        }
       } catch (err) {
         console.error('Error checking wallets:', err);
+      } finally {
+        if (!cancelled) setCheckingWallets(false);
       }
     };
 
-    if (typeof window !== 'undefined') {
-      checkWallets();
-    }
+    // Initial detection
+    detect();
+
+    // Some wallets inject late; retry for a short window
+    retryTimer = setInterval(() => {
+      attempts += 1;
+      // Try for up to ~10 seconds (20 attempts x 500ms)
+      if (attempts > 20) {
+        clearInterval(retryTimer);
+        retryTimer = null;
+        return;
+      }
+      detect();
+    }, 500);
+
+    // Re-detect when tab becomes visible again
+    const handleVisibility = () => {
+      if (!document.hidden) detect();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // Some wallets emit a custom initialization event
+    const handleCardanoInitialized = () => detect();
+    window.addEventListener('cardano#initialized', handleCardanoInitialized);
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearInterval(retryTimer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('cardano#initialized', handleCardanoInitialized);
+    };
   }, []);
+
+  // Manual refresh for wallet detection (exposed to UI)
+  const refreshWallets = async () => {
+    if (typeof window === 'undefined') return;
+    try {
+      setCheckingWallets(true);
+      const wallets = await BrowserWallet.getInstalledWallets();
+      setAvailableWallets(wallets || []);
+    } catch (err) {
+      console.error('Error refreshing wallets:', err);
+    } finally {
+      setCheckingWallets(false);
+    }
+  };
 
   const connect = async (walletName = 'eternl') => {
     try {
@@ -137,7 +196,9 @@ export function WalletProvider({ children }) {
       connect,
       disconnect,
       api,
-      availableWallets
+      availableWallets,
+      refreshWallets,
+      checkingWallets
     }}>
       {children}
     </WalletContext.Provider>

@@ -52,7 +52,9 @@ export default function Home() {
     connect: connectWalletContext,
     disconnect: disconnectWalletContext,
     api, 
-    availableWallets 
+    availableWallets,
+    refreshWallets,
+    checkingWallets
   } = useWallet();
   const [currentTab, setCurrentTab] = useState('packs');
   const [currentCards, setCurrentCards] = useState([]);
@@ -557,7 +559,17 @@ export default function Home() {
                     <div className={styles.walletOptions}>
                       <a href="https://eternl.io" target="_blank" rel="noopener noreferrer">Eternl</a>
                     </div>
-                    <p className={styles.walletHelp}>After installing, refresh this page.</p>
+                    <div className={styles.retryDetect}>
+                      <button 
+                        className={styles.smallActionBtn}
+                        onClick={refreshWallets}
+                        disabled={checkingWallets}
+                        title="Retry wallet detection"
+                      >
+                        {checkingWallets ? 'Scanning wallets...' : 'Retry detection'}
+                      </button>
+                      <p className={styles.walletHelp}>After installing, click Retry detection.</p>
+                    </div>
                   </div>
                 ) : (
                   <div className={styles.walletOptions}>
