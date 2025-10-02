@@ -19,15 +19,6 @@ export default function Collection() {
   }, [connected, address]);
 
   const fetchCollection = async () => {
-    // Check client-side cache first
-    const cacheKey = `client-collection-${address}`;
-    const cached = global.clientCache?.get(cacheKey);
-    if (cached) {
-      console.log('📦 Using cached collection data');
-      setCollection(cached);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
@@ -54,16 +45,6 @@ export default function Collection() {
       }
       
       setCollection(collectionData);
-      
-      // Cache client-side for 1 minute
-      if (!global.clientCache) {
-        global.clientCache = new Map();
-      }
-      global.clientCache.set(cacheKey, collectionData);
-      setTimeout(() => {
-        global.clientCache?.delete(cacheKey);
-      }, 60000);
-      
     } catch (error) {
       console.error('Error fetching collection:', error);
       setError(error.message);
