@@ -81,32 +81,11 @@ export default async function handler(req, res) {
     });
   }
   
-  // Validate and clean the wallet address
-  let cleanAddress = address;
-  if (address) {
-    // Basic validation - check format and length
-    if (!address.startsWith('addr1') && !address.startsWith('stake1')) {
-      console.error(`❌ Invalid wallet address format: ${address}`);
-      return res.status(400).json({ 
-        error: 'Invalid wallet address format',
-        receivedAddress: address,
-        message: 'Wallet address must start with addr1 or stake1'
-      });
-    }
-    
-    // Check for reasonable length (Cardano addresses are typically 100-120 chars)
-    if (address.length < 100 || address.length > 120) {
-      console.error(`❌ Wallet address length is suspicious: ${address.length} characters`);
-      return res.status(400).json({ 
-        error: 'Wallet address length is suspicious',
-        receivedAddress: address,
-        receivedLength: address.length,
-        message: 'Expected 100-120 characters for Cardano addresses'
-      });
-    }
-    
-    cleanAddress = address;
-    console.log(`🔍 Validated wallet address: ${cleanAddress} (length: ${cleanAddress.length})`);
+  // Accept both bech32 and hex addresses; minimal sanity check only
+  const cleanAddress = (address || '').trim();
+  if (!cleanAddress) {
+    console.log('❌ No address provided');
+    return res.status(400).json({ error: 'Wallet address is required' });
   }
   
   if (!prisma) {
@@ -128,10 +107,7 @@ export default async function handler(req, res) {
     });
   }
 
-  if (!cleanAddress) {
-    console.log('❌ No address provided');
-    return res.status(400).json({ error: 'Wallet address is required' });
-  }
+  // proceed; address may be reward/bech32 or CIP-30 hex
 
   try {
     // Test connection first
@@ -150,7 +126,7 @@ export default async function handler(req, res) {
     // Simple user upsert like in the working examples
     let user = await prisma.user.findUnique({ where: { address: cleanAddress } });
     if (!user) {
-      user = await prisma.user.create({ data: { address: cleanAddress } });
+      user = await prisma.user.create({ data: { id: uuid4(), address: cleanAddress } });
     }
     
     console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
@@ -209,7 +185,7 @@ export default async function handler(req, res) {
 
       case 'POST':
         try {
-          const newTeamsData = req.body;
+          let newTeamsData = req.body;
           console.log(`📥 Received POST data for ${newTeamsData?.length || 0} teams`);
           
           if (!Array.isArray(newTeamsData)) {

@@ -115,37 +115,8 @@ export default async function handler(req, res) {
   
   console.log(`🔍 Collections API called with address: ${address}, method: ${req.method}`);
   
-  // CRITICAL FIX: Validate and clean the wallet address
-  let cleanAddress = address;
-  if (address) {
-    // Basic validation - just check format and length
-    // Cardano addresses are complex and strict validation can cause false positives
-    
-    // Check if the address has the right format
-    if (!address.startsWith('addr1') && !address.startsWith('stake1')) {
-      console.error(`❌ Invalid wallet address format: ${address}`);
-      return res.status(400).json({ 
-        error: 'Invalid wallet address format',
-        receivedAddress: address,
-        message: 'Wallet address must start with addr1 or stake1'
-      });
-    }
-    
-    // Check for reasonable length (Cardano addresses are typically 100-120 chars)
-    if (address.length < 100 || address.length > 120) {
-      console.error(`❌ Wallet address length is suspicious: ${address.length} characters`);
-      return res.status(400).json({ 
-        error: 'Wallet address length is suspicious',
-        receivedAddress: address,
-        receivedLength: address.length,
-        message: 'Expected 100-120 characters for Cardano addresses'
-      });
-    }
-    
-    cleanAddress = address;
-    console.log(`🔍 Validated wallet address: ${cleanAddress} (length: ${cleanAddress.length})`);
-  }
-  
+  // Accept both bech32 and hex addresses; minimal sanity check only
+  const cleanAddress = (address || '').trim();
   if (!cleanAddress) {
     console.log('❌ No address provided');
     return res.status(400).json({ error: 'Wallet address is required' });

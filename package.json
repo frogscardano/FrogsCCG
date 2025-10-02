@@ -25,7 +25,7 @@
   "dependencies": {
     "@blockfrost/blockfrost-js": "^6.0.0",
     "@meshsdk/core": "^1.9.0-beta.46",
-    "@prisma/client": "^6.8.2",
+    "@prisma/client": "^6.16.3",
     "axios": "^1.6.2",
     "bech32-converting": "^1.0.9",
     "next": "^15.3.1",
@@ -36,6 +36,6 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "prisma": "^6.7.0"
+    "prisma": "^6.16.3"
   }
 }
