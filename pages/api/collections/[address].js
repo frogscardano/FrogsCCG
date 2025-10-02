@@ -113,18 +113,6 @@ function calculateGameStats(nftData) {
 export default async function handler(req, res) {
   const { address } = req.query;
   
-  // Simple caching to prevent duplicate requests
-  const cacheKey = `collection-${address}`;
-  if (global.collectionCache && global.collectionCache[cacheKey]) {
-    console.log('📦 Returning cached collection data');
-    return res.status(200).json(global.collectionCache[cacheKey]);
-  }
-  
-  // Initialize cache if it doesn't exist
-  if (!global.collectionCache) {
-    global.collectionCache = {};
-  }
-  
   console.log(`🔍 Collections API called with address: ${address}, method: ${req.method}`);
   
   // CRITICAL FIX: Validate and clean the wallet address
@@ -166,13 +154,38 @@ export default async function handler(req, res) {
   try {
     console.log(`🔄 Attempting to upsert user with address: ${cleanAddress}`);
     
-    // Simplified user upsert
-    const user = await prisma.user.upsert({
-      where: { address: cleanAddress },
-      update: { updatedAt: new Date() },
-      create: { address: cleanAddress },
-      select: { id: true, address: true }
-    });
+    // Use direct Prisma calls to avoid conflicts with withDatabase wrapper
+    const user = await (async () => {
+      try {
+        // First try to find existing user
+        const existingUser = await prisma.user.findUnique({
+          where: { address: cleanAddress }
+        });
+
+        if (existingUser) {
+          console.log(`🔄 Updating existing user: ${existingUser.id}`);
+          // Update existing user
+          return await prisma.user.update({
+            where: { address: cleanAddress },
+            data: {
+              updatedAt: new Date(),
+            }
+          });
+        } else {
+          console.log(`🆕 Creating new user for address: ${cleanAddress}`);
+          // Create new user
+          return await prisma.user.create({
+            data: {
+              id: uuid4(),
+              address: cleanAddress,
+            }
+          });
+        }
+      } catch (userError) {
+        console.error(`❌ User operation failed for address ${cleanAddress}:`, userError);
+        throw userError;
+      }
+    })();
     
     console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
 
@@ -181,23 +194,9 @@ export default async function handler(req, res) {
         try {
           console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
           
-          // Optimized query with only necessary fields
-          const userNfts = await prisma.nFT.findMany({
+          // Use direct Prisma calls to avoid conflicts
+          let userNfts = await prisma.nFT.findMany({
             where: { ownerId: user.id },
-            select: {
-              id: true,
-              name: true,
-              imageUrl: true,
-              rarity: true,
-              attack: true,
-              health: true,
-              speed: true,
-              special: true,
-              metadata: true,
-              tokenId: true,
-              contractAddress: true,
-              createdAt: true
-            },
             orderBy: { createdAt: 'desc' }
           });
           
@@ -207,36 +206,59 @@ export default async function handler(req, res) {
             console.log(`ℹ️ User ${user.id} has no NFTs yet. This is normal for new users.`);
           }
           
-          // Simplified data transformation
-          const collection = userNfts.map(nft => {
+          // Add game stats to each NFT and ensure proper attributes structure
+          const nftsWithStats = userNfts.map(nft => {
             const stats = calculateGameStats(nft);
             
-            return {
+            // Extract collection name from NFT name or metadata
+            let collectionName = 'Unknown';
+            if (nft.name) {
+              if (nft.name.includes('Frogs')) collectionName = 'Frogs';
+              else if (nft.name.includes('Snekkies')) collectionName = 'Snekkies';
+              else if (nft.name.includes('Titans')) collectionName = 'Titans';
+            }
+            
+            // Ensure attributes array exists for frontend compatibility
+            const attributes = Array.isArray(nft.metadata) ? nft.metadata : 
+                             (nft.metadata && typeof nft.metadata === 'object') ? 
+                             Object.entries(nft.metadata).map(([key, value]) => ({ trait_type: key, value })) :
+                             [
+                               { trait_type: "Collection", value: collectionName },
+                               { trait_type: "Number", value: nft.tokenId },
+                               { trait_type: "Policy ID", value: nft.contractAddress }
+                             ];
+            
+            const result = {
               ...nft,
               attack: stats.attack,
               health: stats.health,
               speed: stats.speed,
               special: stats.special,
-              image: nft.imageUrl,
-              attributes: Array.isArray(nft.metadata) ? nft.metadata : 
-                Object.entries(nft.metadata || {}).map(([key, value]) => ({ trait_type: key, value }))
+              attributes: attributes,
+              // Ensure image field is properly named for frontend
+              image: nft.imageUrl || nft.image
             };
+            
+            // Debug logging for image URLs
+            console.log(`🖼️ NFT ${nft.name} image data:`, {
+              imageUrl: nft.imageUrl,
+              image: nft.image,
+              finalImage: result.image
+            });
+            
+            return result;
           });
           
-          const response = {
-            collection,
-            message: `Found ${collection.length} NFTs`,
-            user: { id: user.id, address: user.address }
-          };
+          console.log(`✅ Returning collection with ${nftsWithStats.length} items`);
           
-          // Cache the response for 30 seconds
-          global.collectionCache[cacheKey] = response;
-          setTimeout(() => {
-            delete global.collectionCache[cacheKey];
-          }, 30000);
-          
-          console.log(`✅ Returning collection with ${collection.length} items`);
-          return res.status(200).json(response);
+          return res.status(200).json({
+            collection: nftsWithStats,
+            userInfo: {
+              id: user.id,
+              address: user.address,
+              nftCount: nftsWithStats.length
+            }
+          });
         } catch (error) {
           console.error('❌ Error fetching NFTs:', error);
           return res.status(500).json({ error: 'Failed to fetch NFTs' });
