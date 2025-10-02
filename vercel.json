@@ -3,27 +3,13 @@
   "framework": "nextjs",
   "functions": {
     "pages/api/collections/[address].js": {
-      "maxDuration": 10
-    },
-    "pages/api/walletConnection.js": {
-      "maxDuration": 5
+      "maxDuration": 30
     },
     "pages/api/health.js": {
-      "maxDuration": 5
+      "maxDuration": 10
     }
   },
   "env": {
     "PRISMA_CLI_QUERY_ENGINE_TYPE": "binary"
-  },
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "s-maxage=30, stale-while-revalidate=60"
-        }
-      ]
-    }
-  ]
-} 
+  }
+}
