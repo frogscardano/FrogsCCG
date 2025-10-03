@@ -4,6 +4,7 @@ import { useWallet } from '../contexts/WalletContext.js';
 import WalletConnect from '../components/WalletConnect.js';
 import Link from 'next/link';
 import styles from '../styles/Collection.module.css';
+import { getCardImage } from '../utils/gameHelpers';
 
 export default function Collection() {
   const { connected, address } = useWallet();
@@ -113,7 +114,7 @@ export default function Collection() {
                   {groupedCards[rarity].map(userCard => (
                     <div key={userCard.id} className={styles.cardItem}>
                       <div className={styles.cardImage}>
-                        <img src={userCard.card.imageUrl} alt={userCard.card.name} />
+                        <img src={getCardImage(userCard.card)} alt={userCard.card.name} />
                       </div>
                       <div className={styles.cardInfo}>
                         <h3 className={styles.cardName}>{userCard.card.name}</h3>

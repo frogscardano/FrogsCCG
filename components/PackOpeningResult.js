@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import styles from '../styles/PackOpeningResult.module.css';
+import { getCardImage } from '../utils/gameHelpers';
 
 const PackOpeningResult = ({ packOpeningId }) => {
   const router = useRouter();
@@ -124,10 +125,10 @@ const PackOpeningResult = ({ packOpeningId }) => {
           >
             {revealedCards.includes(index) ? (
               <div className={styles.nftContent}>
-                {nft.image ? (
+                {getCardImage(nft) ? (
                   <div className={styles.imageContainer}>
                     <Image 
-                      src={nft.image} 
+                      src={getCardImage(nft)} 
                       alt={nft.name}
                       width={200}
                       height={200}

@@ -1,6 +1,7 @@
 /**
  * Utility functions for card games
  */
+import { resolveIpfsUrl } from './ipfs';
 
 // Process card data to ensure consistent properties
 export const processCardData = (card) => {
@@ -20,22 +21,29 @@ export const processCardData = (card) => {
 // Get card image, handling different image property names
 export const getCardImage = (card) => {
   if (!card) return '/placeholder-card.png';
-  
-  // Check various possible image properties
-  if (card.image) return card.image;
-  if (card.image_url) return card.image_url;
-  if (card.imageUrl) return card.imageUrl;
-  
-  // Check for image in metadata
-  if (card.metadata) {
-    const metadata = typeof card.metadata === 'string' 
-      ? JSON.parse(card.metadata) 
-      : card.metadata;
-    
-    if (metadata.image) return metadata.image;
-    if (metadata.image_url) return metadata.image_url;
+
+  // Prefer explicit image fields in common variants
+  let candidate = card.image || card.image_url || card.imageUrl;
+
+  // If not present, try metadata-based locations
+  if (!candidate && card.metadata) {
+    try {
+      const metadata = typeof card.metadata === 'string'
+        ? JSON.parse(card.metadata)
+        : card.metadata;
+      candidate = metadata?.image || metadata?.image_url || metadata?.thumbnail || metadata?.media || null;
+    } catch (e) {
+      // Ignore JSON parse errors and fall through to placeholder
+    }
   }
-  
+
+  // Normalize IPFS URLs and bare ipfs paths
+  if (candidate) {
+    const normalized = resolveIpfsUrl(candidate);
+    if (normalized) return normalized;
+    return candidate;
+  }
+
   return '/placeholder-card.png';
 };
 

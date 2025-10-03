@@ -61,3 +61,25 @@ export const getIpfsGatewayUrl = (cid, path = '') => {
   
   return `https://ipfs.io/ipfs/${cleanCid}${formattedPath}`;
 }; 
+
+// Normalize any IPFS-style URL (ipfs://, /ipfs/, known gateways) to a fetchable HTTPS gateway URL
+export const resolveIpfsUrl = (url) => {
+  if (!url) return null;
+  if (typeof url !== 'string') return url;
+  const trimmed = url.trim();
+
+  // Use existing helpers for ipfs:// and known HTTP gateways
+  const parsed = parseIpfsUrl(trimmed);
+  if (parsed) {
+    return getIpfsGatewayUrl(parsed);
+  }
+
+  // Handle bare forms like "/ipfs/<cid>[/path]" or "ipfs/<cid>[/path]"
+  const bareMatch = trimmed.match(/^(?:\/)?ipfs\/(.+)/i);
+  if (bareMatch) {
+    return getIpfsGatewayUrl(bareMatch[1]);
+  }
+
+  // Already an HTTP(S) URL that isn't recognized as IPFS — return as-is
+  return trimmed;
+};

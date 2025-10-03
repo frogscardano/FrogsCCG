@@ -1,5 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
+import { getCardImage } from '../utils/gameHelpers';
 import styles from './Card.module.css';
 import { generateStatBars } from '../utils/frogData';
 
@@ -35,7 +36,7 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
         <>
           <div className={styles.cardImage}>
             <Image
-              src={card.image || card.imageUrl || '/placeholder.png'}
+              src={getCardImage(card) || '/placeholder.png'}
               alt={card.name || 'Card'}
               width={160}
               height={160}
@@ -48,7 +49,7 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
               priority
               unoptimized={true}
               onError={(e) => {
-                console.error('Failed to load image for card:', card.name, 'URL:', card.image || card.imageUrl);
+                console.error('Failed to load image for card:', card.name, 'URL:', getCardImage(card));
                 e.target.src = '/placeholder.png';
               }}
             />
