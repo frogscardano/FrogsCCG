@@ -148,6 +148,8 @@ export default async function handler(req, res) {
         throw userError;
       }
     })();
+    
+    console.log(`${req.method} request for user ${user.id}`);
 
     switch (req.method) {
       case 'GET':

@@ -132,73 +132,47 @@ export default function Home() {
   // Load collection for the connected wallet
   const loadCollection = async () => {
     if (!connected || !address) {
-      console.error('No wallet address available to load collection');
+      console.error('❌ loadCollection: No wallet/address');
       return;
     }
     
-    console.log(`🔍 Loading collection for address: ${address}`);
+    console.log(`🔄 GET /api/collections/${address.slice(0,20)}...`);
     
     try {
       setError(null);
       setStatusMessage('Loading your collection...');
       
       const apiUrl = `/api/collections/${address}`;
-      console.log(`📡 Fetching from: ${apiUrl}`);
-      
       const response = await fetch(apiUrl);
-      console.log(`📊 Response status: ${response.status}`);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`❌ API Error (${response.status}):`, errorText);
-        throw new Error(`Failed to load collection: ${response.status} ${errorText}`);
+        throw new Error(`Failed to load collection: ${response.status}`);
       }
       
       const cards = await response.json();
-      console.log(`✅ Received response from API:`, cards);
       
       // Handle new response format with metadata
       let cardData = cards;
       let userMessage = '';
       
       if (cards.collection && Array.isArray(cards.collection)) {
-        // New format with metadata
         cardData = cards.collection;
         userMessage = cards.message || '';
-        console.log(`📊 Collection data: ${cardData.length} cards, Message: ${userMessage}`);
       } else if (Array.isArray(cards)) {
-        // Old format - just array of cards
         cardData = cards;
-        userMessage = `Found ${cards.length} cards in your collection`;
-        console.log(`📊 Legacy format: ${cardData.length} cards`);
+        userMessage = `Found ${cards.length} cards`;
       } else {
-        console.error(`❌ Unexpected response format:`, cards);
-        throw new Error('Unexpected response format from API');
-      }
-      
-      // Debug: Log the structure of the first card
-      if (cardData.length > 0) {
-        console.log(`🔍 First card structure:`, {
-          id: cardData[0].id,
-          name: cardData[0].name,
-          image: cardData[0].image,
-          imageUrl: cardData[0].imageUrl,
-          attack: cardData[0].attack,
-          health: cardData[0].health,
-          speed: cardData[0].speed,
-          attributes: cardData[0].attributes,
-          metadata: cardData[0].metadata
-        });
+        throw new Error('Unexpected response format');
       }
       
       setCurrentCards(cardData);
       setStatusMessage(userMessage || '');
       
-      console.log(`🎯 Collection loaded successfully with ${cardData.length} NFTs`);
+      console.log(`✅ Loaded ${cardData.length} NFTs`);
     } catch (e) {
-      console.error('❌ Error loading collection:', e);
-      setStatusMessage('Failed to load collection. Please try again.');
-      setError(`Load collection failed: ${e.message}`);
+      console.error('❌ loadCollection error:', e.message);
+      setError(`Load failed: ${e.message}`);
     }
   };
 
