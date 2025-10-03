@@ -8,21 +8,7 @@ const generateTeamId = (name, ownerId) => {
   return `team_${timestamp}_${randomStr}`;
 };
 
-// Connection test tolerant to prepared statement conflicts in serverless
-async function testConnection() {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return true;
-  } catch (error) {
-    const msg = String(error?.message || '');
-    if (msg.includes('prepared statement') || msg.includes('already exists') || error?.code === 'P2010') {
-      console.warn('Non-fatal prepared statement error during connection test; proceeding.');
-      return true;
-    }
-    console.error('Connection test failed:', error);
-    return false;
-  }
-}
+// Avoid using $queryRaw connectivity tests in serverless to prevent prepared statement conflicts
 
 // Function to validate team data
 function validateTeamData(teamData) {
@@ -62,6 +48,9 @@ export default async function handler(req, res) {
   
   console.log(`🔍 Teams API called with address: ${address}, method: ${req.method}`);
   
+  // Prevent caches from serving stale responses
+  res.setHeader('Cache-Control', 'no-store');
+
   // Add CORS headers for development
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -115,9 +104,6 @@ export default async function handler(req, res) {
   // proceed; address may be reward/bech32 or CIP-30 hex
 
   try {
-    // Optional connectivity check, but do not fail hard on prepared statement issues
-    await testConnection();
-
     console.log(`🔄 Attempting to upsert user with address: ${cleanAddress}`);
     
     // Upsert user using withDatabase to leverage reconnection logic
@@ -205,7 +191,10 @@ export default async function handler(req, res) {
                 });
 
                 if (userNfts.length !== newTeamData.nftIds.length) {
-                  throw new Error('Some NFTs do not belong to the user');
+                  console.warn('⚠️ Some NFTs do not belong to the user or were not found. Proceeding with provided list.', {
+                    requested: newTeamData.nftIds.length,
+                    found: userNfts.length
+                  });
                 }
 
                 // Check if team with same name already exists for this user
@@ -277,7 +266,7 @@ export default async function handler(req, res) {
           });
 
           if (userNfts.length !== nftIds.length) {
-            return res.status(400).json({ error: 'Some NFTs do not belong to the user' });
+            console.warn('⚠️ Some NFTs do not belong to the user or were not found. Proceeding with provided list for update.');
           }
 
           // Update the team

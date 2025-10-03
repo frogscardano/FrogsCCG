@@ -71,9 +71,9 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
         
         console.log('🔍 Attempting to fetch teams for address:', address);
         
-        // First try the API endpoint
+        // First try the dynamic route
         try {
-          const response = await fetch(`/api/teams/${address}`);
+          const response = await fetch(`/api/teams/${address}`, { cache: 'no-store' });
           console.log('🔍 Teams API response status:', response.status);
           
           if (response.ok) {
@@ -93,16 +93,30 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
               return;
             }
           } else {
-            console.log('⚠️ Teams API failed, trying direct database access');
+            console.log('⚠️ Teams API dynamic route failed, trying authenticated fallback');
+            // Try authenticated fallback route
+            const fb = await fetch('/api/teams?type=list', {
+              headers: { 'x-wallet-address': address },
+              cache: 'no-store'
+            });
+            if (fb.ok) {
+              const fbData = await fb.json();
+              // /api/teams returns array directly for GET
+              const teamsData = fbData.teams || fbData;
+              setTeams(Array.isArray(teamsData) ? teamsData : []);
+              setApiAvailable(true);
+              setIsLoading(false);
+              return;
+            }
             setApiAvailable(false);
           }
         } catch (error) {
-          console.log('⚠️ Teams API failed, trying direct database access:', error.message);
+          console.log('⚠️ Teams API both routes failed, falling back to local storage:', error.message);
           setApiAvailable(false);
         }
         
         // Fallback: Use local storage only
-        console.log('⚠️ API not available, using local storage only');
+        console.log('⚠️ Using local storage fallback for teams');
         loadTeamsFromLocalStorage();
         
       } catch (error) {
@@ -174,27 +188,27 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
     
     try {
       // Try to delete from database first
-      if (apiAvailable) {
-        try {
-          const response = await fetch('/api/teams', {
+      try {
+        const response = await fetch(`/api/teams/${address}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: teamToDelete.id })
+        });
+        if (response.ok) {
+          console.log('✅ Team deleted from database successfully');
+        } else {
+          console.log('⚠️ Delete failed with dynamic route, trying authenticated fallback');
+          const fallback = await fetch('/api/teams', {
             method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-              teamId: teamToDelete.id,
-              address: address 
-            })
+            headers: { 'Content-Type': 'application/json', 'x-wallet-address': address },
+            body: JSON.stringify({ id: teamToDelete.id })
           });
-          
-          if (response.ok) {
-            console.log('✅ Team deleted from database successfully');
-          } else {
-            console.log('⚠️ API delete failed, trying direct database delete');
+          if (!fallback.ok) {
+            console.warn('⚠️ Fallback delete also failed');
           }
-        } catch (error) {
-          console.log('⚠️ API delete failed, trying direct database delete:', error.message);
         }
+      } catch (error) {
+        console.log('⚠️ Delete failed:', error.message);
       }
       
       // Fallback: Use local storage only
@@ -251,13 +265,27 @@ const TeamBuilder = ({ cards = [], onBattleComplete }) => {
 
       console.log('🔍 Save team response status:', response.status);
 
+      let savedTeams;
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Save team error response:', errorText);
-        throw new Error('Failed to save team');
+        console.warn('❌ Dynamic route save failed, trying authenticated fallback:', errorText);
+        const fallback = await fetch('/api/teams', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-wallet-address': address
+          },
+          body: JSON.stringify({ name: teamData.name, nftIds: teamData.nftIds })
+        });
+        if (!fallback.ok) {
+          const fbText = await fallback.text();
+          console.error('❌ Fallback save team error:', fbText);
+          throw new Error('Failed to save team');
+        }
+        savedTeams = [await fallback.json()];
+      } else {
+        savedTeams = await response.json();
       }
-
-      const savedTeams = await response.json();
       console.log('🔍 Save team response data:', savedTeams);
       
       // Handle both array and single object responses
