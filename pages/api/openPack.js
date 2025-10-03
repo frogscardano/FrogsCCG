@@ -74,6 +74,8 @@ function normalizeIpfsUrl(url) {
   cleaned = cleaned.replace('https://ipfs.io/ipfs/ipfs/', 'https://ipfs.io/ipfs/');
   cleaned = cleaned.replace('https://gateway.ipfs.io/ipfs/ipfs/', 'https://gateway.ipfs.io/ipfs/');
   cleaned = cleaned.replace('https://dweb.link/ipfs/ipfs/', 'https://dweb.link/ipfs/');
+  // Normalize pool.pm nftcdn file path to first file (front)
+  // e.g., https://asset....poolpm.nftcdn.io/files/0/ -> keep as-is (front index 0)
   // Convert ipfs://<cid>[/path] to https gateway
   if (cleaned.startsWith('ipfs://')) {
     const path = cleaned.slice('ipfs://'.length);
@@ -97,7 +99,10 @@ function extractImageUrl(assetDetails) {
       if (normalized) return normalized;
     } else if (typeof m.image === 'string') {
       const normalized = normalizeIpfsUrl(m.image);
-      if (normalized) return normalized;
+      // If looks like a back/cover or lacks an image extension, prefer files[] below
+      const isBack = /back|cover|reverse/i.test(normalized);
+      const hasExt = /\.(png|jpg|jpeg|gif|webp)$/i.test(normalized);
+      if (normalized && !isBack && hasExt) return normalized;
     }
   }
 
@@ -112,11 +117,12 @@ function extractImageUrl(assetDetails) {
 
   // 3) Files array: choose an image-like entry, prefer front/main
   if (Array.isArray(m.files) && m.files.length > 0) {
-    const imageFiles = m.files.filter(f => (f?.mediaType || f?.media_type || '').includes('image') || /\.(png|jpg|jpeg|gif|webp)$/i.test(f?.src || ''));
+    // Pool.pm often stores front image at index 0 in files[]
+    const imageFiles = m.files.filter(f => (f?.mediaType || f?.media_type || '').includes('image') || /\.(png|jpg|jpeg|gif|webp)$/i.test(f?.src || f?.url || ''));
     if (imageFiles.length > 0) {
       const preferred = imageFiles.find(f => /front|main|primary/i.test(f?.name || f?.src || ''))
         || imageFiles.find(f => !/back|cover|thumb|thumbnail/i.test(f?.name || f?.src || ''))
-        || imageFiles[0];
+        || imageFiles[0]; // default to index 0 as front
       const normalized = normalizeIpfsUrl(preferred?.src || preferred?.url || preferred?.link);
       if (normalized) return normalized;
     } else {
@@ -126,6 +132,62 @@ function extractImageUrl(assetDetails) {
     }
   }
 
+  return null;
+}
+
+// Build Pool.pm NFT CDN front-image URL using asset fingerprint
+function buildPoolPmFrontUrl(assetDetails) {
+  const fingerprint = assetDetails?.fingerprint;
+  if (!fingerprint) return null;
+  // "files/0" is typically the front image slot on pool.pm CDN
+  // The trailing slash avoids redirect oddities
+  return `https://${fingerprint}.poolpm.nftcdn.io/files/0/`;
+}
+
+async function findReachableImageUrl(preferredUrl) {
+  if (!preferredUrl) return null;
+  const gateways = [
+    'https://ipfs.io/ipfs/',
+    'https://cloudflare-ipfs.com/ipfs/',
+    'https://gateway.ipfs.io/ipfs/',
+    'https://dweb.link/ipfs/'
+  ];
+
+  const tryFetch = async (url) => {
+    try {
+      const resp = await fetch(url, { method: 'GET' });
+      return resp.ok;
+    } catch (_) {
+      return false;
+    }
+  };
+
+  // If already an IPFS gateway URL, try as-is first
+  if (/https?:\/\/[^/]+\/ipfs\//.test(preferredUrl)) {
+    if (await tryFetch(preferredUrl)) return preferredUrl;
+    // Try rotating gateways
+    const match = preferredUrl.match(/https?:\/\/[^/]+\/ipfs\/(.+)$/);
+    if (match && match[1]) {
+      for (const gw of gateways) {
+        const candidate = gw + match[1];
+        if (await tryFetch(candidate)) return candidate;
+      }
+    }
+    return null;
+  }
+
+  // If ipfs://, convert and try gateways
+  if (preferredUrl.startsWith('ipfs://')) {
+    const path = preferredUrl.slice('ipfs://'.length);
+    for (const gw of gateways) {
+      const candidate = gw + path;
+      if (await tryFetch(candidate)) return candidate;
+    }
+    return null;
+  }
+
+  // Otherwise, try the direct URL
+  if (await tryFetch(preferredUrl)) return preferredUrl;
   return null;
 }
 
@@ -391,7 +453,20 @@ export default async function handler(req, res) {
         // Get the actual image URL from the metadata
         const extractedImageUrl = extractImageUrl(assetDetails);
         const fallbackImageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`;
-        const imageUrl = extractedImageUrl || fallbackImageUrl;
+        // Prefer Pool.pm CDN front image if available (more reliable for multi-file NFTs)
+        const poolpmFront = buildPoolPmFrontUrl(assetDetails);
+        const candidates = [poolpmFront, extractedImageUrl, fallbackImageUrl].filter(Boolean);
+        let selectedRaw = null;
+        for (const candidate of candidates) {
+          const reachable = await findReachableImageUrl(candidate);
+          if (reachable) {
+            selectedRaw = reachable;
+            break;
+          }
+        }
+        // If none reachable, fall back to the last candidate
+        if (!selectedRaw) selectedRaw = candidates[candidates.length - 1];
+        const imageUrl = `/api/imageProxy?src=${encodeURIComponent(selectedRaw)}`;
         
         console.log('Asset ID:', selectedAsset.asset);
         console.log('NFT Name:', assetDetails.onchain_metadata?.name || assetDetails.asset_name);
