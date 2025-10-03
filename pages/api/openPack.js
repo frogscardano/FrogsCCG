@@ -18,7 +18,8 @@ const COLLECTIONS = {
     useBlockfrost: true
   },
   'snekkies': {
-    policyId: 'b558ea5ecfa2a6e9701dab150248e94104402f789c090426eb60eb60',
+    // Updated to correct Snekkies policy ID (matches UI and collection)
+    policyId: 'b1d156f83ef3a68d9a82bd4a8a7c1e5edbabb200f9bac3e093d9e25d',
     blockedNumbers: [],
     name: 'Snekkies',
     maxNumber: 7777,
@@ -64,30 +65,68 @@ function isDuplicate(nftNumber, collection, collectionName, userCards) {
 }
 
 // Function to extract IPFS image URL from metadata
-function extractImageUrl(metadata) {
-  // Try to get image from metadata
-  if (metadata.onchain_metadata?.image) {
-    let imageUrl = metadata.onchain_metadata.image;
-    
-    // Handle ipfs:// protocol
-    if (imageUrl.startsWith('ipfs://')) {
-      const ipfsHash = imageUrl.replace('ipfs://', '');
-      return `https://ipfs.io/ipfs/${ipfsHash}`;
-    }
-    
-    return imageUrl;
+function normalizeIpfsUrl(url) {
+  if (!url) return null;
+  // Trim whitespace and fragments
+  let cleaned = String(url).trim().split('#')[0];
+  // Normalize ipfs://ipfs/<cid> -> ipfs://<cid>
+  if (cleaned.startsWith('ipfs://ipfs/')) cleaned = cleaned.replace('ipfs://ipfs/', 'ipfs://');
+  // Normalize gateways with double ipfs segments
+  cleaned = cleaned.replace('https://ipfs.io/ipfs/ipfs/', 'https://ipfs.io/ipfs/');
+  cleaned = cleaned.replace('https://gateway.ipfs.io/ipfs/ipfs/', 'https://gateway.ipfs.io/ipfs/');
+  cleaned = cleaned.replace('https://dweb.link/ipfs/ipfs/', 'https://dweb.link/ipfs/');
+  // Convert ipfs://<cid>[/path] to https gateway
+  if (cleaned.startsWith('ipfs://')) {
+    const path = cleaned.slice('ipfs://'.length);
+    return `https://ipfs.io/ipfs/${path}`;
   }
-  
-  // Try other metadata fields
-  if (metadata.onchain_metadata?.files && metadata.onchain_metadata.files.length > 0) {
-    const file = metadata.onchain_metadata.files[0];
-    if (file.src && file.src.startsWith('ipfs://')) {
-      const ipfsHash = file.src.replace('ipfs://', '');
-      return `https://ipfs.io/ipfs/${ipfsHash}`;
+  return cleaned;
+}
+
+// Prefer front/primary image when multiple are present and normalize IPFS URLs
+function extractImageUrl(assetDetails) {
+  const m = assetDetails?.onchain_metadata || {};
+
+  // 1) Primary image field (can be string or array)
+  if (m.image) {
+    if (Array.isArray(m.image)) {
+      // Prefer entries mentioning front/main, avoid back/cover/thumb
+      const preferred = m.image.find(u => /front|main|primary/i.test(u))
+        || m.image.find(u => !/back|cover|thumb|thumbnail/i.test(u))
+        || m.image[0];
+      const normalized = normalizeIpfsUrl(preferred);
+      if (normalized) return normalized;
+    } else if (typeof m.image === 'string') {
+      const normalized = normalizeIpfsUrl(m.image);
+      if (normalized) return normalized;
     }
-    return file.src || null;
   }
-  
+
+  // 2) Common alternative keys
+  const altKeys = ['image_url', 'imageUrl', 'thumbnail', 'thumb'];
+  for (const key of altKeys) {
+    if (m[key]) {
+      const normalized = normalizeIpfsUrl(m[key]);
+      if (normalized) return normalized;
+    }
+  }
+
+  // 3) Files array: choose an image-like entry, prefer front/main
+  if (Array.isArray(m.files) && m.files.length > 0) {
+    const imageFiles = m.files.filter(f => (f?.mediaType || f?.media_type || '').includes('image') || /\.(png|jpg|jpeg|gif|webp)$/i.test(f?.src || ''));
+    if (imageFiles.length > 0) {
+      const preferred = imageFiles.find(f => /front|main|primary/i.test(f?.name || f?.src || ''))
+        || imageFiles.find(f => !/back|cover|thumb|thumbnail/i.test(f?.name || f?.src || ''))
+        || imageFiles[0];
+      const normalized = normalizeIpfsUrl(preferred?.src || preferred?.url || preferred?.link);
+      if (normalized) return normalized;
+    } else {
+      // Fallback to first file entry's src if present
+      const normalized = normalizeIpfsUrl(m.files[0]?.src || m.files[0]?.url);
+      if (normalized) return normalized;
+    }
+  }
+
   return null;
 }
 
