@@ -51,7 +51,7 @@ model Team {
   ownerId     String
   // Relation to User; keep field name 'User' to match includes in code
   User        User     @relation(fields: [ownerId], references: [id])
-  nftIds      String[] @db.Text
+  nftIds      String?  @db.Text
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   battlesWon  Int      @default(0)
