@@ -163,7 +163,28 @@ export default async function handler(req, res) {
     switch (req.method) {
       case 'GET':
         try {
-          console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
+          console.log(`🔍 Fetching NFTs for user ID: ${user.id}, address: ${user.address}`);
+          
+          // DEBUG: Let's check ALL NFTs in the database to see if any exist
+          const allNFTs = await prisma.nFT.findMany({
+            select: {
+              id: true,
+              name: true,
+              ownerId: true,
+              tokenId: true,
+              contractAddress: true
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 20 // Limit to recent 20
+          });
+          console.log(`🔍 DEBUG: Total NFTs in database (recent 20):`, allNFTs.length);
+          if (allNFTs.length > 0) {
+            console.log(`🔍 DEBUG: Sample NFTs:`, allNFTs.slice(0, 5).map(n => ({
+              name: n.name,
+              ownerId: n.ownerId,
+              userIdMatch: n.ownerId === user.id
+            })));
+          }
           
           // Use direct Prisma calls to avoid conflicts
           let userNfts = await prisma.nFT.findMany({
