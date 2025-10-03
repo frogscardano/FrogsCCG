@@ -5,9 +5,11 @@ export default async function handler(req, res) {
   console.log('🔍 Teams API handler called');
   console.log('🔍 Request method:', req.method);
   console.log('🔍 Request query:', req.query);
+  res.setHeader('Cache-Control', 'no-store');
   
   // Simple request deduplication to prevent prepared statement conflicts
-  const requestKey = `${req.method}-${req.query.walletAddress}`;
+  const walletFromHeader = req.headers['x-wallet-address'] || '';
+  const requestKey = `${req.method}-${req.query.walletAddress || walletFromHeader || 'none'}`;
   if (global.requestCache && global.requestCache[requestKey]) {
     console.log('🔄 Duplicate request detected, returning cached response');
     return res.status(200).json(global.requestCache[requestKey]);
