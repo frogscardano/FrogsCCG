@@ -175,6 +175,14 @@ export default async function handler(req, res) {
           
           if (userNfts.length === 0) {
             console.log(`ℹ️ User ${user.id} has no NFTs yet. This is normal for new users.`);
+          } else {
+            // Debug: Log all NFT names to see what's in the database
+            console.log(`📋 NFTs in database:`, userNfts.map(nft => ({
+              id: nft.id,
+              name: nft.name,
+              tokenId: nft.tokenId,
+              contractAddress: nft.contractAddress
+            })));
           }
           
           // Add game stats to each NFT and ensure proper attributes structure
@@ -190,14 +198,21 @@ export default async function handler(req, res) {
             }
             
             // Ensure attributes array exists for frontend compatibility
-            const attributes = Array.isArray(nft.metadata) ? nft.metadata : 
-                             (nft.metadata && typeof nft.metadata === 'object') ? 
-                             Object.entries(nft.metadata).map(([key, value]) => ({ trait_type: key, value })) :
-                             [
-                               { trait_type: "Collection", value: collectionName },
-                               { trait_type: "Number", value: nft.tokenId },
-                               { trait_type: "Policy ID", value: nft.contractAddress }
-                             ];
+            let attributes;
+            if (Array.isArray(nft.metadata)) {
+              attributes = nft.metadata;
+              console.log(`✅ ${nft.name}: Using metadata as attributes array (${attributes.length} items)`);
+            } else if (nft.metadata && typeof nft.metadata === 'object') {
+              attributes = Object.entries(nft.metadata).map(([key, value]) => ({ trait_type: key, value }));
+              console.log(`✅ ${nft.name}: Converted metadata object to attributes (${attributes.length} items)`);
+            } else {
+              attributes = [
+                { trait_type: "Collection", value: collectionName },
+                { trait_type: "Number", value: nft.tokenId },
+                { trait_type: "Policy ID", value: nft.contractAddress }
+              ];
+              console.log(`⚠️ ${nft.name}: Using default attributes (no metadata found)`);
+            }
             
             const result = {
               ...nft,
@@ -221,6 +236,14 @@ export default async function handler(req, res) {
           });
           
           console.log(`✅ Returning collection with ${nftsWithStats.length} items`);
+          
+          // Log summary by collection
+          const collectionSummary = nftsWithStats.reduce((acc, nft) => {
+            const coll = nft.attributes?.find(attr => attr.trait_type === "Collection")?.value || 'Unknown';
+            acc[coll] = (acc[coll] || 0) + 1;
+            return acc;
+          }, {});
+          console.log(`📊 Collection summary:`, collectionSummary);
           
           return res.status(200).json({
             collection: nftsWithStats,

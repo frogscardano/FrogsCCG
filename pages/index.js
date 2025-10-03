@@ -342,16 +342,21 @@ export default function Home() {
         setStatusMessage(`Found ${cardData.name}!`);
         setRevealedCards([cardData]);
         
-        // Trigger reveal animation
-        setTimeout(() => {
-          setIsRevealed(true);
-        }, 500);
-        
         // Reload collection to show the newly added NFT
         // The NFT is already saved to the database in the openPack API
         console.log('🔄 Reloading collection after pack opening...');
-        await loadCollection();
-        console.log('✅ Collection reloaded successfully');
+        try {
+          await loadCollection();
+          console.log('✅ Collection reloaded successfully');
+        } catch (loadError) {
+          console.error('⚠️ Error reloading collection:', loadError);
+          // Continue anyway - user can manually reload
+        }
+        
+        // Trigger reveal animation after collection is loaded
+        setTimeout(() => {
+          setIsRevealed(true);
+        }, 500);
       } else {
         throw new Error('No card data received');
       }
