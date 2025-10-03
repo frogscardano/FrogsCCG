@@ -18,8 +18,7 @@ const COLLECTIONS = {
     useBlockfrost: true
   },
   'snekkies': {
-    // Updated to correct Snekkies policy ID (matches UI and collection)
-    policyId: 'b1d156f83ef3a68d9a82bd4a8a7c1e5edbabb200f9bac3e093d9e25d',
+    policyId: 'b558ea5ecfa2a6e9701dab150248e94104402f789c090426eb60eb60',
     blockedNumbers: [],
     name: 'Snekkies',
     maxNumber: 7777,
