@@ -346,6 +346,12 @@ export default function Home() {
         setTimeout(() => {
           setIsRevealed(true);
         }, 500);
+        
+        // Reload collection to show the newly added NFT
+        // The NFT is already saved to the database in the openPack API
+        console.log('🔄 Reloading collection after pack opening...');
+        await loadCollection();
+        console.log('✅ Collection reloaded successfully');
       } else {
         throw new Error('No card data received');
       }
@@ -400,33 +406,20 @@ export default function Home() {
       setStatusMessage('Adding card to collection...');
       console.log(`Adding card to collection for address: ${address}`);
       
-      const response = await fetch(`/api/collections/${address}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(revealedCards)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API response error:', errorText);
-        throw new Error('Failed to save cards');
-      }
+      // FIXED: The NFT is already saved to the database by the openPack API
+      // We just need to reload the collection to make sure we have the latest data
+      await loadCollection();
       
-      const updatedCollection = await response.json();
-      setCurrentCards(updatedCollection);
       setStatusMessage('Card added to your collection!');
-      localStorage.setItem(`frogCards_${address}`, JSON.stringify(updatedCollection));
       
       setTimeout(() => {
         setIsModalOpen(false);
         setCurrentTab('collection');
       }, 1500);
     } catch (e) {
-      console.error('Error saving to collection:', e);
+      console.error('Error loading collection:', e);
       setError(e.message);
-      setStatusMessage('Failed to add card to collection. Please try again.');
+      setStatusMessage('Failed to refresh collection. Please try again.');
     }
   };
 
