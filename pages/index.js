@@ -475,6 +475,47 @@ export default function Home() {
     }
   };
 
+  // Try multiple IPFS gateways before giving up
+  const rotateIpfsGateway = (imgEl, fallbackSrc) => {
+    try {
+      const gateways = [
+        'https://ipfs.io/ipfs/',
+        'https://cloudflare-ipfs.com/ipfs/',
+        'https://gateway.ipfs.io/ipfs/',
+        'https://dweb.link/ipfs/'
+      ];
+      const currentSrc = imgEl.src || '';
+      // Support proxy-wrapped URLs
+      let effectiveSrc = currentSrc;
+      let viaProxy = false;
+      try {
+        const u = new URL(currentSrc, window.location.origin);
+        if (u.pathname.startsWith('/api/imageProxy') && u.searchParams.has('src')) {
+          effectiveSrc = decodeURIComponent(u.searchParams.get('src'));
+          viaProxy = true;
+        }
+      } catch (_) {}
+
+      const match = effectiveSrc.match(/https?:\/\/[^/]+\/ipfs\/(.+)$/);
+      if (!match) {
+        imgEl.src = fallbackSrc;
+        return;
+      }
+      const path = match[1];
+      const idx = parseInt(imgEl.getAttribute('data-gateway-idx') || '0', 10);
+      if (idx < gateways.length - 1) {
+        const nextIdx = idx + 1;
+        imgEl.setAttribute('data-gateway-idx', String(nextIdx));
+        const nextUrl = gateways[nextIdx] + path;
+        imgEl.src = viaProxy ? `/api/imageProxy?src=${encodeURIComponent(nextUrl)}` : nextUrl;
+      } else {
+        imgEl.src = fallbackSrc;
+      }
+    } catch (_e) {
+      imgEl.src = fallbackSrc;
+    }
+  };
+
   // Check if Cardano wallets are available
   const isCardanoAvailable = () => {
     return typeof window !== 'undefined' && window.cardano !== undefined;
@@ -990,8 +1031,8 @@ export default function Home() {
                           src={revealedCards[0].image} 
                           alt={revealedCards[0].name} 
                           onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = getCardBackImage(selectedPack);
+                            // Try other IPFS gateways before showing the back image
+                            rotateIpfsGateway(e.target, getCardBackImage(selectedPack));
                           }} 
                         />
                       </div>
