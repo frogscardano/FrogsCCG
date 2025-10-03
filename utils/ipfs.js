@@ -114,3 +114,54 @@ export const buildIpfsGatewayAlternates = (input) => {
   const suffix = extracted.path ? `${extracted.cid}/${extracted.path}` : extracted.cid;
   return IPFS_GATEWAYS.map((base) => `${base}ipfs/${suffix}`);
 };
+
+// Detect CIP-25 metadata structure and extract common fields
+export const parseCip25Metadata = (raw) => {
+  if (!raw) return null;
+  const meta = typeof raw === 'string' ? safeParseJson(raw) : raw;
+  if (!meta || typeof meta !== 'object') return null;
+  const root721 = meta['721'];
+  if (!root721 || typeof root721 !== 'object') return null;
+  const policyIds = Object.keys(root721);
+  if (policyIds.length === 0) return null;
+  const policyId = policyIds[0];
+  const assetsObj = root721[policyId];
+  if (!assetsObj || typeof assetsObj !== 'object') return null;
+  const assetKeys = Object.keys(assetsObj);
+  if (assetKeys.length === 0) return null;
+  const assetKey = assetKeys[0];
+  const assetMeta = assetsObj[assetKey];
+  if (!assetMeta || typeof assetMeta !== 'object') return null;
+
+  // Image: prefer image, then files[0].src
+  const fileSrc = Array.isArray(assetMeta.files) && assetMeta.files.length > 0
+    ? assetMeta.files[0]?.src || assetMeta.files[0]?.src_link || null
+    : null;
+  const imageRaw = assetMeta.image || assetMeta.image_url || fileSrc || null;
+  const image = resolveIpfsUrl(imageRaw) || imageRaw || null;
+
+  // Name
+  const name = assetMeta.name || assetKey;
+
+  // Attributes: normalize to array of { trait_type, value }
+  let attributes = [];
+  if (Array.isArray(assetMeta.attributes)) {
+    attributes = assetMeta.attributes.map((a) =>
+      a && typeof a === 'object' && 'trait_type' in a && 'value' in a
+        ? a
+        : null
+    ).filter(Boolean);
+  } else if (assetMeta.attributes && typeof assetMeta.attributes === 'object') {
+    attributes = Object.entries(assetMeta.attributes).map(([k, v]) => ({ trait_type: k, value: v }));
+  }
+
+  // Always include policy and asset name for reference
+  attributes.push({ trait_type: 'Policy ID', value: policyId });
+  attributes.push({ trait_type: 'Asset', value: assetKey });
+
+  return { policyId, asset: assetKey, name, image, mediaType: assetMeta.mediaType, attributes };
+};
+
+function safeParseJson(s) {
+  try { return JSON.parse(s); } catch { return null; }
+}

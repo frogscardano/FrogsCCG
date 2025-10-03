@@ -1,5 +1,5 @@
 import { addCardToUserCollection, prisma } from '../../../utils/db';
-import { resolveIpfsUrl } from '../../../utils/ipfs';
+import { resolveIpfsUrl, parseCip25Metadata } from '../../../utils/ipfs';
 
 function safeJsonParse(value) {
   try {
@@ -11,7 +11,12 @@ function safeJsonParse(value) {
 
 function formatNftRecord(nft) {
   const metadata = typeof nft.metadata === 'string' ? safeJsonParse(nft.metadata) : nft.metadata || {};
-  const imageCandidate = nft.imageUrl || metadata?.image || metadata?.image_url || metadata?.thumbnail;
+  let imageCandidate = nft.imageUrl || metadata?.image || metadata?.image_url || metadata?.thumbnail;
+  // Use CIP-25 extraction if present
+  if (!imageCandidate && metadata && metadata['721']) {
+    const cip = parseCip25Metadata(metadata);
+    if (cip?.image) imageCandidate = cip.image;
+  }
   const normalizedImage = resolveIpfsUrl(imageCandidate) || imageCandidate || null;
 
   return {
@@ -27,7 +32,17 @@ function formatNftRecord(nft) {
     health: nft.health ?? metadata?.health ?? 1,
     speed: nft.speed ?? metadata?.speed ?? 1,
     special: nft.special ?? metadata?.special ?? null,
-    attributes: Array.isArray(metadata?.attributes) ? metadata.attributes : [],
+    attributes: (() => {
+      if (Array.isArray(metadata?.attributes)) return metadata.attributes;
+      if (metadata && typeof metadata.attributes === 'object') {
+        return Object.entries(metadata.attributes).map(([k, v]) => ({ trait_type: k, value: v }));
+      }
+      if (metadata && metadata['721']) {
+        const cip = parseCip25Metadata(metadata);
+        return cip?.attributes || [];
+      }
+      return [];
+    })(),
     metadata: metadata || null,
   };
 }

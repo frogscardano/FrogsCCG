@@ -1,7 +1,7 @@
 /**
  * Utility functions for card games
  */
-import { resolveIpfsUrl } from './ipfs';
+import { resolveIpfsUrl, parseCip25Metadata } from './ipfs';
 
 // Process card data to ensure consistent properties
 export const processCardData = (card) => {
@@ -31,7 +31,13 @@ export const getCardImage = (card) => {
       const metadata = typeof card.metadata === 'string'
         ? JSON.parse(card.metadata)
         : card.metadata;
+      // First try direct fields
       candidate = metadata?.image || metadata?.image_url || metadata?.thumbnail || metadata?.media || null;
+      // If CIP-25, extract from 721
+      if (!candidate && metadata && metadata['721']) {
+        const cip = parseCip25Metadata(metadata);
+        if (cip?.image) candidate = cip.image;
+      }
     } catch (e) {
       // Ignore JSON parse errors and fall through to placeholder
     }
