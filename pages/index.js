@@ -8,6 +8,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import Head from 'next/head';
 import styles from '../styles/Home.module.css';
 import { getCardImage } from '../utils/gameHelpers';
+import { buildIpfsGatewayAlternates } from '../utils/ipfs';
 import WalletConnect from '../components/WalletConnect';
 import { useWallet } from '../contexts/WalletContext';
 import BattleArena from '../components/BattleArena';
@@ -991,8 +992,16 @@ export default function Home() {
                           src={getCardImage(revealedCards[0])} 
                           alt={revealedCards[0].name} 
                           onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = getCardBackImage(selectedPack);
+                            const candidates = buildIpfsGatewayAlternates(getCardImage(revealedCards[0]));
+                            const current = e.target.getAttribute('data-gw-idx') || '0';
+                            const nextIdx = parseInt(current, 10) + 1;
+                            if (candidates[nextIdx]) {
+                              e.target.setAttribute('data-gw-idx', String(nextIdx));
+                              e.target.src = candidates[nextIdx];
+                            } else {
+                              e.target.onerror = null;
+                              e.target.src = getCardBackImage(selectedPack);
+                            }
                           }} 
                         />
                       </div>

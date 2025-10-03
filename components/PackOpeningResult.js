@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Image from 'next/image';
 import styles from '../styles/PackOpeningResult.module.css';
 import { getCardImage } from '../utils/gameHelpers';
+import { buildIpfsGatewayAlternates } from '../utils/ipfs';
 
 const PackOpeningResult = ({ packOpeningId }) => {
   const router = useRouter();
@@ -133,6 +134,16 @@ const PackOpeningResult = ({ packOpeningId }) => {
                       width={200}
                       height={200}
                       className={styles.nftImage}
+                      unoptimized
+                      onError={(e) => {
+                        const candidates = buildIpfsGatewayAlternates(getCardImage(nft));
+                        const current = e.target.getAttribute('data-gw-idx') || '0';
+                        const nextIdx = parseInt(current, 10) + 1;
+                        if (candidates[nextIdx]) {
+                          e.target.setAttribute('data-gw-idx', String(nextIdx));
+                          e.target.src = candidates[nextIdx];
+                        }
+                      }}
                     />
                   </div>
                 ) : (

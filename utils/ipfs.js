@@ -27,25 +27,30 @@ export async function fetchCardanoAsset(policyId, assetName) {
 // Parse the IPFS URL from a regular URL
 export const parseIpfsUrl = (url) => {
   if (!url) return null;
-  
-  // Handle ipfs:// protocol
-  if (url.startsWith('ipfs://')) {
-    return url.substring(7);
+  const input = String(url).trim();
+
+  // Handle ipfs:// protocol (case-insensitive), including ipfs://ipfs/<cid>
+  if (/^ipfs:\/\//i.test(input)) {
+    let rest = input.replace(/^ipfs:\/\//i, '');
+    // Strip leading "ipfs/" if present (avoid double ipfs/ipfs)
+    rest = rest.replace(/^ipfs\//i, '');
+    return rest;
   }
-  
+
   // Handle HTTP gateway URLs
-  const ipfsGateways = [
-    'https://ipfs.io/ipfs/',
-    'https://gateway.ipfs.io/ipfs/',
-    'https://dweb.link/ipfs/'
-  ];
-  
-  for (const gateway of ipfsGateways) {
-    if (url.startsWith(gateway)) {
-      return url.substring(gateway.length);
+  for (const gateway of IPFS_GATEWAYS) {
+    const prefix = `${gateway}ipfs/`;
+    if (input.toLowerCase().startsWith(prefix)) {
+      return input.substring(prefix.length);
     }
   }
-  
+
+  // Handle bare forms like "/ipfs/<cid>..."
+  const bare = input.match(/(?:^|\/)ipfs\/(.+)$/i);
+  if (bare) {
+    return bare[1];
+  }
+
   return null;
 };
 
@@ -54,7 +59,9 @@ export const getIpfsGatewayUrl = (cid, path = '') => {
   if (!cid) return null;
   
   // Clean the CID
-  const cleanCid = cid.startsWith('ipfs://') ? cid.substring(7) : cid;
+  let cleanCid = cid.startsWith('ipfs://') ? cid.substring(7) : cid;
+  // Remove leading redundant ipfs/ segment(s)
+  cleanCid = cleanCid.replace(/^ipfs\//i, '');
   
   // Format the path
   const formattedPath = path ? `/${path}` : '';
@@ -82,4 +89,28 @@ export const resolveIpfsUrl = (url) => {
 
   // Already an HTTP(S) URL that isn't recognized as IPFS — return as-is
   return trimmed;
+};
+
+// Known IPFS gateway base URLs (must include protocol and trailing slash)
+export const IPFS_GATEWAYS = [
+  'https://ipfs.io/',
+  'https://gateway.ipfs.io/',
+  'https://dweb.link/',
+];
+
+// Extract { cid, path } from any ipfs-style input or gateway URL
+export const extractIpfsCidAndPath = (input) => {
+  const parsed = parseIpfsUrl(input);
+  if (!parsed) return null;
+  const firstSlash = parsed.indexOf('/');
+  if (firstSlash === -1) return { cid: parsed, path: '' };
+  return { cid: parsed.slice(0, firstSlash), path: parsed.slice(firstSlash + 1) };
+};
+
+// Build all candidate gateway URLs for a given input url/cid
+export const buildIpfsGatewayAlternates = (input) => {
+  const extracted = extractIpfsCidAndPath(input) || { cid: input, path: '' };
+  if (!extracted.cid) return [];
+  const suffix = extracted.path ? `${extracted.cid}/${extracted.path}` : extracted.cid;
+  return IPFS_GATEWAYS.map((base) => `${base}ipfs/${suffix}`);
 };

@@ -5,6 +5,7 @@ import WalletConnect from '../components/WalletConnect.js';
 import Link from 'next/link';
 import styles from '../styles/Collection.module.css';
 import { getCardImage } from '../utils/gameHelpers';
+import { buildIpfsGatewayAlternates } from '../utils/ipfs';
 
 export default function Collection() {
   const { connected, address } = useWallet();
@@ -114,7 +115,19 @@ export default function Collection() {
                   {groupedCards[rarity].map(userCard => (
                     <div key={userCard.id} className={styles.cardItem}>
                       <div className={styles.cardImage}>
-                        <img src={getCardImage(userCard.card)} alt={userCard.card.name} />
+                        <img 
+                          src={getCardImage(userCard.card)} 
+                          alt={userCard.card.name} 
+                          onError={(e) => {
+                            const candidates = buildIpfsGatewayAlternates(getCardImage(userCard.card));
+                            const current = e.target.getAttribute('data-gw-idx') || '0';
+                            const nextIdx = parseInt(current, 10) + 1;
+                            if (candidates[nextIdx]) {
+                              e.target.setAttribute('data-gw-idx', String(nextIdx));
+                              e.target.src = candidates[nextIdx];
+                            }
+                          }}
+                        />
                       </div>
                       <div className={styles.cardInfo}>
                         <h3 className={styles.cardName}>{userCard.card.name}</h3>

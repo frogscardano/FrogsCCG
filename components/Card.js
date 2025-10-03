@@ -1,6 +1,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { getCardImage } from '../utils/gameHelpers';
+import { buildIpfsGatewayAlternates } from '../utils/ipfs';
 import styles from './Card.module.css';
 import { generateStatBars } from '../utils/frogData';
 
@@ -49,8 +50,16 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
               priority
               unoptimized={true}
               onError={(e) => {
-                console.error('Failed to load image for card:', card.name, 'URL:', getCardImage(card));
-                e.target.src = '/placeholder.png';
+                const candidates = buildIpfsGatewayAlternates(getCardImage(card));
+                const current = e.target.getAttribute('data-gw-idx') || '0';
+                const nextIdx = parseInt(current, 10) + 1;
+                if (candidates[nextIdx]) {
+                  e.target.setAttribute('data-gw-idx', String(nextIdx));
+                  e.target.src = candidates[nextIdx];
+                } else {
+                  console.error('Failed to load image for card:', card.name, 'URL:', getCardImage(card));
+                  e.target.src = '/placeholder.png';
+                }
               }}
             />
             {frogNumber && <div className={styles.cardNumber}>#{frogNumber}</div>}
