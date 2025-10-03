@@ -131,12 +131,27 @@ export default async function handler(req, res) {
               orderBy: { updatedAt: 'desc' }
             });
 
-            return Promise.all(userTeams.map(async (team) => {
-              if (team.nftIds && team.nftIds.length > 0) {
-                const nfts = await db.NFT.findMany({ where: { id: { in: team.nftIds } } });
-                return { ...team, cards: nfts };
+            const parseIds = (value) => {
+              if (Array.isArray(value)) return value;
+              if (typeof value === 'string') {
+                try {
+                  const parsed = JSON.parse(value);
+                  return Array.isArray(parsed) ? parsed : [];
+                } catch {
+                  // Fallback: comma-separated
+                  return value.includes(',') ? value.split(',').map(s => s.trim()).filter(Boolean) : [];
+                }
               }
-              return { ...team, cards: [] };
+              return [];
+            };
+
+            return Promise.all(userTeams.map(async (team) => {
+              const ids = parseIds(team.nftIds);
+              if (ids.length > 0) {
+                const nfts = await db.NFT.findMany({ where: { id: { in: ids } } });
+                return { ...team, nftIds: ids, cards: nfts };
+              }
+              return { ...team, nftIds: [], cards: [] };
             }));
           });
           
@@ -203,32 +218,64 @@ export default async function handler(req, res) {
                 });
 
                 let teamRecord;
-                if (existingTeam) {
-                  teamRecord = await db.Team.update({
-                    where: { id: existingTeam.id },
-                    data: { 
-                      nftIds: newTeamData.nftIds,
-                      isActive: newTeamData.isActive !== false,
-                      battlesWon: newTeamData.battlesWon || 0,
-                      battlesLost: newTeamData.battlesLost || 0,
-                      updatedAt: new Date() 
-                    }
-                  });
-                } else {
-                  teamRecord = await db.Team.create({
-                    data: {
-                      id: generateTeamId(newTeamData.name, user.id),
-                      name: newTeamData.name,
-                      ownerId: user.id,
-                      nftIds: newTeamData.nftIds,
-                      isActive: newTeamData.isActive !== false,
-                      battlesWon: newTeamData.battlesWon || 0,
-                      battlesLost: newTeamData.battlesLost || 0
-                    }
-                  });
+                try {
+                  if (existingTeam) {
+                    teamRecord = await db.Team.update({
+                      where: { id: existingTeam.id },
+                      data: { 
+                        nftIds: newTeamData.nftIds,
+                        isActive: newTeamData.isActive !== false,
+                        battlesWon: newTeamData.battlesWon || 0,
+                        battlesLost: newTeamData.battlesLost || 0,
+                        updatedAt: new Date() 
+                      }
+                    });
+                  } else {
+                    teamRecord = await db.Team.create({
+                      data: {
+                        id: generateTeamId(newTeamData.name, user.id),
+                        name: newTeamData.name,
+                        ownerId: user.id,
+                        nftIds: newTeamData.nftIds,
+                        isActive: newTeamData.isActive !== false,
+                        battlesWon: newTeamData.battlesWon || 0,
+                        battlesLost: newTeamData.battlesLost || 0
+                      }
+                    });
+                  }
+                } catch (e) {
+                  // Fallback: store as JSON string if column is TEXT
+                  const fallbackIds = JSON.stringify(newTeamData.nftIds);
+                  if (existingTeam) {
+                    teamRecord = await db.Team.update({
+                      where: { id: existingTeam.id },
+                      data: { 
+                        nftIds: fallbackIds,
+                        isActive: newTeamData.isActive !== false,
+                        battlesWon: newTeamData.battlesWon || 0,
+                        battlesLost: newTeamData.battlesLost || 0,
+                        updatedAt: new Date() 
+                      }
+                    });
+                  } else {
+                    teamRecord = await db.Team.create({
+                      data: {
+                        id: generateTeamId(newTeamData.name, user.id),
+                        name: newTeamData.name,
+                        ownerId: user.id,
+                        nftIds: fallbackIds,
+                        isActive: newTeamData.isActive !== false,
+                        battlesWon: newTeamData.battlesWon || 0,
+                        battlesLost: newTeamData.battlesLost || 0
+                      }
+                    });
+                  }
                 }
 
-                return { ...teamRecord, cards: userNfts };
+                const normalizedIds = Array.isArray(teamRecord.nftIds)
+                  ? teamRecord.nftIds
+                  : (typeof teamRecord.nftIds === 'string' ? JSON.parse(teamRecord.nftIds) : []);
+                return { ...teamRecord, nftIds: normalizedIds, cards: userNfts };
               });
 
               savedTeams.push(teamWithNFTs);
@@ -269,16 +316,27 @@ export default async function handler(req, res) {
             console.warn('⚠️ Some NFTs do not belong to the user or were not found. Proceeding with provided list for update.');
           }
 
-          // Update the team
+          // Update the team (with fallback to JSON string if needed)
           const updated = await withDatabase(async (db) => {
-            return db.Team.update({
-              where: { id },
-              data: { name, nftIds, updatedAt: new Date() }
-            });
+            try {
+              return await db.Team.update({
+                where: { id },
+                data: { name, nftIds, updatedAt: new Date() }
+              });
+            } catch (e) {
+              return await db.Team.update({
+                where: { id },
+                data: { name, nftIds: JSON.stringify(nftIds), updatedAt: new Date() }
+              });
+            }
           });
 
+          const normalizedIds = Array.isArray(updated.nftIds)
+            ? updated.nftIds
+            : (typeof updated.nftIds === 'string' ? (() => { try { return JSON.parse(updated.nftIds); } catch { return []; } })() : []);
           return res.status(200).json({
             ...updated,
+            nftIds: normalizedIds,
             cards: userNfts
           });
         } catch (error) {
