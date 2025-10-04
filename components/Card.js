@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import styles from './Card.module.css';
 import { generateStatBars } from '../utils/frogData';
 
 const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
+  const [imgError, setImgError] = useState(false);
+  
   const stats = {
     attack: card?.attack || 0,
     health: card?.health || 0,
@@ -13,14 +15,38 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
   // Generate stat bars HTML
   const statBars = generateStatBars(stats);
 
-  // Get frog number from attributes
-  const getFrogNumber = () => {
+  // Get frog/NFT number from attributes
+  const getNFTNumber = () => {
     if (!card || !card.attributes) return null;
     const numberAttr = card.attributes.find(attr => attr.trait_type === "Number");
     return numberAttr ? numberAttr.value : null;
   };
 
-  const frogNumber = getFrogNumber();
+  // Get collection type
+  const getCollection = () => {
+    if (!card || !card.attributes) return null;
+    const collAttr = card.attributes.find(attr => attr.trait_type === "Collection");
+    return collAttr ? collAttr.value : null;
+  };
+
+  const nftNumber = getNFTNumber();
+  const collection = getCollection();
+
+  // Get fallback image URL based on collection
+  const getFallbackImage = () => {
+    if (!nftNumber) return '/placeholder.png';
+    
+    switch(collection) {
+      case 'Snekkies':
+        return `https://ipfs.io/ipfs/QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3/${nftNumber}.png`;
+      case 'Titans':
+        return `https://ipfs.io/ipfs/QmZGxPG7zLmYbNVZijx1Z6P3rZ2UFLtN5rWhrqFTJc9bMx/${nftNumber}.png`;
+      case 'Frogs':
+        return `https://ipfs.io/ipfs/QmXwXzVg8CvnzFwxnvsjMNq7JAHVn3qyMbwpGumi5AJhXC/${nftNumber}.png`;
+      default:
+        return '/placeholder.png';
+    }
+  };
 
   const handleDelete = (e) => {
     e.stopPropagation();
@@ -34,25 +60,23 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
       {card ? (
         <>
           <div className={styles.cardImage}>
-            <Image
-              src={card.image || card.imageUrl || '/placeholder.png'}
+            <img
+              src={imgError ? getFallbackImage() : (card.image || card.imageUrl || '/placeholder.png')}
               alt={card.name || 'Card'}
-              width={160}
-              height={160}
               style={{
+                width: '100%',
+                height: 'auto',
                 objectFit: 'contain',
-                borderRadius: '4px',
-                maxWidth: '100%',
-                height: 'auto'
+                borderRadius: '4px'
               }}
-              priority
-              unoptimized={true}
-              onError={(e) => {
-                console.error('Failed to load image for card:', card.name, 'URL:', card.image || card.imageUrl);
-                e.target.src = '/placeholder.png';
+              onError={() => {
+                if (!imgError) {
+                  console.log(`Image failed for ${card.name}, using fallback`);
+                  setImgError(true);
+                }
               }}
             />
-            {frogNumber && <div className={styles.cardNumber}>#{frogNumber}</div>}
+            {nftNumber && <div className={styles.cardNumber}>#{nftNumber}</div>}
             {onDelete && (
               <button 
                 className={styles.deleteButton}
