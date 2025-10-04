@@ -49,34 +49,31 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
     return match ? match[1] : null;
   };
 
-  // Get image URL - convert ALL IPFS URLs to reliable gateway
+  // Get image URL - convert ALL IPFS URLs to Cloudflare gateway (most reliable)
   const getImageUrl = () => {
     const imageUrl = card.image || card.imageUrl;
     
-    // For ALL Cardano NFTs, convert IPFS URLs to JPG Store CDN (most reliable)
+    // Convert ALL IPFS URLs to use Cloudflare gateway
     const ipfsHash = getIpfsHash(imageUrl);
     if (ipfsHash) {
-      const url = `https://ipfs.jpgstoreapis.com/${ipfsHash}`;
-      console.log(`${card.name}: Using ${url}`);
-      return url;
+      // Use Cloudflare IPFS gateway - most reliable public gateway
+      return `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
     }
     
-    console.log(`${card.name}: No IPFS hash found, using ${imageUrl}`);
+    // If not IPFS, return as is
     return imageUrl || '/placeholder.png';
   };
   
-  // Get fallback image URL - try alternative IPFS gateways
+  // Get fallback image URL - try alternative gateways
   const getFallbackImage = () => {
     const imageUrl = card.image || card.imageUrl;
     const ipfsHash = getIpfsHash(imageUrl);
     
     if (ipfsHash) {
-      // Try Cloudflare IPFS gateway as fallback
-      if (gatewayIndex === 0) return `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
-      // Try Pinata gateway
-      if (gatewayIndex === 1) return `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
-      // Try dweb
-      if (gatewayIndex === 2) return `https://dweb.link/ipfs/${ipfsHash}`;
+      // Try different gateways in order
+      if (gatewayIndex === 0) return `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+      if (gatewayIndex === 1) return `https://dweb.link/ipfs/${ipfsHash}`;
+      if (gatewayIndex === 2) return `https://ipfs.io/ipfs/${ipfsHash}`;
     }
     
     return '/placeholder.png';
