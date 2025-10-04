@@ -32,47 +32,38 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
   const nftNumber = getNFTNumber();
   const collection = getCollection();
 
-  // Multiple IPFS gateways to try
-  const IPFS_GATEWAYS = [
-    'https://cloudflare-ipfs.com/ipfs',
-    'https://gateway.pinata.cloud/ipfs',
-    'https://ipfs.io/ipfs',
-    'https://dweb.link/ipfs',
-    'https://nftstorage.link/ipfs'
-  ];
-
-  // Collection-specific IPFS hashes for fallback
-  const COLLECTION_IPFS = {
-    'Snekkies': 'QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3',
-    'Titans': 'QmZGxPG7zLmYbNVZijx1Z6P3rZ2UFLtN5rWhrqFTJc9bMx',
-    'Frogs': 'QmXwXzVg8CvnzFwxnvsjMNq7JAHVn3qyMbwpGumi5AJhXC'
+  // Get policy ID for Snekkies
+  const getPolicyId = () => {
+    if (!card || !card.attributes) return null;
+    const policyAttr = card.attributes.find(attr => attr.trait_type === "Policy ID");
+    return policyAttr ? policyAttr.value : null;
   };
 
-  // Get image URL with automatic fallback for Snekkies
+  const policyId = getPolicyId();
+
+  // Get image URL - for Snekkies use JPG Store CDN
   const getImageUrl = () => {
-    // For Snekkies, ALWAYS use fallback URL with rotating gateways
-    if (collection === 'Snekkies' && nftNumber) {
-      const gateway = IPFS_GATEWAYS[gatewayIndex % IPFS_GATEWAYS.length];
-      const ipfsHash = COLLECTION_IPFS['Snekkies'];
-      return `${gateway}/${ipfsHash}/${nftNumber}.png`;
+    // For Snekkies, use JPG Store's CDN which is reliable
+    if (collection === 'Snekkies' && nftNumber && policyId) {
+      // JPG Store hosts images as: https://ipfs.jpgstoreapis.com/{policyId}{assetNameHex}.png
+      // We need to get the asset name hex from attributes
+      const assetNameAttr = card.attributes?.find(attr => attr.trait_type === "Asset Name");
+      if (assetNameAttr) {
+        return `https://ipfs.jpgstoreapis.com/${policyId}${assetNameAttr.value}.png`;
+      }
+      // Fallback to pool.pm which also serves Cardano NFTs
+      return `https://pool.pm/${policyId}.${nftNumber}`;
     }
     
     // For other collections, use the stored image URL
     return card.image || card.imageUrl || '/placeholder.png';
   };
   
-  // Get fallback image URL based on collection
+  // Get fallback image URL - use pool.pm as ultimate fallback
   const getFallbackImage = () => {
-    if (!nftNumber) return '/placeholder.png';
-    
-    const ipfsHash = COLLECTION_IPFS[collection];
-    if (ipfsHash) {
-      // Try next gateway
-      const nextGatewayIndex = (gatewayIndex + 1) % IPFS_GATEWAYS.length;
-      const gateway = IPFS_GATEWAYS[nextGatewayIndex];
-      return `${gateway}/${ipfsHash}/${nftNumber}.png`;
+    if (collection === 'Snekkies' && policyId && nftNumber) {
+      return `https://pool.pm/${policyId}.${nftNumber}`;
     }
-    
     return '/placeholder.png';
   };
 
