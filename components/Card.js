@@ -41,29 +41,51 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
 
   const policyId = getPolicyId();
 
-  // Get image URL - for Snekkies use JPG Store CDN
+  // Extract IPFS hash from URL
+  const getIpfsHash = (url) => {
+    if (!url) return null;
+    // Match patterns like: https://ipfs.io/ipfs/QmXXX or ipfs://QmXXX
+    const match = url.match(/ipfs[:/]+([a-zA-Z0-9]+)/);
+    return match ? match[1] : null;
+  };
+
+  // Get image URL - for Snekkies convert IPFS to reliable gateway
   const getImageUrl = () => {
-    // For Snekkies, use JPG Store's CDN which is reliable
-    if (collection === 'Snekkies' && nftNumber && policyId) {
-      // JPG Store hosts images as: https://ipfs.jpgstoreapis.com/{policyId}{assetNameHex}.png
-      // We need to get the asset name hex from attributes
+    const imageUrl = card.image || card.imageUrl;
+    
+    // For Snekkies, convert IPFS URLs to JPG Store CDN
+    if (collection === 'Snekkies') {
+      const ipfsHash = getIpfsHash(imageUrl);
+      if (ipfsHash) {
+        // Use JPG Store's IPFS gateway - fast and reliable for Cardano NFTs
+        return `https://ipfs.jpgstoreapis.com/${ipfsHash}`;
+      }
+      
+      // Fallback: try constructing from policy + asset name
       const assetNameAttr = card.attributes?.find(attr => attr.trait_type === "Asset Name");
-      if (assetNameAttr) {
+      if (policyId && assetNameAttr) {
         return `https://ipfs.jpgstoreapis.com/${policyId}${assetNameAttr.value}.png`;
       }
-      // Fallback to pool.pm which also serves Cardano NFTs
-      return `https://pool.pm/${policyId}.${nftNumber}`;
     }
     
     // For other collections, use the stored image URL
-    return card.image || card.imageUrl || '/placeholder.png';
+    return imageUrl || '/placeholder.png';
   };
   
-  // Get fallback image URL - use pool.pm as ultimate fallback
+  // Get fallback image URL - try alternative IPFS gateways
   const getFallbackImage = () => {
-    if (collection === 'Snekkies' && policyId && nftNumber) {
-      return `https://pool.pm/${policyId}.${nftNumber}`;
+    const imageUrl = card.image || card.imageUrl;
+    const ipfsHash = getIpfsHash(imageUrl);
+    
+    if (ipfsHash) {
+      // Try Cloudflare IPFS gateway as fallback
+      if (gatewayIndex === 0) return `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
+      // Try Pinata gateway
+      if (gatewayIndex === 1) return `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+      // Try dweb
+      if (gatewayIndex === 2) return `https://dweb.link/ipfs/${ipfsHash}`;
     }
+    
     return '/placeholder.png';
   };
 
@@ -89,12 +111,12 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
                 borderRadius: '4px'
               }}
               onError={() => {
-                console.log(`Image load failed for ${card.name}, trying next gateway`);
-                // Try next gateway
-                if (gatewayIndex < IPFS_GATEWAYS.length - 1) {
+                console.log(`Image load failed for ${card.name}, trying gateway ${gatewayIndex + 1}`);
+                // Try up to 3 different gateways
+                if (gatewayIndex < 2) {
                   setGatewayIndex(gatewayIndex + 1);
                 } else if (!imgError) {
-                  // All gateways failed, use final fallback
+                  // All gateways failed
                   setImgError(true);
                 }
               }}
