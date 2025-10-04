@@ -56,11 +56,12 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
     // For ALL Cardano NFTs, convert IPFS URLs to JPG Store CDN (most reliable)
     const ipfsHash = getIpfsHash(imageUrl);
     if (ipfsHash) {
-      // Use JPG Store's IPFS gateway - fast and reliable for Cardano NFTs
-      return `https://ipfs.jpgstoreapis.com/${ipfsHash}`;
+      const url = `https://ipfs.jpgstoreapis.com/${ipfsHash}`;
+      console.log(`${card.name}: Using ${url}`);
+      return url;
     }
     
-    // If no IPFS hash found, return as is
+    console.log(`${card.name}: No IPFS hash found, using ${imageUrl}`);
     return imageUrl || '/placeholder.png';
   };
   
