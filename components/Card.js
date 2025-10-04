@@ -4,6 +4,7 @@ import { generateStatBars } from '../utils/frogData';
 
 const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
   const [imgError, setImgError] = useState(false);
+  const [gatewayIndex, setGatewayIndex] = useState(0);
   
   const stats = {
     attack: card?.attack || 0,
@@ -31,13 +32,29 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
   const nftNumber = getNFTNumber();
   const collection = getCollection();
 
+  // Multiple IPFS gateways to try
+  const IPFS_GATEWAYS = [
+    'https://cloudflare-ipfs.com/ipfs',
+    'https://gateway.pinata.cloud/ipfs',
+    'https://ipfs.io/ipfs',
+    'https://dweb.link/ipfs',
+    'https://nftstorage.link/ipfs'
+  ];
+
+  // Collection-specific IPFS hashes for fallback
+  const COLLECTION_IPFS = {
+    'Snekkies': 'QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3',
+    'Titans': 'QmZGxPG7zLmYbNVZijx1Z6P3rZ2UFLtN5rWhrqFTJc9bMx',
+    'Frogs': 'QmXwXzVg8CvnzFwxnvsjMNq7JAHVn3qyMbwpGumi5AJhXC'
+  };
+
   // Get image URL with automatic fallback for Snekkies
   const getImageUrl = () => {
-    // For Snekkies, ALWAYS use fallback URL directly since primary IPFS is unreliable
+    // For Snekkies, ALWAYS use fallback URL with rotating gateways
     if (collection === 'Snekkies' && nftNumber) {
-      const url = `https://ipfs.io/ipfs/QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3/${nftNumber}.png`;
-      console.log(`Using Snekkies fallback URL for #${nftNumber}: ${url}`);
-      return url;
+      const gateway = IPFS_GATEWAYS[gatewayIndex % IPFS_GATEWAYS.length];
+      const ipfsHash = COLLECTION_IPFS['Snekkies'];
+      return `${gateway}/${ipfsHash}/${nftNumber}.png`;
     }
     
     // For other collections, use the stored image URL
@@ -48,16 +65,15 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
   const getFallbackImage = () => {
     if (!nftNumber) return '/placeholder.png';
     
-    switch(collection) {
-      case 'Snekkies':
-        return `https://ipfs.io/ipfs/QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3/${nftNumber}.png`;
-      case 'Titans':
-        return `https://ipfs.io/ipfs/QmZGxPG7zLmYbNVZijx1Z6P3rZ2UFLtN5rWhrqFTJc9bMx/${nftNumber}.png`;
-      case 'Frogs':
-        return `https://ipfs.io/ipfs/QmXwXzVg8CvnzFwxnvsjMNq7JAHVn3qyMbwpGumi5AJhXC/${nftNumber}.png`;
-      default:
-        return '/placeholder.png';
+    const ipfsHash = COLLECTION_IPFS[collection];
+    if (ipfsHash) {
+      // Try next gateway
+      const nextGatewayIndex = (gatewayIndex + 1) % IPFS_GATEWAYS.length;
+      const gateway = IPFS_GATEWAYS[nextGatewayIndex];
+      return `${gateway}/${ipfsHash}/${nftNumber}.png`;
     }
+    
+    return '/placeholder.png';
   };
 
   const handleDelete = (e) => {
@@ -82,8 +98,12 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
                 borderRadius: '4px'
               }}
               onError={() => {
-                if (!imgError) {
-                  console.log(`Image load failed: ${card.name}, switching to fallback`);
+                console.log(`Image load failed for ${card.name}, trying next gateway`);
+                // Try next gateway
+                if (gatewayIndex < IPFS_GATEWAYS.length - 1) {
+                  setGatewayIndex(gatewayIndex + 1);
+                } else if (!imgError) {
+                  // All gateways failed, use final fallback
                   setImgError(true);
                 }
               }}
