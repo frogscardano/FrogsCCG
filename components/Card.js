@@ -33,9 +33,11 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
 
   // Get image URL with automatic fallback for Snekkies
   const getImageUrl = () => {
-    // For Snekkies, use fallback URL directly since primary IPFS is unreliable
+    // For Snekkies, ALWAYS use fallback URL directly since primary IPFS is unreliable
     if (collection === 'Snekkies' && nftNumber) {
-      return `https://ipfs.io/ipfs/QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3/${nftNumber}.png`;
+      const url = `https://ipfs.io/ipfs/QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3/${nftNumber}.png`;
+      console.log(`Using Snekkies fallback URL for #${nftNumber}: ${url}`);
+      return url;
     }
     
     // For other collections, use the stored image URL
