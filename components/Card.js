@@ -1,7 +1,59 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import styles from './Card.module.css';
 import { generateStatBars } from '../utils/frogData';
+
+// Known fallback IPFS CIDs for collections
+const COLLECTION_FALLBACK_CIDS = {
+  Frogs: 'QmXwXzVg8CvnzFwxnvsjMNq7JAHVn3qyMbwpGumi5AJhXC',
+  Snekkies: 'QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3',
+  Titans: 'QmZGxPG7zLmYbNVZijx1Z6P3rZ2UFLtN5rWhrqFTJc9bMx',
+};
+
+function normalizeIpfsUrl(url, gateway = 'ipfs.io') {
+  if (!url) return null;
+  if (url.startsWith('ipfs://')) {
+    const path = url.slice('ipfs://'.length);
+    return `https://${gateway}/ipfs/${path}`;
+  }
+  const m = url.match(/^https?:\/\/[^/]*ipfs[^/]*\/ipfs\/(.+)$/i);
+  if (m) return `https://${gateway}/ipfs/${m[1]}`;
+  return url;
+}
+
+function buildImageCandidates(card) {
+  const urls = [];
+  // Order gateways by reliability; avoid pinata 404 noise
+  const gateways = ['cloudflare-ipfs.com', 'ipfs.io', 'dweb.link', 'nftstorage.link', 'cf-ipfs.com'];
+
+  const primary = card?.image || card?.imageUrl;
+  if (primary) {
+    const normalized = normalizeIpfsUrl(primary, 'ipfs.io');
+    if (normalized) {
+      urls.push(normalized);
+      const match = normalized.match(/^https?:\/\/[^/]+\/ipfs\/(.+)$/i);
+      if (match) {
+        const path = match[1];
+        gateways.forEach(gw => urls.push(`https://${gw}/ipfs/${path}`));
+      }
+    } else {
+      urls.push(primary);
+    }
+  }
+
+  // Collection-specific number-based fallback
+  const numberAttr = card?.attributes?.find(a => a.trait_type === 'Number');
+  const collectionAttr = card?.attributes?.find(a => a.trait_type === 'Collection');
+  const number = numberAttr?.value;
+  const collection = collectionAttr?.value;
+  const cid = collection ? COLLECTION_FALLBACK_CIDS[collection] : null;
+  if (cid && number) {
+    gateways.forEach(gw => urls.push(`https://${gw}/ipfs/${cid}/${number}.png`));
+  }
+
+  // Deduplicate while preserving order
+  return Array.from(new Set(urls.filter(Boolean)));
+}
 
 const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
   const stats = {
@@ -22,6 +74,56 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
 
   const frogNumber = getFrogNumber();
 
+  // Robust image loading with pre-resolve to avoid flicker and 404 noise
+  const candidates = useMemo(() => buildImageCandidates(card), [card]);
+  const [currentSrc, setCurrentSrc] = useState('/placeholder.png');
+
+  useEffect(() => {
+    let cancelled = false;
+    setCurrentSrc('/placeholder.png');
+
+    const tryLoad = (index) => {
+      if (cancelled) return;
+      if (!candidates || index >= candidates.length) {
+        setCurrentSrc('/placeholder.png');
+        return;
+      }
+      const testImg = typeof Image !== 'undefined' ? new Image() : null;
+      if (!testImg) {
+        // SSR or no Image; fall back to first candidate
+        setCurrentSrc(candidates[0] || '/placeholder.png');
+        return;
+      }
+      let timeoutId = setTimeout(() => {
+        // Timeout this candidate and try next
+        testImg.src = '';
+        tryLoad(index + 1);
+      }, 5000);
+      testImg.onload = () => {
+        clearTimeout(timeoutId);
+        if (!cancelled) setCurrentSrc(candidates[index]);
+      };
+      testImg.onerror = () => {
+        clearTimeout(timeoutId);
+        tryLoad(index + 1);
+      };
+      // Reduce referrer leakage and quirks with some gateways
+      try { testImg.referrerPolicy = 'no-referrer'; } catch (_) {}
+      testImg.decoding = 'async';
+      testImg.src = candidates[index];
+    };
+
+    if (candidates && candidates.length > 0) {
+      tryLoad(0);
+    }
+    return () => { cancelled = true; };
+  }, [candidates]);
+
+  const handleImageError = () => {
+    // If final rendered image fails later, switch to placeholder
+    setCurrentSrc('/placeholder.png');
+  };
+
   const handleDelete = (e) => {
     e.stopPropagation();
     if (onDelete && window.confirm(`Are you sure you want to delete "${card.name}"?`)) {
@@ -35,7 +137,8 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
         <>
           <div className={styles.cardImage}>
             <Image
-              src={card.image || card.imageUrl || '/placeholder.png'}
+              key={currentSrc}
+              src={currentSrc}
               alt={card.name || 'Card'}
               width={160}
               height={160}
@@ -45,12 +148,10 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
                 maxWidth: '100%',
                 height: 'auto'
               }}
-              priority
+              loading="lazy"
+              decoding="async"
               unoptimized={true}
-              onError={(e) => {
-                console.error('Failed to load image for card:', card.name, 'URL:', card.image || card.imageUrl);
-                e.target.src = '/placeholder.png';
-              }}
+              onError={handleImageError}
             />
             {frogNumber && <div className={styles.cardNumber}>#{frogNumber}</div>}
             {onDelete && (

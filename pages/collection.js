@@ -53,17 +53,17 @@ export default function Collection() {
     }
   };
 
-  // Group cards by rarity for display
-  const groupedCards = collection.reduce((acc, userCard) => {
-    const rarity = userCard.card.rarity || 'unknown';
-    if (!acc[rarity]) {
-      acc[rarity] = [];
+  // Group cards by rarity for display (normalized to lowercase)
+  const groupedCards = collection.reduce((acc, card) => {
+    const rarityKey = (card?.rarity || 'unknown').toLowerCase();
+    if (!acc[rarityKey]) {
+      acc[rarityKey] = [];
     }
-    acc[rarity].push(userCard);
+    acc[rarityKey].push(card);
     return acc;
   }, {});
 
-  const rarityOrder = ['legendary', 'rare', 'common', 'unknown'];
+  const rarityOrder = ['legendary', 'epic', 'rare', 'common', 'unknown'];
 
   return (
     <div className={styles.container}>
@@ -104,21 +104,22 @@ export default function Collection() {
       ) : (
         <div className={styles.collectionContainer}>
           {rarityOrder.map(rarity => {
-            if (!groupedCards[rarity] || groupedCards[rarity].length === 0) return null;
-            
+            const cards = groupedCards[rarity];
+            if (!cards || cards.length === 0) return null;
+
             return (
               <div key={rarity} className={styles.raritySection}>
                 <h2 className={styles.rarityTitle}>{rarity.charAt(0).toUpperCase() + rarity.slice(1)}</h2>
                 <div className={styles.cardsGrid}>
-                  {groupedCards[rarity].map(userCard => (
-                    <div key={userCard.id} className={styles.cardItem}>
+                  {cards.map(card => (
+                    <div key={card.id} className={styles.cardItem}>
                       <div className={styles.cardImage}>
-                        <img src={userCard.card.imageUrl} alt={userCard.card.name} />
+                        <img src={card.image || card.imageUrl} alt={card.name} />
                       </div>
                       <div className={styles.cardInfo}>
-                        <h3 className={styles.cardName}>{userCard.card.name}</h3>
-                        <p className={styles.cardRarity}>{userCard.card.rarity}</p>
-                        <p className={styles.cardQuantity}>Owned: {userCard.quantity}</p>
+                        <h3 className={styles.cardName}>{card.name}</h3>
+                        <p className={styles.cardRarity}>{card.rarity}</p>
+                        <p className={styles.cardQuantity}>Owned: 1</p>
                       </div>
                     </div>
                   ))}
