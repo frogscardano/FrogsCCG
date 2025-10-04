@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import Image from 'next/image';
 import styles from './Card.module.css';
 import { generateStatBars } from '../utils/frogData';
 
@@ -32,6 +31,17 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
   const nftNumber = getNFTNumber();
   const collection = getCollection();
 
+  // Get image URL with automatic fallback for Snekkies
+  const getImageUrl = () => {
+    // For Snekkies, use fallback URL directly since primary IPFS is unreliable
+    if (collection === 'Snekkies' && nftNumber) {
+      return `https://ipfs.io/ipfs/QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3/${nftNumber}.png`;
+    }
+    
+    // For other collections, use the stored image URL
+    return card.image || card.imageUrl || '/placeholder.png';
+  };
+  
   // Get fallback image URL based on collection
   const getFallbackImage = () => {
     if (!nftNumber) return '/placeholder.png';
@@ -61,7 +71,7 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
         <>
           <div className={styles.cardImage}>
             <img
-              src={imgError ? getFallbackImage() : (card.image || card.imageUrl || '/placeholder.png')}
+              src={imgError ? getFallbackImage() : getImageUrl()}
               alt={card.name || 'Card'}
               style={{
                 width: '100%',
@@ -71,7 +81,7 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
               }}
               onError={() => {
                 if (!imgError) {
-                  console.log(`Image failed for ${card.name}, using fallback`);
+                  console.log(`Image load failed: ${card.name}, switching to fallback`);
                   setImgError(true);
                 }
               }}
