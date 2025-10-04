@@ -1,9 +1,11 @@
-import React from 'react';
-import Image from 'next/image';
+import React, { useState } from 'react';
 import styles from './Card.module.css';
 import { generateStatBars } from '../utils/frogData';
 
 const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
+  const [imgError, setImgError] = useState(false);
+  const [gatewayIndex, setGatewayIndex] = useState(0);
+  
   const stats = {
     attack: card?.attack || 0,
     health: card?.health || 0,
@@ -13,14 +15,69 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
   // Generate stat bars HTML
   const statBars = generateStatBars(stats);
 
-  // Get frog number from attributes
-  const getFrogNumber = () => {
+  // Get frog/NFT number from attributes
+  const getNFTNumber = () => {
     if (!card || !card.attributes) return null;
     const numberAttr = card.attributes.find(attr => attr.trait_type === "Number");
     return numberAttr ? numberAttr.value : null;
   };
 
-  const frogNumber = getFrogNumber();
+  // Get collection type
+  const getCollection = () => {
+    if (!card || !card.attributes) return null;
+    const collAttr = card.attributes.find(attr => attr.trait_type === "Collection");
+    return collAttr ? collAttr.value : null;
+  };
+
+  const nftNumber = getNFTNumber();
+  const collection = getCollection();
+
+  // Get policy ID for Snekkies
+  const getPolicyId = () => {
+    if (!card || !card.attributes) return null;
+    const policyAttr = card.attributes.find(attr => attr.trait_type === "Policy ID");
+    return policyAttr ? policyAttr.value : null;
+  };
+
+  const policyId = getPolicyId();
+
+  // Extract IPFS hash from URL
+  const getIpfsHash = (url) => {
+    if (!url) return null;
+    // Match patterns like: https://ipfs.io/ipfs/QmXXX or ipfs://QmXXX
+    const match = url.match(/ipfs[:/]+([a-zA-Z0-9]+)/);
+    return match ? match[1] : null;
+  };
+
+  // Get image URL - convert ALL IPFS URLs to Cloudflare gateway (most reliable)
+  const getImageUrl = () => {
+    const imageUrl = card.image || card.imageUrl;
+    
+    // Convert ALL IPFS URLs to use Cloudflare gateway
+    const ipfsHash = getIpfsHash(imageUrl);
+    if (ipfsHash) {
+      // Use Cloudflare IPFS gateway - most reliable public gateway
+      return `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
+    }
+    
+    // If not IPFS, return as is
+    return imageUrl || '/placeholder.png';
+  };
+  
+  // Get fallback image URL - try alternative gateways
+  const getFallbackImage = () => {
+    const imageUrl = card.image || card.imageUrl;
+    const ipfsHash = getIpfsHash(imageUrl);
+    
+    if (ipfsHash) {
+      // Try different gateways in order
+      if (gatewayIndex === 0) return `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+      if (gatewayIndex === 1) return `https://dweb.link/ipfs/${ipfsHash}`;
+      if (gatewayIndex === 2) return `https://ipfs.io/ipfs/${ipfsHash}`;
+    }
+    
+    return '/placeholder.png';
+  };
 
   const handleDelete = (e) => {
     e.stopPropagation();
@@ -34,25 +91,27 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
       {card ? (
         <>
           <div className={styles.cardImage}>
-            <Image
-              src={card.image || card.imageUrl || '/placeholder.png'}
+            <img
+              src={imgError ? getFallbackImage() : getImageUrl()}
               alt={card.name || 'Card'}
-              width={160}
-              height={160}
               style={{
+                width: '100%',
+                height: 'auto',
                 objectFit: 'contain',
-                borderRadius: '4px',
-                maxWidth: '100%',
-                height: 'auto'
+                borderRadius: '4px'
               }}
-              priority
-              unoptimized={true}
-              onError={(e) => {
-                console.error('Failed to load image for card:', card.name, 'URL:', card.image || card.imageUrl);
-                e.target.src = '/placeholder.png';
+              onError={() => {
+                console.log(`Image load failed for ${card.name}, trying gateway ${gatewayIndex + 1}`);
+                // Try up to 3 different gateways
+                if (gatewayIndex < 2) {
+                  setGatewayIndex(gatewayIndex + 1);
+                } else if (!imgError) {
+                  // All gateways failed
+                  setImgError(true);
+                }
               }}
             />
-            {frogNumber && <div className={styles.cardNumber}>#{frogNumber}</div>}
+            {nftNumber && <div className={styles.cardNumber}>#{nftNumber}</div>}
             {onDelete && (
               <button 
                 className={styles.deleteButton}

@@ -113,17 +113,13 @@ function calculateGameStats(nftData) {
 export default async function handler(req, res) {
   const { address } = req.query;
   
-  console.log(`🔍 Collections API called with address: ${address}, method: ${req.method}`);
   
-  // Accept both bech32 and hex addresses; minimal sanity check only
   const cleanAddress = (address || '').trim();
   if (!cleanAddress) {
-    console.log('❌ No address provided');
     return res.status(400).json({ error: 'Wallet address is required' });
   }
 
   try {
-    console.log(`🔄 Attempting to upsert user with address: ${cleanAddress}`);
     
     // Use direct Prisma calls to avoid conflicts with withDatabase wrapper
     const user = await (async () => {
@@ -134,8 +130,6 @@ export default async function handler(req, res) {
         });
 
         if (existingUser) {
-          console.log(`🔄 Updating existing user: ${existingUser.id}`);
-          // Update existing user
           return await prisma.user.update({
             where: { address: cleanAddress },
             data: {
@@ -143,8 +137,6 @@ export default async function handler(req, res) {
             }
           });
         } else {
-          console.log(`🆕 Creating new user for address: ${cleanAddress}`);
-          // Create new user
           return await prisma.user.create({
             data: {
               id: uuid4(),
@@ -153,29 +145,22 @@ export default async function handler(req, res) {
           });
         }
       } catch (userError) {
-        console.error(`❌ User operation failed for address ${cleanAddress}:`, userError);
         throw userError;
       }
     })();
     
-    console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
+    console.log(`${req.method} request for user ${user.id}`);
 
     switch (req.method) {
       case 'GET':
         try {
-          console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
-          
           // Use direct Prisma calls to avoid conflicts
           let userNfts = await prisma.nFT.findMany({
             where: { ownerId: user.id },
             orderBy: { createdAt: 'desc' }
           });
           
-          console.log(`📊 Found ${userNfts.length} NFTs for user ID: ${user.id}`);
-          
-          if (userNfts.length === 0) {
-            console.log(`ℹ️ User ${user.id} has no NFTs yet. This is normal for new users.`);
-          }
+          console.log(`Found ${userNfts.length} NFTs for user ${user.address.slice(0, 20)}...`);
           
           // Add game stats to each NFT and ensure proper attributes structure
           const nftsWithStats = userNfts.map(nft => {
@@ -210,17 +195,8 @@ export default async function handler(req, res) {
               image: nft.imageUrl || nft.image
             };
             
-            // Debug logging for image URLs
-            console.log(`🖼️ NFT ${nft.name} image data:`, {
-              imageUrl: nft.imageUrl,
-              image: nft.image,
-              finalImage: result.image
-            });
-            
             return result;
           });
-          
-          console.log(`✅ Returning collection with ${nftsWithStats.length} items`);
           
           return res.status(200).json({
             collection: nftsWithStats,
@@ -237,8 +213,7 @@ export default async function handler(req, res) {
 
       case 'POST':
         try {
-          const nftData = req.body;
-          console.log(`📥 Received POST data for ${nftData?.length || 0} NFTs`);
+          let nftData = req.body;
           
           if (!Array.isArray(nftData)) {
             nftData = [nftData];
@@ -252,41 +227,17 @@ export default async function handler(req, res) {
 
           for (const nft of nftData) {
             try {
-              console.log(`🔄 Processing NFT: ${nft.name || 'Unknown'}`);
-              console.log(`🔍 NFT data received:`, JSON.stringify(nft, null, 2));
-              
-              // CRITICAL FIX: Sanitize the tokenId to prevent binary interpretation issues
               const sanitizedTokenId = sanitizeTokenId(nft.tokenId, nft.name);
-              console.log(`🔍 TokenId sanitization:`, { 
-                original: nft.tokenId, 
-                sanitized: sanitizedTokenId,
-                type: typeof nft.tokenId 
-              });
               
-              if (!sanitizedTokenId) {
-                console.error(`❌ Invalid tokenId for NFT: ${nft.name}`, { 
-                  tokenId: nft.tokenId, 
-                  type: typeof nft.tokenId,
-                  isNull: nft.tokenId === null,
-                  isUndefined: nft.tokenId === undefined
-                });
-                continue;
-              }
+              if (!sanitizedTokenId) continue;
               
-              // Extract contractAddress from attributes if not provided directly
               let contractAddress = nft.contractAddress;
               if (!contractAddress && nft.attributes) {
                 const policyIdAttr = nft.attributes.find(attr => attr.trait_type === "Policy ID");
-                if (policyIdAttr) {
-                  contractAddress = policyIdAttr.value;
-                  console.log(`🔍 Extracted contractAddress from attributes: ${contractAddress}`);
-                }
+                if (policyIdAttr) contractAddress = policyIdAttr.value;
               }
               
-              if (!contractAddress) {
-                console.error(`❌ Missing contractAddress for NFT: ${nft.name}`);
-                continue;
-              }
+              if (!contractAddress) continue;
               
               // Check if NFT already exists
               const existingNFT = await prisma.nFT.findFirst({
@@ -297,8 +248,6 @@ export default async function handler(req, res) {
               });
 
               if (existingNFT) {
-                console.log(`🔄 Updating existing NFT: ${existingNFT.name}`);
-                // Update existing NFT
                 const updatedNFT = await prisma.nFT.update({
                   where: { id: existingNFT.id },
                   data: {
@@ -316,9 +265,8 @@ export default async function handler(req, res) {
                   }
                 });
                 savedNfts.push(updatedNFT);
+                console.log(`Updated: ${nft.name}`);
               } else {
-                console.log(`🆕 Creating new NFT: ${nft.name}`);
-                // Create new NFT
                 const newNFT = await prisma.nFT.create({
                   data: {
                     id: generateNFTId(sanitizedTokenId, contractAddress),
@@ -337,17 +285,14 @@ export default async function handler(req, res) {
                   }
                 });
                 savedNfts.push(newNFT);
+                console.log(`Saved: ${nft.name}`);
               }
-              
-              console.log(`✅ Successfully saved NFT: ${nft.name}`);
             } catch (nftError) {
-              console.error(`❌ Failed to save NFT ${nft.name}:`, nftError);
-              // Continue with next NFT instead of failing completely
+              console.error(`Failed to save ${nft.name}:`, nftError.message);
               continue;
             }
           }
           
-          console.log(`✅ POST complete. Successfully saved ${savedNfts.length} NFTs`);
           return res.status(200).json(savedNfts);
         } catch (error) {
           console.error('❌ Error adding NFTs:', error);

@@ -132,73 +132,47 @@ export default function Home() {
   // Load collection for the connected wallet
   const loadCollection = async () => {
     if (!connected || !address) {
-      console.error('No wallet address available to load collection');
+      console.error('❌ loadCollection: No wallet/address');
       return;
     }
     
-    console.log(`🔍 Loading collection for address: ${address}`);
+    console.log(`🔄 GET /api/collections/${address.slice(0,20)}...`);
     
     try {
       setError(null);
       setStatusMessage('Loading your collection...');
       
       const apiUrl = `/api/collections/${address}`;
-      console.log(`📡 Fetching from: ${apiUrl}`);
-      
       const response = await fetch(apiUrl);
-      console.log(`📊 Response status: ${response.status}`);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`❌ API Error (${response.status}):`, errorText);
-        throw new Error(`Failed to load collection: ${response.status} ${errorText}`);
+        throw new Error(`Failed to load collection: ${response.status}`);
       }
       
       const cards = await response.json();
-      console.log(`✅ Received response from API:`, cards);
       
       // Handle new response format with metadata
       let cardData = cards;
       let userMessage = '';
       
       if (cards.collection && Array.isArray(cards.collection)) {
-        // New format with metadata
         cardData = cards.collection;
         userMessage = cards.message || '';
-        console.log(`📊 Collection data: ${cardData.length} cards, Message: ${userMessage}`);
       } else if (Array.isArray(cards)) {
-        // Old format - just array of cards
         cardData = cards;
-        userMessage = `Found ${cards.length} cards in your collection`;
-        console.log(`📊 Legacy format: ${cardData.length} cards`);
+        userMessage = `Found ${cards.length} cards`;
       } else {
-        console.error(`❌ Unexpected response format:`, cards);
-        throw new Error('Unexpected response format from API');
-      }
-      
-      // Debug: Log the structure of the first card
-      if (cardData.length > 0) {
-        console.log(`🔍 First card structure:`, {
-          id: cardData[0].id,
-          name: cardData[0].name,
-          image: cardData[0].image,
-          imageUrl: cardData[0].imageUrl,
-          attack: cardData[0].attack,
-          health: cardData[0].health,
-          speed: cardData[0].speed,
-          attributes: cardData[0].attributes,
-          metadata: cardData[0].metadata
-        });
+        throw new Error('Unexpected response format');
       }
       
       setCurrentCards(cardData);
       setStatusMessage(userMessage || '');
       
-      console.log(`🎯 Collection loaded successfully with ${cardData.length} NFTs`);
+      console.log(`✅ Loaded ${cardData.length} NFTs`);
     } catch (e) {
-      console.error('❌ Error loading collection:', e);
-      setStatusMessage('Failed to load collection. Please try again.');
-      setError(`Load collection failed: ${e.message}`);
+      console.error('❌ loadCollection error:', e.message);
+      setError(`Load failed: ${e.message}`);
     }
   };
 
@@ -342,7 +316,18 @@ export default function Home() {
         setStatusMessage(`Found ${cardData.name}!`);
         setRevealedCards([cardData]);
         
-        // Trigger reveal animation
+        // Reload collection to show the newly added NFT
+        // The NFT is already saved to the database in the openPack API
+        console.log('🔄 Reloading collection after pack opening...');
+        try {
+          await loadCollection();
+          console.log('✅ Collection reloaded successfully');
+        } catch (loadError) {
+          console.error('⚠️ Error reloading collection:', loadError);
+          // Continue anyway - user can manually reload
+        }
+        
+        // Trigger reveal animation after collection is loaded
         setTimeout(() => {
           setIsRevealed(true);
         }, 500);
@@ -400,33 +385,20 @@ export default function Home() {
       setStatusMessage('Adding card to collection...');
       console.log(`Adding card to collection for address: ${address}`);
       
-      const response = await fetch(`/api/collections/${address}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(revealedCards)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API response error:', errorText);
-        throw new Error('Failed to save cards');
-      }
+      // FIXED: The NFT is already saved to the database by the openPack API
+      // We just need to reload the collection to make sure we have the latest data
+      await loadCollection();
       
-      const updatedCollection = await response.json();
-      setCurrentCards(updatedCollection);
       setStatusMessage('Card added to your collection!');
-      localStorage.setItem(`frogCards_${address}`, JSON.stringify(updatedCollection));
       
       setTimeout(() => {
         setIsModalOpen(false);
         setCurrentTab('collection');
       }, 1500);
     } catch (e) {
-      console.error('Error saving to collection:', e);
+      console.error('Error loading collection:', e);
       setError(e.message);
-      setStatusMessage('Failed to add card to collection. Please try again.');
+      setStatusMessage('Failed to refresh collection. Please try again.');
     }
   };
 

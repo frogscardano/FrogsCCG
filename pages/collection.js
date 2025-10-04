@@ -54,12 +54,13 @@ export default function Collection() {
   };
 
   // Group cards by rarity for display
-  const groupedCards = collection.reduce((acc, userCard) => {
-    const rarity = userCard.card.rarity || 'unknown';
+  const groupedCards = collection.reduce((acc, nft) => {
+    // Handle both old format (userCard.card) and new format (direct NFT object)
+    const rarity = (nft.rarity || nft.card?.rarity || 'unknown').toLowerCase();
     if (!acc[rarity]) {
       acc[rarity] = [];
     }
-    acc[rarity].push(userCard);
+    acc[rarity].push(nft);
     return acc;
   }, {});
 
@@ -110,18 +111,24 @@ export default function Collection() {
               <div key={rarity} className={styles.raritySection}>
                 <h2 className={styles.rarityTitle}>{rarity.charAt(0).toUpperCase() + rarity.slice(1)}</h2>
                 <div className={styles.cardsGrid}>
-                  {groupedCards[rarity].map(userCard => (
-                    <div key={userCard.id} className={styles.cardItem}>
-                      <div className={styles.cardImage}>
-                        <img src={userCard.card.imageUrl} alt={userCard.card.name} />
+                  {groupedCards[rarity].map(nft => {
+                    // Handle both old format and new format
+                    const imageUrl = nft.imageUrl || nft.image || nft.card?.imageUrl;
+                    const name = nft.name || nft.card?.name;
+                    const nftRarity = nft.rarity || nft.card?.rarity;
+                    
+                    return (
+                      <div key={nft.id} className={styles.cardItem}>
+                        <div className={styles.cardImage}>
+                          <img src={imageUrl} alt={name} />
+                        </div>
+                        <div className={styles.cardInfo}>
+                          <h3 className={styles.cardName}>{name}</h3>
+                          <p className={styles.cardRarity}>{nftRarity}</p>
+                        </div>
                       </div>
-                      <div className={styles.cardInfo}>
-                        <h3 className={styles.cardName}>{userCard.card.name}</h3>
-                        <p className={styles.cardRarity}>{userCard.card.rarity}</p>
-                        <p className={styles.cardQuantity}>Owned: {userCard.quantity}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
