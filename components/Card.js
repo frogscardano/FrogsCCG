@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import styles from './Card.module.css';
 import { generateStatBars } from '../utils/frogData';
@@ -23,7 +23,8 @@ function normalizeIpfsUrl(url, gateway = 'ipfs.io') {
 
 function buildImageCandidates(card) {
   const urls = [];
-  const gateways = ['ipfs.io', 'cloudflare-ipfs.com', 'dweb.link', 'gateway.pinata.cloud'];
+  // Order gateways by reliability; avoid pinata 404 noise
+  const gateways = ['cloudflare-ipfs.com', 'ipfs.io', 'dweb.link', 'nftstorage.link', 'cf-ipfs.com'];
 
   const primary = card?.image || card?.imageUrl;
   if (primary) {
@@ -73,30 +74,54 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
 
   const frogNumber = getFrogNumber();
 
-  // Robust image loading with multi-gateway and collection fallback
+  // Robust image loading with pre-resolve to avoid flicker and 404 noise
   const candidates = useMemo(() => buildImageCandidates(card), [card]);
-  const [imgIndex, setImgIndex] = useState(0);
-  const currentSrc = candidates[imgIndex] || '/placeholder.png';
+  const [currentSrc, setCurrentSrc] = useState('/placeholder.png');
 
-  const handleImageError = (e) => {
-    setImgIndex(prev => {
-      const next = prev + 1;
-      if (next < candidates.length) {
-        return next;
+  useEffect(() => {
+    let cancelled = false;
+    setCurrentSrc('/placeholder.png');
+
+    const tryLoad = (index) => {
+      if (cancelled) return;
+      if (!candidates || index >= candidates.length) {
+        setCurrentSrc('/placeholder.png');
+        return;
       }
-      // Last resort placeholder
-      if (e && e.target) {
-        try {
-          e.target.src = '/placeholder.png';
-        } catch (_) {}
+      const testImg = typeof Image !== 'undefined' ? new Image() : null;
+      if (!testImg) {
+        // SSR or no Image; fall back to first candidate
+        setCurrentSrc(candidates[0] || '/placeholder.png');
+        return;
       }
-      return prev; // stay on last; src already swapped to placeholder
-    });
-    // Log once per failure step
-    console.warn('Image failed, trying next candidate', {
-      name: card?.name,
-      tried: candidates[imgIndex]
-    });
+      let timeoutId = setTimeout(() => {
+        // Timeout this candidate and try next
+        testImg.src = '';
+        tryLoad(index + 1);
+      }, 5000);
+      testImg.onload = () => {
+        clearTimeout(timeoutId);
+        if (!cancelled) setCurrentSrc(candidates[index]);
+      };
+      testImg.onerror = () => {
+        clearTimeout(timeoutId);
+        tryLoad(index + 1);
+      };
+      // Reduce referrer leakage and quirks with some gateways
+      try { testImg.referrerPolicy = 'no-referrer'; } catch (_) {}
+      testImg.decoding = 'async';
+      testImg.src = candidates[index];
+    };
+
+    if (candidates && candidates.length > 0) {
+      tryLoad(0);
+    }
+    return () => { cancelled = true; };
+  }, [candidates]);
+
+  const handleImageError = () => {
+    // If final rendered image fails later, switch to placeholder
+    setCurrentSrc('/placeholder.png');
   };
 
   const handleDelete = (e) => {
@@ -123,7 +148,8 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
                 maxWidth: '100%',
                 height: 'auto'
               }}
-              priority
+              loading="lazy"
+              decoding="async"
               unoptimized={true}
               onError={handleImageError}
             />
