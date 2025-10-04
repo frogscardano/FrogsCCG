@@ -49,26 +49,18 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
     return match ? match[1] : null;
   };
 
-  // Get image URL - for Snekkies convert IPFS to reliable gateway
+  // Get image URL - convert ALL IPFS URLs to reliable gateway
   const getImageUrl = () => {
     const imageUrl = card.image || card.imageUrl;
     
-    // For Snekkies, convert IPFS URLs to JPG Store CDN
-    if (collection === 'Snekkies') {
-      const ipfsHash = getIpfsHash(imageUrl);
-      if (ipfsHash) {
-        // Use JPG Store's IPFS gateway - fast and reliable for Cardano NFTs
-        return `https://ipfs.jpgstoreapis.com/${ipfsHash}`;
-      }
-      
-      // Fallback: try constructing from policy + asset name
-      const assetNameAttr = card.attributes?.find(attr => attr.trait_type === "Asset Name");
-      if (policyId && assetNameAttr) {
-        return `https://ipfs.jpgstoreapis.com/${policyId}${assetNameAttr.value}.png`;
-      }
+    // For ALL Cardano NFTs, convert IPFS URLs to JPG Store CDN (most reliable)
+    const ipfsHash = getIpfsHash(imageUrl);
+    if (ipfsHash) {
+      // Use JPG Store's IPFS gateway - fast and reliable for Cardano NFTs
+      return `https://ipfs.jpgstoreapis.com/${ipfsHash}`;
     }
     
-    // For other collections, use the stored image URL
+    // If no IPFS hash found, return as is
     return imageUrl || '/placeholder.png';
   };
   
