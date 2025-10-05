@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
+import NextImage from 'next/image';
 import styles from './Card.module.css';
 import { generateStatBars } from '../utils/frogData';
 
@@ -88,7 +88,8 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
         setCurrentSrc('/placeholder.png');
         return;
       }
-      const testImg = typeof Image !== 'undefined' ? new Image() : null;
+      const TestImageCtor = typeof window !== 'undefined' && window.Image ? window.Image : null;
+      const testImg = TestImageCtor ? new TestImageCtor() : null;
       if (!testImg) {
         // SSR or no Image; fall back to first candidate
         setCurrentSrc(candidates[0] || '/placeholder.png');
@@ -136,7 +137,7 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
       {card ? (
         <>
           <div className={styles.cardImage}>
-            <Image
+            <NextImage
               key={currentSrc}
               src={currentSrc}
               alt={card.name || 'Card'}
@@ -149,7 +150,6 @@ const Card = ({ card, onClick, onDoubleClick, onDelete }) => {
                 height: 'auto'
               }}
               loading="lazy"
-              decoding="async"
               unoptimized={true}
               onError={handleImageError}
             />
