@@ -1,4 +1,4 @@
-import { prisma } from '../../../utils/db.js';
+import { withDatabase } from '../../../utils/db.js';
 import { getFrogStats } from '../../../utils/frogData.js';
 import { getTitanStats } from '../../../utils/titansData.js';
 import { v4 as uuid4 } from 'uuid';
@@ -115,52 +115,83 @@ export default async function handler(req, res) {
   
   console.log(`🔍 Collections API called with address: ${address}, method: ${req.method}`);
   
-  // Accept both bech32 and hex addresses; minimal sanity check only
-  const cleanAddress = (address || '').trim();
+  // CRITICAL FIX: Validate and clean the wallet address
+  let cleanAddress = address;
+  if (address) {
+    // Basic validation - just check format and length
+    // Cardano addresses are complex and strict validation can cause false positives
+    
+    // Check if the address has the right format
+    if (!address.startsWith('addr1') && !address.startsWith('stake1')) {
+      console.error(`❌ Invalid wallet address format: ${address}`);
+      return res.status(400).json({ 
+        error: 'Invalid wallet address format',
+        receivedAddress: address,
+        message: 'Wallet address must start with addr1 or stake1'
+      });
+    }
+    
+    // Check for reasonable length (Cardano addresses are typically 100-120 chars)
+    if (address.length < 100 || address.length > 120) {
+      console.error(`❌ Wallet address length is suspicious: ${address.length} characters`);
+      return res.status(400).json({ 
+        error: 'Wallet address length is suspicious',
+        receivedAddress: address,
+        receivedLength: address.length,
+        message: 'Expected 100-120 characters for Cardano addresses'
+      });
+    }
+    
+    cleanAddress = address;
+    console.log(`🔍 Validated wallet address: ${cleanAddress} (length: ${cleanAddress.length})`);
+  }
+  
   if (!cleanAddress) {
     console.log('❌ No address provided');
     return res.status(400).json({ error: 'Wallet address is required' });
   }
 
   try {
-    console.log(`🔄 Attempting to upsert user with address: ${cleanAddress}`);
-    
-    // Use direct Prisma calls to avoid conflicts with withDatabase wrapper
-    const user = await (async () => {
-      try {
-        // First try to find existing user
-        const existingUser = await prisma.user.findUnique({
-          where: { address: cleanAddress }
-        });
+    // Use the enhanced withDatabase wrapper for all database operations
+    return await withDatabase(async (prisma) => {
+      console.log(`🔄 Attempting to upsert user with address: ${cleanAddress}`);
+      
+      // Use direct Prisma calls with the provided client
+      const user = await (async () => {
+        try {
+          // First try to find existing user
+          const existingUser = await prisma.user.findUnique({
+            where: { address: cleanAddress }
+          });
 
-        if (existingUser) {
-          console.log(`🔄 Updating existing user: ${existingUser.id}`);
-          // Update existing user
-          return await prisma.user.update({
-            where: { address: cleanAddress },
-            data: {
-              updatedAt: new Date(),
-            }
-          });
-        } else {
-          console.log(`🆕 Creating new user for address: ${cleanAddress}`);
-          // Create new user
-          return await prisma.user.create({
-            data: {
-              id: uuid4(),
-              address: cleanAddress,
-            }
-          });
+          if (existingUser) {
+            console.log(`🔄 Updating existing user: ${existingUser.id}`);
+            // Update existing user
+            return await prisma.user.update({
+              where: { address: cleanAddress },
+              data: {
+                updatedAt: new Date(),
+              }
+            });
+          } else {
+            console.log(`🆕 Creating new user for address: ${cleanAddress}`);
+            // Create new user
+            return await prisma.user.create({
+              data: {
+                id: uuid4(),
+                address: cleanAddress,
+              }
+            });
+          }
+        } catch (userError) {
+          console.error(`❌ User operation failed for address ${cleanAddress}:`, userError);
+          throw userError;
         }
-      } catch (userError) {
-        console.error(`❌ User operation failed for address ${cleanAddress}:`, userError);
-        throw userError;
-      }
-    })();
-    
-    console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
+      })();
+      
+      console.log(`✅ User found/created: ${user.id} for address: ${user.address}`);
 
-    switch (req.method) {
+      switch (req.method) {
       case 'GET':
         try {
           console.log(`🔍 Fetching NFTs for user ID: ${user.id}`);
@@ -387,7 +418,8 @@ export default async function handler(req, res) {
       default:
         res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
-    }
+      }
+    });
   } catch (e) {
     console.error('❌ Error processing user or NFT data:', e);
     return res.status(500).json({ error: `Failed to process request: ${e.message}` });
