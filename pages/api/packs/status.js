@@ -1,4 +1,4 @@
-import { prisma } from '../../../utils/db';
+import { withDatabase } from '../../../utils/db';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -11,30 +11,30 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Address is required' });
     }
 
-    // Ensure user exists
-    let user = await prisma.user.findUnique({ where: { address } });
-    if (!user) {
-      user = await prisma.user.create({ data: { address } });
-    }
+    return await withDatabase(async (prisma) => {
+      // Ensure user exists
+      let user = await prisma.user.findUnique({ where: { address } });
+      if (!user) {
+        user = await prisma.user.create({ data: { address } });
+      }
 
-    const balance = typeof user.balance === 'string' ? parseInt(user.balance || '0', 10) : (user.balance ?? 0);
-    // Backward-compatible: use lastUpdated if lastDailyClaimAt isn't present
-    const last = user.lastDailyClaimAt ? new Date(user.lastDailyClaimAt) : (user.lastUpdated ? new Date(user.lastUpdated) : null);
-    const now = new Date();
-    const nextClaimAt = last ? new Date(last.getTime() + 24 * 60 * 60 * 1000) : new Date(0);
-    const canClaim = last === null || now >= nextClaimAt;
+      const balance = typeof user.balance === 'string' ? parseInt(user.balance || '0', 10) : (user.balance ?? 0);
+      // Backward-compatible: use lastUpdated if lastDailyClaimAt isn't present
+      const last = user.lastDailyClaimAt ? new Date(user.lastDailyClaimAt) : (user.lastUpdated ? new Date(user.lastUpdated) : null);
+      const now = new Date();
+      const nextClaimAt = last ? new Date(last.getTime() + 24 * 60 * 60 * 1000) : new Date(0);
+      const canClaim = last === null || now >= nextClaimAt;
 
-    return res.status(200).json({
-      address,
-      balance,
-      canClaim,
-      nextClaimAt: nextClaimAt.toISOString(),
-      lastDailyClaimAt: last ? last.toISOString() : null
+      return res.status(200).json({
+        address,
+        balance,
+        canClaim,
+        nextClaimAt: nextClaimAt.toISOString(),
+        lastDailyClaimAt: last ? last.toISOString() : null
+      });
     });
   } catch (error) {
     console.error('Error in packs/status:', error);
     return res.status(500).json({ message: 'Failed to get pack status', error: error.message });
   }
 }
-
-

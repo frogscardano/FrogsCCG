@@ -1,6 +1,7 @@
 import { BlockFrostAPI } from '@blockfrost/blockfrost-js';
 import { getFrogStats } from '../../utils/frogData.js';
 import { getTitanStats } from '../../utils/titansData.js';
+import { withDatabase } from '../../utils/db.js';
 
 const blockfrost = new BlockFrostAPI({
   projectId: process.env.BLOCKFROST_API_KEY,
@@ -189,9 +190,9 @@ export default async function handler(req, res) {
 
     console.log(`🔍 Validated wallet address: ${walletAddress} (length: ${walletAddress.length})`);
 
-    // Enforce pack balance using Prisma User.balance
+    // Enforce pack balance using Prisma User.balance with enhanced error handling
     try {
-      const { prisma } = await import('../../utils/db');
+      return await withDatabase(async (prisma) => {
       // Ensure user exists
       let user = await prisma.user.findUnique({ where: { address: walletAddress } });
       if (!user) {
@@ -206,10 +207,6 @@ export default async function handler(req, res) {
         where: { address: walletAddress },
         data: { balance: String(currentBalance - 1) }
       });
-    } catch (balanceError) {
-      console.error('Balance check/decrement failed:', balanceError);
-      return res.status(500).json({ message: 'Failed to verify pack balance' });
-    }
     
     // Get current collection from request query
     const userCards = req.query.collection ? JSON.parse(req.query.collection) : [];
@@ -497,6 +494,11 @@ export default async function handler(req, res) {
         console.error('Error generating random card:', error);
         return res.status(500).json({ message: 'Error generating random card', error: error.message });
       }
+        }
+      });
+    } catch (balanceError) {
+      console.error('Balance check/decrement failed:', balanceError);
+      return res.status(500).json({ message: 'Failed to verify pack balance' });
     }
   } catch (error) {
     console.error('Error fetching NFT:', error);
