@@ -25,7 +25,7 @@ const COLLECTIONS = {
     maxNumber: 7777,
     fallbackIpfs: 'QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3',
     rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 }, // The rest are common
-    useBlockfrost: true 
+    useBlockfrost: false 
   },
   'titans': {
     policyId: '53d6297f4ede5cd3bfed7281b73fad3dac8dc86a950f7454d84c16ad',
