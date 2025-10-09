@@ -13,77 +13,39 @@ if (!DATABASE_URL) {
 // Enhanced Prisma client configuration for serverless environments
 function createPrismaClient() {
   return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
-    errorFormat: 'pretty',
+    log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+    errorFormat: 'minimal',
     datasources: {
       db: {
         url: DATABASE_URL,
       },
     },
-    // Critical configuration for serverless environments to prevent prepared statement issues
-    __internal: {
-      engine: {
-        enableEngineDebugMode: false,
-      },
-    },
-    // Connection pool configuration for better serverless performance
-    transactionOptions: {
-      maxWait: 10000, // 10 seconds
-      timeout: 30000, // 30 seconds
-    },
+    // Optimized connection pool for serverless
+    // Most serverless platforms work better with these settings
   });
 }
 
 export const prisma =
-  globalForPrisma.prisma ??
-  (globalForPrisma.prisma = createPrismaClient());
+  globalForPrisma.prisma ?? createPrismaClient();
 
-// Connection management for serverless environments
-let connectionPromise = null;
-let isConnected = false;
-
-// Enhanced connection function with proper error handling
-export async function ensureConnection() {
-  if (isConnected && globalForPrisma.prisma) {
-    return globalForPrisma.prisma;
-  }
-
-  if (connectionPromise) {
-    return connectionPromise;
-  }
-
-  connectionPromise = (async () => {
-    try {
-      // If we have an existing client, try to disconnect first
-      if (globalForPrisma.prisma) {
-        try {
-          await globalForPrisma.prisma.$disconnect();
-        } catch (disconnectError) {
-          console.warn('Warning during disconnect:', disconnectError.message);
-        }
-      }
-
-      // Create a fresh client
-      globalForPrisma.prisma = createPrismaClient();
-      
-      // Test the connection
-      await globalForPrisma.prisma.$connect();
-      isConnected = true;
-      
-      console.log('✅ Database connection established');
-      return globalForPrisma.prisma;
-    } catch (error) {
-      console.error('❌ Database connection failed:', error);
-      isConnected = false;
-      connectionPromise = null;
-      throw error;
-    }
-  })();
-
-  return connectionPromise;
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
 }
 
-// Test database connection
+// Simplified connection state
+let isConnecting = false;
+
+// Fast, lightweight connection check
+export async function ensureConnection() {
+  // In serverless, Prisma auto-connects on first query
+  // We don't need complex connection management
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createPrismaClient();
+  }
+  return globalForPrisma.prisma;
+}
+
+// Test database connection - only use for health checks
 export async function testDatabaseConnection() {
   try {
     if (!DATABASE_URL) {
@@ -94,10 +56,9 @@ export async function testDatabaseConnection() {
       };
     }
 
-    const client = await ensureConnection();
+    const client = globalForPrisma.prisma || createPrismaClient();
     await client.$queryRaw`SELECT 1`;
     
-    console.log('✅ Database connection test successful');
     return { connected: true, message: 'Database connection successful' };
   } catch (error) {
     console.error('❌ Database connection test failed:', error);
@@ -109,59 +70,46 @@ export async function testDatabaseConnection() {
   }
 }
 
-// Enhanced database operation wrapper with better error handling
-export async function withDatabase(operation, retries = 3) {
+// CRITICAL: Simplified withDatabase wrapper with smart retry logic
+export async function withDatabase(operation, maxRetries = 2) {
+  const client = globalForPrisma.prisma || createPrismaClient();
   let lastError = null;
   
-  for (let attempt = 1; attempt <= retries; attempt++) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      // Ensure we have a fresh connection
-      const client = await ensureConnection();
-      
-      // Execute the operation
       const result = await operation(client);
-      
-      // Reset connection promise on success
-      if (attempt === 1) {
-        connectionPromise = null;
-      }
-      
       return result;
     } catch (error) {
       lastError = error;
       
-      // Check if this is a retryable error
-      const isRetryableError = 
-        error.code === 'P2024' || // Connection error
-        error.message.includes('prepared statement') ||
-        error.message.includes('already exists') ||
-        error.message.includes('connection') ||
-        error.message.includes('s0') ||
-        error.message.includes('s1') ||
-        error.message.includes('s2') ||
-        error.message.includes('s3') ||
-        error.message.includes('s4') ||
-        error.message.includes('s5') ||
-        error.message.includes('P1001') || // Can't reach database server
-        error.message.includes('P1008') || // Operations timed out
-        error.message.includes('P1017') || // Server has closed the connection
-        error.message.includes('P2024'); // Transaction failed due to a write conflict
+      // Only retry on specific connection errors
+      const isConnectionError = 
+        error.code === 'P1001' || // Can't reach database
+        error.code === 'P1008' || // Timeout
+        error.code === 'P1017' || // Server closed connection
+        error.message?.includes('ECONNRESET') ||
+        error.message?.includes('ETIMEDOUT') ||
+        error.message?.includes('connection');
 
-      if (isRetryableError && attempt < retries) {
-        console.warn(`🔄 Database operation failed (attempt ${attempt}/${retries}):`, error.message);
+      // Don't retry on business logic errors
+      const isBusinessError = 
+        error.code === 'P2002' || // Unique constraint
+        error.code === 'P2025' || // Record not found
+        error.message?.includes('balance');
+
+      if (isBusinessError) {
+        throw error;
+      }
+
+      if (isConnectionError && attempt < maxRetries - 1) {
+        console.warn(`🔄 Retry attempt ${attempt + 1}/${maxRetries - 1} after connection error`);
         
-        // Reset connection state
-        isConnected = false;
-        connectionPromise = null;
-        
-        // Wait with exponential backoff
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+        // Short exponential backoff: 100ms, 200ms
+        const delay = 100 * Math.pow(2, attempt);
         await new Promise(resolve => setTimeout(resolve, delay));
-        
         continue;
       }
       
-      // If not retryable or max retries reached, throw the error
       throw error;
     }
   }
@@ -169,43 +117,37 @@ export async function withDatabase(operation, retries = 3) {
   throw lastError;
 }
 
-// Graceful shutdown function
+// Graceful shutdown - simplified
 export async function disconnectDatabase() {
   try {
     if (globalForPrisma.prisma) {
       await globalForPrisma.prisma.$disconnect();
-      globalForPrisma.prisma = null;
     }
-    isConnected = false;
-    connectionPromise = null;
-    console.log('✅ Database disconnected gracefully');
   } catch (error) {
-    console.error('❌ Error during database disconnect:', error);
+    // Ignore disconnect errors in serverless
+    console.warn('Warning during disconnect:', error.message);
   }
 }
 
 // Handle process termination gracefully
 if (typeof process !== 'undefined') {
-  process.on('beforeExit', async () => {
+  const cleanup = async () => {
     await disconnectDatabase();
-  });
+  };
   
-  process.on('SIGINT', async () => {
-    await disconnectDatabase();
-    process.exit(0);
-  });
-  
-  process.on('SIGTERM', async () => {
-    await disconnectDatabase();
-    process.exit(0);
-  });
+  process.on('beforeExit', cleanup);
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
 }
 
-// User related functions
+// ============================================================================
+// USER OPERATIONS - Optimized for speed
+// ============================================================================
+
 export async function getWalletByAddress(address) {
   if (!address) throw new Error('Address is required');
 
-  return prisma.User.findUnique({
+  return prisma.user.findUnique({
     where: { address },
     include: {
       NFT: true
@@ -216,42 +158,135 @@ export async function getWalletByAddress(address) {
 export async function createOrUpdateWallet(address, data = {}) {
   if (!address) throw new Error('Address is required');
 
-  try {
-    // First try to find existing user
-    const existingUser = await prisma.User.findUnique({
+  return prisma.user.upsert({
+    where: { address },
+    update: {
+      ...data,
+      updatedAt: new Date()
+    },
+    create: {
+      address,
+      balance: '0',
+      ...data
+    }
+  });
+}
+
+// CRITICAL: Fast user existence check with minimal data
+export async function ensureUserExists(address) {
+  if (!address) throw new Error('Address is required');
+
+  return prisma.user.upsert({
+    where: { address },
+    update: {},
+    create: { 
+      address,
+      balance: '0'
+    },
+    select: {
+      id: true,
+      address: true
+    }
+  });
+}
+
+export async function getUserByAddress(address) {
+  return getWalletByAddress(address);
+}
+
+// ============================================================================
+// PACK BALANCE OPERATIONS - Optimized for reliability
+// ============================================================================
+
+// Fast balance check without auto-creation
+export async function getUserBalance(address) {
+  if (!address) throw new Error('Address is required');
+
+  const user = await prisma.user.findUnique({
+    where: { address },
+    select: { 
+      balance: true,
+      lastDailyClaimAt: true,
+      lastUpdated: true 
+    }
+  });
+
+  if (!user) {
+    return {
+      balance: 0,
+      lastDailyClaimAt: null,
+      exists: false
+    };
+  }
+
+  const balance = typeof user.balance === 'string' 
+    ? parseInt(user.balance, 10) || 0 
+    : user.balance ?? 0;
+
+  return {
+    balance,
+    lastDailyClaimAt: user.lastDailyClaimAt || user.lastUpdated,
+    exists: true
+  };
+}
+
+// Atomic pack consumption with proper transaction handling
+export async function consumePack(address) {
+  if (!address) throw new Error('Address is required');
+
+  return prisma.$transaction(async (tx) => {
+    // Lock the user row for update
+    const user = await tx.user.findUnique({
       where: { address }
     });
 
-    if (existingUser) {
-      // Update existing user
-      return await prisma.User.update({
-        where: { address },
-        data: {
-          ...data,
-          updatedAt: new Date()
-        }
+    if (!user) {
+      // Create user with 0 balance if doesn't exist
+      await tx.user.create({
+        data: { address, balance: '0' }
       });
-    } else {
-      // Create new user
-      return await prisma.User.create({
-        data: {
-          address,
-          ...data
-        }
-      });
+      return { success: false, balance: 0, message: 'User created with 0 packs' };
     }
-  } catch (error) {
-    console.error('Error in createOrUpdateWallet:', error);
-    throw error;
-  }
+
+    const currentBalance = typeof user.balance === 'string' 
+      ? parseInt(user.balance, 10) || 0 
+      : user.balance ?? 0;
+
+    if (currentBalance <= 0) {
+      return { success: false, balance: 0, message: 'No packs available' };
+    }
+
+    // Decrement atomically
+    const updatedUser = await tx.user.update({
+      where: { address },
+      data: { balance: String(currentBalance - 1) }
+    });
+
+    const newBalance = typeof updatedUser.balance === 'string'
+      ? parseInt(updatedUser.balance, 10) || 0
+      : updatedUser.balance ?? 0;
+
+    return { 
+      success: true, 
+      balance: newBalance,
+      message: 'Pack consumed successfully' 
+    };
+  }, {
+    maxWait: 3000,
+    timeout: 5000,
+    isolationLevel: 'Serializable'
+  });
 }
 
-// NFT related functions
+// ============================================================================
+// NFT OPERATIONS
+// ============================================================================
+
 export async function getCards(filter = {}) {
-  return prisma.NFT.findMany({
+  return prisma.nFT.findMany({
     where: filter,
     include: {
-      User: true
+      owner: true
     }
   });
 }
@@ -259,39 +294,25 @@ export async function getCards(filter = {}) {
 export async function getCardById(cardId) {
   if (!cardId) throw new Error('Card ID is required');
 
-  return prisma.NFT.findUnique({
+  return prisma.nFT.findUnique({
     where: { id: cardId },
     include: {
-      User: true
+      owner: true
     }
   });
 }
 
-// User NFT collection functions
 export async function getUserCards(address) {
   if (!address) throw new Error('User address is required');
 
-  try {
-    console.log(`Fetching NFTs for user: ${address}`);
-
-    const user = await prisma.User.findUnique({
-      where: { address },
-      include: {
-        NFT: true
-      }
-    });
-
-    if (!user) {
-      console.log(`No user found for address ${address}`);
-      return [];
+  const user = await prisma.user.findUnique({
+    where: { address },
+    select: {
+      NFT: true
     }
+  });
 
-    console.log(`Found ${user.NFT.length} NFTs for user ${address}`);
-    return user.NFT;
-  } catch (error) {
-    console.error(`Error fetching NFTs for user ${address}:`, error);
-    return [];
-  }
+  return user?.NFT || [];
 }
 
 export async function addCardToUserCollection(address, tokenId, contractAddress, metadata = null) {
@@ -299,142 +320,83 @@ export async function addCardToUserCollection(address, tokenId, contractAddress,
     throw new Error('Address, token ID, and contract address are required');
   }
 
-  try {
-    // First ensure user exists and get their ID
-    const user = await ensureUserExists(address);
+  // Ensure user exists first
+  const user = await ensureUserExists(address);
 
-    // Then handle the NFT
-    // First try to find existing NFT
-    const existingNFT = await prisma.nFT.findFirst({
-      where: {
+  // Use upsert to handle duplicates gracefully
+  return prisma.nFT.upsert({
+    where: {
+      tokenId_contractAddress: {
         tokenId,
         contractAddress
       }
-    });
-
-    if (existingNFT) {
-      // Update existing NFT
-      return await prisma.nFT.update({
-        where: { id: existingNFT.id },
-        data: {
-          ownerId: user.id,
-          updatedAt: new Date()
-        }
-      });
-    } else {
-      // Create new NFT
-      return await prisma.nFT.create({
-        data: {
-          tokenId,
-          contractAddress,
-          ownerId: user.id,
-          metadata,
-          name: metadata?.name,
-          rarity: metadata?.rarity,
-          imageUrl: metadata?.image,
-          description: metadata?.description,
-          attack: metadata?.attack,
-          health: metadata?.health,
-          speed: metadata?.speed,
-          special: metadata?.special
-        }
-      });
+    },
+    update: {
+      ownerId: user.id,
+      updatedAt: new Date()
+    },
+    create: {
+      tokenId,
+      contractAddress,
+      ownerId: user.id,
+      metadata,
+      name: metadata?.name,
+      rarity: metadata?.rarity,
+      imageUrl: metadata?.image,
+      description: metadata?.description,
+      attack: metadata?.attack,
+      health: metadata?.health,
+      speed: metadata?.speed,
+      special: metadata?.special
     }
-  } catch (error) {
-    console.error(`Error adding NFT to user collection:`, error);
-    throw error;
-  }
+  });
 }
 
-export async function ensureUserExists(address) {
-  if (!address) throw new Error('Address is required');
+// ============================================================================
+// TEAM OPERATIONS
+// ============================================================================
 
-  try {
-    // First try to find existing user
-    const existingUser = await prisma.user.findUnique({
-      where: { address }
-    });
-
-    if (existingUser) {
-      return existingUser;
-    } else {
-      // Create new user
-      return await prisma.user.create({
-        data: { address }
-      });
-    }
-  } catch (error) {
-    console.error('Error in ensureUserExists:', error);
-    throw error;
-  }
-}
-
-export async function getUserByAddress(address) {
-  return getWalletByAddress(address);
-}
-
-// Team related functions
 export async function getUserTeams(address) {
   if (!address) throw new Error('User address is required');
 
-  try {
-    console.log(`Fetching teams for user: ${address}`);
-
-    const user = await prisma.User.findUnique({
-      where: { address },
-      include: {
-        teams: true
-      }
-    });
-
-    if (!user) {
-      console.log(`No user found for address ${address}`);
-      return [];
+  const user = await prisma.user.findUnique({
+    where: { address },
+    select: {
+      teams: true
     }
+  });
 
-    console.log(`Found ${user.teams.length} teams for user ${address}`);
-    return user.teams;
-  } catch (error) {
-    console.error(`Error fetching teams for user ${address}:`, error);
-    return [];
-  }
+  return user?.teams || [];
 }
 
 export async function getTeamWithNFTs(teamId) {
   if (!teamId) throw new Error('Team ID is required');
 
-  try {
-    const team = await prisma.Team.findUnique({
-      where: { id: teamId }
-    });
+  const team = await prisma.team.findUnique({
+    where: { id: teamId }
+  });
 
-    if (!team) {
-      console.log(`No team found with ID ${teamId}`);
-      return null;
-    }
-
-    // Fetch the NFTs for this team
-    if (team.nftIds && team.nftIds.length > 0) {
-      const nfts = await prisma.NFT.findMany({
-        where: { 
-          id: { in: team.nftIds }
-        }
-      });
-      
-      return {
-        ...team,
-        cards: nfts
-      };
-    } else {
-      return {
-        ...team,
-        cards: []
-      };
-    }
-  } catch (error) {
-    console.error(`Error fetching team with NFTs ${teamId}:`, error);
-    throw error;
+  if (!team) {
+    return null;
   }
+
+  if (team.nftIds && team.nftIds.length > 0) {
+    const nfts = await prisma.nFT.findMany({
+      where: { 
+        id: { in: team.nftIds }
+      }
+    });
+    
+    return {
+      ...team,
+      cards: nfts
+    };
+  }
+
+  return {
+    ...team,
+    cards: []
+  };
 }
 
 export async function saveTeam(address, teamData) {
@@ -442,72 +404,52 @@ export async function saveTeam(address, teamData) {
     throw new Error('Address and team data are required');
   }
 
-  try {
-    // First ensure user exists and get their ID
-    const user = await ensureUserExists(address);
+  const user = await ensureUserExists(address);
 
-    // Validate team data
-    if (!teamData.name || !teamData.nftIds || !Array.isArray(teamData.nftIds)) {
-      throw new Error('Team must have a name and an array of NFT IDs');
+  if (!teamData.name || !teamData.nftIds || !Array.isArray(teamData.nftIds)) {
+    throw new Error('Team must have a name and an array of NFT IDs');
+  }
+
+  if (teamData.nftIds.length === 0 || teamData.nftIds.length > 5) {
+    throw new Error('Team must have 1-5 NFTs');
+  }
+
+  // Verify NFT ownership in a single query
+  const userNfts = await prisma.nFT.count({
+    where: { 
+      id: { in: teamData.nftIds },
+      ownerId: user.id
     }
+  });
 
-    if (teamData.nftIds.length === 0) {
-      throw new Error('Team must have at least one NFT');
-    }
+  if (userNfts !== teamData.nftIds.length) {
+    throw new Error('Some NFTs do not belong to the user');
+  }
 
-    if (teamData.nftIds.length > 5) {
-      throw new Error('Team cannot have more than 5 NFTs');
-    }
-
-    // Verify that all NFTs belong to the user
-    const userNfts = await prisma.NFT.findMany({
-      where: { 
-        id: { in: teamData.nftIds },
-        ownerId: user.id
-      }
-    });
-
-    if (userNfts.length !== teamData.nftIds.length) {
-      throw new Error('Some NFTs do not belong to the user');
-    }
-
-    // Check if team with same name already exists for this user
-    const existingTeam = await prisma.Team.findFirst({
-      where: {
+  // Use upsert for atomic operation
+  return prisma.team.upsert({
+    where: {
+      name_ownerId: {
         name: teamData.name,
         ownerId: user.id
       }
-    });
-
-    if (existingTeam) {
-      // Update existing team
-      return await prisma.Team.update({
-        where: { id: existingTeam.id },
-        data: {
-          nftIds: teamData.nftIds,
-          isActive: teamData.isActive !== false,
-          battlesWon: teamData.battlesWon || 0,
-          battlesLost: teamData.battlesLost || 0,
-          updatedAt: new Date()
-        }
-      });
-    } else {
-      // Create new team
-      return await prisma.Team.create({
-        data: {
-          name: teamData.name,
-          ownerId: user.id,
-          nftIds: teamData.nftIds,
-          isActive: teamData.isActive !== false,
-          battlesWon: teamData.battlesWon || 0,
-          battlesLost: teamData.battlesLost || 0
-        }
-      });
+    },
+    update: {
+      nftIds: teamData.nftIds,
+      isActive: teamData.isActive !== false,
+      battlesWon: teamData.battlesWon || 0,
+      battlesLost: teamData.battlesLost || 0,
+      updatedAt: new Date()
+    },
+    create: {
+      name: teamData.name,
+      ownerId: user.id,
+      nftIds: teamData.nftIds,
+      isActive: teamData.isActive !== false,
+      battlesWon: teamData.battlesWon || 0,
+      battlesLost: teamData.battlesLost || 0
     }
-  } catch (error) {
-    console.error(`Error saving team for user ${address}:`, error);
-    throw error;
-  }
+  });
 }
 
 export async function deleteTeam(address, teamId) {
@@ -515,30 +457,15 @@ export async function deleteTeam(address, teamId) {
     throw new Error('Address and team ID are required');
   }
 
-  try {
-    // First ensure user exists and get their ID
-    const user = await ensureUserExists(address);
+  const user = await ensureUserExists(address);
 
-    // Verify the team belongs to the user
-    const team = await prisma.Team.findFirst({
-      where: {
-        id: teamId,
-        ownerId: user.id
-      }
-    });
-
-    if (!team) {
-      throw new Error('Team not found or does not belong to user');
+  // Delete only if team belongs to user (Prisma will throw if not found)
+  await prisma.team.deleteMany({
+    where: {
+      id: teamId,
+      ownerId: user.id
     }
+  });
 
-    // Delete the team
-    await prisma.Team.delete({
-      where: { id: teamId }
-    });
-
-    return { message: 'Team deleted successfully' };
-  } catch (error) {
-    console.error(`Error deleting team ${teamId} for user ${address}:`, error);
-    throw error;
-  }
+  return { message: 'Team deleted successfully' };
 }
