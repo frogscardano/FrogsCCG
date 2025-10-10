@@ -20,8 +20,6 @@ function createPrismaClient() {
         url: DATABASE_URL,
       },
     },
-    // Optimized connection pool for serverless
-    // Most serverless platforms work better with these settings
   });
 }
 
@@ -31,9 +29,6 @@ export const prisma =
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
-
-// Simplified connection state
-let isConnecting = false;
 
 // Fast, lightweight connection check
 export async function ensureConnection() {
@@ -426,30 +421,39 @@ export async function saveTeam(address, teamData) {
     throw new Error('Some NFTs do not belong to the user');
   }
 
-  // Use upsert for atomic operation
-  return prisma.team.upsert({
+  // Check if team exists first
+  const existingTeam = await prisma.team.findFirst({
     where: {
-      name_ownerId: {
-        name: teamData.name,
-        ownerId: user.id
-      }
-    },
-    update: {
-      nftIds: teamData.nftIds,
-      isActive: teamData.isActive !== false,
-      battlesWon: teamData.battlesWon || 0,
-      battlesLost: teamData.battlesLost || 0,
-      updatedAt: new Date()
-    },
-    create: {
       name: teamData.name,
-      ownerId: user.id,
-      nftIds: teamData.nftIds,
-      isActive: teamData.isActive !== false,
-      battlesWon: teamData.battlesWon || 0,
-      battlesLost: teamData.battlesLost || 0
+      ownerId: user.id
     }
   });
+
+  if (existingTeam) {
+    // Update existing team
+    return await prisma.team.update({
+      where: { id: existingTeam.id },
+      data: {
+        nftIds: teamData.nftIds,
+        isActive: teamData.isActive !== false,
+        battlesWon: teamData.battlesWon || 0,
+        battlesLost: teamData.battlesLost || 0,
+        updatedAt: new Date()
+      }
+    });
+  } else {
+    // Create new team
+    return await prisma.team.create({
+      data: {
+        name: teamData.name,
+        ownerId: user.id,
+        nftIds: teamData.nftIds,
+        isActive: teamData.isActive !== false,
+        battlesWon: teamData.battlesWon || 0,
+        battlesLost: teamData.battlesLost || 0
+      }
+    });
+  }
 }
 
 export async function deleteTeam(address, teamId) {
