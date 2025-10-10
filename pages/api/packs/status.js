@@ -1,40 +1,51 @@
-import { withDatabase } from '../../../utils/db';
+import { withDatabase, getUserBalance } from '../../../utils/db';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
+  const { address } = req.query;
+  
+  if (!address) {
+    return res.status(400).json({ message: 'Address is required' });
+  }
+
   try {
-    const { address } = req.query;
-    if (!address) {
-      return res.status(400).json({ message: 'Address is required' });
+    const result = await withDatabase(async () => {
+      return await getUserBalance(address);
+    });
+
+    const now = new Date();
+    let canClaim = true;
+    let nextClaimAt = now;
+
+    if (result.lastDailyClaimAt) {
+      const lastClaimDate = new Date(result.lastDailyClaimAt);
+      nextClaimAt = new Date(lastClaimDate.getTime() + 24 * 60 * 60 * 1000);
+      canClaim = now >= nextClaimAt;
     }
 
-    return await withDatabase(async (prisma) => {
-      // Ensure user exists
-      let user = await prisma.user.findUnique({ where: { address } });
-      if (!user) {
-        user = await prisma.user.create({ data: { address } });
-      }
-
-      const balance = typeof user.balance === 'string' ? parseInt(user.balance || '0', 10) : (user.balance ?? 0);
-      // Backward-compatible: use lastUpdated if lastDailyClaimAt isn't present
-      const last = user.lastDailyClaimAt ? new Date(user.lastDailyClaimAt) : (user.lastUpdated ? new Date(user.lastUpdated) : null);
-      const now = new Date();
-      const nextClaimAt = last ? new Date(last.getTime() + 24 * 60 * 60 * 1000) : new Date(0);
-      const canClaim = last === null || now >= nextClaimAt;
-
-      return res.status(200).json({
-        address,
-        balance,
-        canClaim,
-        nextClaimAt: nextClaimAt.toISOString(),
-        lastDailyClaimAt: last ? last.toISOString() : null
-      });
+    return res.status(200).json({
+      address,
+      balance: result.balance,
+      canClaim,
+      nextClaimAt: nextClaimAt.toISOString(),
+      lastDailyClaimAt: result.lastDailyClaimAt ? new Date(result.lastDailyClaimAt).toISOString() : null
     });
   } catch (error) {
     console.error('Error in packs/status:', error);
-    return res.status(500).json({ message: 'Failed to get pack status', error: error.message });
+    
+    const isConnectionError = 
+      error.code === 'P1001' ||
+      error.code === 'P1008' ||
+      error.code === 'P1017' ||
+      error.message?.includes('connect') || 
+      error.message?.includes('timeout');
+    
+    return res.status(isConnectionError ? 503 : 500).json({ 
+      message: isConnectionError ? 'Database temporarily unavailable' : 'Failed to get pack status',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 }
