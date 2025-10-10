@@ -1,7 +1,7 @@
 import { BlockFrostAPI } from '@blockfrost/blockfrost-js';
 import { getFrogStats } from '../../utils/frogData.js';
 import { getTitanStats } from '../../utils/titansData.js';
-import { withDatabase } from '../../utils/db.js';
+import { withDatabase, consumePack } from '../../utils/db.js';
 
 const blockfrost = new BlockFrostAPI({
   projectId: process.env.BLOCKFROST_API_KEY,
@@ -15,7 +15,7 @@ const COLLECTIONS = {
     name: 'Frogs',
     maxNumber: 5000,
     fallbackIpfs: 'QmXwXzVg8CvnzFwxnvsjMNq7JAHVn3qyMbwpGumi5AJhXC',
-    rarityBreakpoints: { legendary: 5, epic: 20, rare: 500 }, // The rest are common
+    rarityBreakpoints: { legendary: 5, epic: 20, rare: 500 },
     useBlockfrost: true
   },
   'snekkies': {
@@ -24,7 +24,7 @@ const COLLECTIONS = {
     name: 'Snekkies',
     maxNumber: 7777,
     fallbackIpfs: 'QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3',
-    rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 }, // The rest are common
+    rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 },
     useBlockfrost: true 
   },
   'titans': {
@@ -33,7 +33,7 @@ const COLLECTIONS = {
     name: 'Titans',
     maxNumber: 6500,
     fallbackIpfs: 'QmZGxPG7zLmYbNVZijx1Z6P3rZ2UFLtN5rWhrqFTJc9bMx',
-    rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 }, // The rest are common
+    rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 },
     useBlockfrost: true 
   }
 };
@@ -48,12 +48,10 @@ function determineRarity(assetNumber, collection) {
   return "Common";
 }
 
-// Function to check if a number is allowed
 function isAllowedNumber(number, collection) {
   return !COLLECTIONS[collection].blockedNumbers.includes(number.toString());
 }
 
-// Function to check if an NFT is already in collection
 function isDuplicate(nftNumber, collection, collectionName, userCards) {
   return userCards.some(card => 
     card.attributes?.find(attr => 
@@ -64,13 +62,10 @@ function isDuplicate(nftNumber, collection, collectionName, userCards) {
   );
 }
 
-// Function to extract IPFS image URL from metadata
 function extractImageUrl(metadata) {
-  // Try to get image from metadata
   if (metadata.onchain_metadata?.image) {
     let imageUrl = metadata.onchain_metadata.image;
     
-    // Handle ipfs:// protocol
     if (imageUrl.startsWith('ipfs://')) {
       const ipfsHash = imageUrl.replace('ipfs://', '');
       return `https://ipfs.io/ipfs/${ipfsHash}`;
@@ -79,7 +74,6 @@ function extractImageUrl(metadata) {
     return imageUrl;
   }
   
-  // Try other metadata fields
   if (metadata.onchain_metadata?.files && metadata.onchain_metadata.files.length > 0) {
     const file = metadata.onchain_metadata.files[0];
     if (file.src && file.src.startsWith('ipfs://')) {
@@ -92,28 +86,20 @@ function extractImageUrl(metadata) {
   return null;
 }
 
-// Function to sanitize numbers - ensures we don't get crazy long numbers
 function sanitizeNumber(number, collectionConfig) {
   if (!number) return null;
   
-  // Convert to string if it's a number
   const strNum = number.toString();
-  
-  // Remove leading zeros
   const noLeadingZeros = strNum.replace(/^0+/, '');
   
-  // If it's empty after removing zeros, it was just zeros
   if (!noLeadingZeros) return null;
   
-  // Parse as integer to normalize
   let num = parseInt(noLeadingZeros);
   
-  // Enforce range based on collection's maxNumber
   if (num <= 0 || num > collectionConfig.maxNumber) {
     return null;
   }
   
-  // Skip blocked numbers
   if (!isAllowedNumber(num, collectionConfig.id)) {
     return null;
   }
@@ -121,7 +107,6 @@ function sanitizeNumber(number, collectionConfig) {
   return num.toString();
 }
 
-// Function to generate a random card for collections that don't use BlockFrost
 function generateRandomCard(collectionConfig, userCards) {
   let randomNumber;
   let attempts = 0;
@@ -136,14 +121,12 @@ function generateRandomCard(collectionConfig, userCards) {
            isDuplicate(randomNumber, collectionConfig.policyId, collectionConfig.name, userCards));
   
   console.log(`Generated random ${collectionConfig.name} #:`, randomNumber);
-  console.log(`Using IPFS: ${collectionConfig.fallbackIpfs}`);
   
   const rarity = determineRarity(randomNumber, collectionConfig.id);
-  // For random generation, we'll create basic attributes
   const basicAttributes = [
     { trait_type: "Collection", value: collectionConfig.name },
     { trait_type: "Number", value: `${randomNumber}` },
-    { trait_type: "Class", value: "Peasants" } // Default class for random generation
+    { trait_type: "Class", value: "Peasants" }
   ];
   const stats = collectionConfig.id === 'titans' ? getTitanStats(randomNumber, rarity, basicAttributes) : getFrogStats(randomNumber, rarity);
   
@@ -171,15 +154,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get wallet address from query parameters
     const walletAddress = req.query.walletAddress;
     
     if (!walletAddress) {
       return res.status(400).json({ message: 'Wallet address is required' });
     }
 
-    // CRITICAL FIX: Check for obvious corruption (wrong length, etc.)
-    // Cardano addresses are complex and strict validation can cause false positives
     if (walletAddress.length < 100 || walletAddress.length > 120) {
       return res.status(400).json({ 
         message: 'Wallet address length is suspicious. Expected 100-120 characters for Cardano addresses.',
@@ -190,23 +170,19 @@ export default async function handler(req, res) {
 
     console.log(`🔍 Validated wallet address: ${walletAddress} (length: ${walletAddress.length})`);
 
-    // Enforce pack balance using Prisma User.balance with enhanced error handling
-    try {
-      return await withDatabase(async (prisma) => {
-      // Ensure user exists
-      let user = await prisma.user.findUnique({ where: { address: walletAddress } });
-      if (!user) {
-        user = await prisma.user.create({ data: { address: walletAddress, balance: '0' } });
-      }
-      const currentBalance = typeof user.balance === 'string' ? parseInt(user.balance || '0', 10) : (user.balance ?? 0);
-      if (currentBalance <= 0) {
-        return res.status(402).json({ message: 'No packs remaining. Claim your daily +5 packs.' });
-      }
-      // Reserve one pack by decrementing first to avoid race conditions
-      await prisma.user.update({
-        where: { address: walletAddress },
-        data: { balance: String(currentBalance - 1) }
+    // OPTIMIZED: Use atomic consumePack transaction instead of manual balance check
+    const packResult = await withDatabase(async () => {
+      return await consumePack(walletAddress);
+    });
+    
+    if (!packResult.success) {
+      return res.status(402).json({ 
+        message: 'No packs remaining. Claim your daily +5 packs.',
+        balance: packResult.balance
       });
+    }
+    
+    console.log(`✅ Pack consumed. Remaining balance: ${packResult.balance}`);
     
     // Get current collection from request query
     const userCards = req.query.collection ? JSON.parse(req.query.collection) : [];
@@ -494,14 +470,9 @@ export default async function handler(req, res) {
         console.error('Error generating random card:', error);
         return res.status(500).json({ message: 'Error generating random card', error: error.message });
       }
-        }
-      });
-    } catch (balanceError) {
-      console.error('Balance check/decrement failed:', balanceError);
-      return res.status(500).json({ message: 'Failed to verify pack balance' });
     }
   } catch (error) {
     console.error('Error fetching NFT:', error);
     res.status(500).json({ message: 'Error opening pack', error: error.message });
   }
-} 
+}
