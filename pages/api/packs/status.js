@@ -20,9 +20,10 @@ export default async function handler(req, res) {
     let canClaim = true;
     let nextClaimAt = now;
 
-    if (result.lastDailyClaimAt) {
-      const lastClaimDate = new Date(result.lastDailyClaimAt);
-      nextClaimAt = new Date(lastClaimDate.getTime() + 24 * 60 * 60 * 1000);
+    // Use updatedAt field since that's what exists in your schema
+    if (result.lastUpdated) {
+      const lastUpdateDate = new Date(result.lastUpdated);
+      nextClaimAt = new Date(lastUpdateDate.getTime() + 24 * 60 * 60 * 1000);
       canClaim = now >= nextClaimAt;
     }
 
@@ -31,7 +32,7 @@ export default async function handler(req, res) {
       balance: result.balance,
       canClaim,
       nextClaimAt: nextClaimAt.toISOString(),
-      lastDailyClaimAt: result.lastDailyClaimAt ? new Date(result.lastDailyClaimAt).toISOString() : null
+      lastDailyClaimAt: result.lastUpdated ? new Date(result.lastUpdated).toISOString() : null
     });
   } catch (error) {
     console.error('Error in packs/status:', error);
