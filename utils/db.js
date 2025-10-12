@@ -193,7 +193,7 @@ export async function getUserByAddress(address) {
 // PACK BALANCE OPERATIONS - Optimized for reliability
 // ============================================================================
 
-// Fast balance check without auto-creation
+// Fast balance check without auto-creation - FIXED to use actual schema fields
 export async function getUserBalance(address) {
   if (!address) throw new Error('Address is required');
 
@@ -201,15 +201,14 @@ export async function getUserBalance(address) {
     where: { address },
     select: { 
       balance: true,
-      lastDailyClaimAt: true,
-      lastUpdated: true 
+      updatedAt: true
     }
   });
 
   if (!user) {
     return {
       balance: 0,
-      lastDailyClaimAt: null,
+      lastUpdated: null,
       exists: false
     };
   }
@@ -220,7 +219,7 @@ export async function getUserBalance(address) {
 
   return {
     balance,
-    lastDailyClaimAt: user.lastDailyClaimAt || user.lastUpdated,
+    lastUpdated: user.updatedAt,
     exists: true
   };
 }
