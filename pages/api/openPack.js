@@ -144,7 +144,9 @@ function generateRandomCard(collectionConfig, userCards) {
       { trait_type: "Collection", value: collectionConfig.name },
       { trait_type: "Number", value: `${randomNumber}` },
       { trait_type: "Policy ID", value: collectionConfig.policyId }
-    ]
+    ],
+    tokenId: `${randomNumber}`,
+    contractAddress: collectionConfig.policyId
   };
 }
 
@@ -341,7 +343,7 @@ export default async function handler(req, res) {
         const rarity = determineRarity(validNumber, collectionConfig.id);
         const stats = collectionConfig.id === 'titans' ? getTitanStats(validNumber, rarity, assetDetails.onchain_metadata?.attributes) : getFrogStats(validNumber, rarity);
         
-        // Create the card data
+        // Create the card data with tokenId and contractAddress for frontend to save
         const card = {
           id: `${collectionConfig.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: `${collectionConfig.name} #${validNumber}`,
@@ -357,107 +359,20 @@ export default async function handler(req, res) {
             { trait_type: "Number", value: `${validNumber}` },
             { trait_type: "Policy ID", value: collectionConfig.policyId },
             { trait_type: "Asset Name", value: assetDetails.asset_name }
-          ]
-        };
-
-        // Save the NFT data to the database
-        console.log(`💾 Attempting to save NFT to database for wallet: ${walletAddress}`);
-        
-        // Validate the card data before sending
-        if (!card.name || !card.rarity || !card.image || !card.attack || !card.health || !card.speed) {
-          console.error(`❌ Invalid card data:`, card);
-          throw new Error('Invalid card data - missing required fields');
-        }
-        
-        const nftDataToSave = {
-          id: `${collectionConfig.name.toLowerCase()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          name: card.name,
-          rarity: card.rarity,
-          image: card.image,
-          description: card.description,
-          attack: card.attack,
-          health: card.health,
-          speed: card.speed,
-          attributes: card.attributes,
-          tokenId: card.attributes.find(attr => attr.trait_type === "Asset Name")?.value || validNumber.toString(),
+          ],
+          // Include tokenId and contractAddress so frontend can save it
+          tokenId: assetDetails.asset_name || validNumber.toString(),
           contractAddress: collectionConfig.policyId
         };
+
+        console.log(`✅ Generated card for ${collectionConfig.name} #${validNumber}`);
         
-        console.log(`💾 NFT data to save:`, nftDataToSave);
-        
-        // CRITICAL FIX: Create a proper mock request/response for the collections API
-        try {
-          // Import the collections API handler
-          const { default: collectionsHandler } = await import('./collections/[address].js');
-          
-          // Create a proper mock request object
-          const mockReq = {
-            method: 'POST',
-            query: { address: walletAddress },
-            body: [nftDataToSave]
-          };
-          
-          console.log(`📤 Sending data to collections API:`, JSON.stringify(mockReq.body, null, 2));
-          
-          // Create a proper mock response object that mimics the real response
-          let responseData = null;
-          let responseStatus = 200;
-          
-          const mockRes = {
-            status: (code) => {
-              responseStatus = code;
-              console.log(`📥 Collections API response status: ${code}`);
-              return mockRes;
-            },
-            json: (data) => {
-              responseData = data;
-              console.log(`📥 Collections API response data:`, JSON.stringify(data, null, 2));
-              return mockRes;
-            },
-            end: (data) => {
-              responseData = data;
-              console.log(`📥 Collections API response end:`, data);
-              return mockRes;
-            }
-          };
-          
-          // Call the collections API handler directly
-          console.log(`🔄 Calling collections API handler...`);
-          await collectionsHandler(mockReq, mockRes);
-          console.log(`✅ Collections API handler completed`);
-          
-          if (responseStatus === 200 && responseData) {
-            console.log(`✅ Successfully saved NFT to database:`, responseData);
-            
-            return res.status(200).json({
-              ...card,
-              saveSuccess: true,
-              savedNft: responseData
-            });
-          } else {
-            console.error(`❌ Collections API returned status ${responseStatus} with data:`, responseData);
-            throw new Error(`Collections API returned status ${responseStatus}`);
-          }
-          
-        } catch (saveError) {
-          console.error('❌ Error calling collections API directly:', saveError);
-          console.error('❌ Error details:', {
-            message: saveError.message,
-            stack: saveError.stack,
-            walletAddress,
-            cardName: card.name
-          });
-          
-          // Return the card anyway, but log the save failure
-          return res.status(200).json({
-            ...card,
-            saveWarning: 'NFT was generated but failed to save to database. Please try again later.',
-            saveError: saveError.message
-          });
-        }
+        // CRITICAL FIX: Return the card WITHOUT saving to database
+        // The frontend will handle saving when user clicks "add to collection"
+        return res.status(200).json(card);
       } catch (error) {
-        console.error('Error saving NFT data:', error);
-        return res.status(500).json({ message: 'Error saving NFT data', error: error.message });
+        console.error('Error generating card:', error);
+        return res.status(500).json({ message: 'Error generating card', error: error.message });
       }
     } else {
       console.log(`Couldn't find a valid NFT after ${attempts} attempts, generating a random one...`);

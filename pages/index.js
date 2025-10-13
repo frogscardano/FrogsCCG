@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { fetchFromIpfs, fetchCardanoAsset } from '../utils/ipfs';
 import { showAlert, isTelegramWebApp } from '../utils/telegram';
@@ -414,10 +413,34 @@ export default function Home() {
         throw new Error('Failed to save cards');
       }
       
-      const updatedCollection = await response.json();
-      setCurrentCards(updatedCollection);
-      setStatusMessage('Card added to your collection!');
-      localStorage.setItem(`frogCards_${address}`, JSON.stringify(updatedCollection));
+      console.log('✅ Card saved successfully');
+      setStatusMessage('Card added! Refreshing collection...');
+      
+      // FIXED: Fetch the full collection after saving
+      const collectionResponse = await fetch(`/api/collections/${address}`);
+      
+      if (!collectionResponse.ok) {
+        const errorText = await collectionResponse.text();
+        console.error('Failed to fetch updated collection:', errorText);
+        throw new Error('Failed to fetch updated collection');
+      }
+      
+      const collectionData = await collectionResponse.json();
+      
+      // Handle the response format
+      let cardData = collectionData;
+      if (collectionData.collection && Array.isArray(collectionData.collection)) {
+        cardData = collectionData.collection;
+      } else if (Array.isArray(collectionData)) {
+        cardData = collectionData;
+      }
+      
+      // Update the current cards with the full collection
+      setCurrentCards(cardData);
+      console.log(`✅ Collection refreshed with ${cardData.length} total cards`);
+      
+      setStatusMessage(`Card added! You now have ${cardData.length} cards.`);
+      localStorage.setItem(`frogCards_${address}`, JSON.stringify(cardData));
       
       setTimeout(() => {
         setIsModalOpen(false);
@@ -1022,4 +1045,4 @@ export default function Home() {
       )}
     </div>
   );
-} 
+}
