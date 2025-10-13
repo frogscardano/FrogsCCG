@@ -12,12 +12,17 @@ if (!DATABASE_URL) {
 
 // Enhanced Prisma client configuration for serverless environments
 function createPrismaClient() {
+  // CRITICAL FIX: Add pgbouncer=true and statement_cache_size=0 to prevent prepared statement errors
+  const connectionUrl = DATABASE_URL?.includes('?') 
+    ? `${DATABASE_URL}&pgbouncer=true&statement_cache_size=0`
+    : `${DATABASE_URL}?pgbouncer=true&statement_cache_size=0`;
+
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
     errorFormat: 'minimal',
     datasources: {
       db: {
-        url: DATABASE_URL,
+        url: connectionUrl,
       },
     },
   });
@@ -67,7 +72,14 @@ export async function testDatabaseConnection() {
 
 // CRITICAL: Simplified withDatabase wrapper with smart retry logic
 export async function withDatabase(operation, maxRetries = 2) {
-  const client = globalForPrisma.prisma || createPrismaClient();
+  let client = globalForPrisma.prisma;
+  
+  // If we don't have a client or hit a prepared statement error, create fresh one
+  if (!client) {
+    client = createPrismaClient();
+    globalForPrisma.prisma = client;
+  }
+  
   let lastError = null;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -76,6 +88,12 @@ export async function withDatabase(operation, maxRetries = 2) {
       return result;
     } catch (error) {
       lastError = error;
+      
+      // Check for prepared statement errors
+      const isPreparedStatementError = 
+        error.message?.includes('prepared statement') ||
+        error.message?.includes('already exists') ||
+        error.code === '42P05';
       
       // Only retry on specific connection errors
       const isConnectionError = 
@@ -94,6 +112,22 @@ export async function withDatabase(operation, maxRetries = 2) {
 
       if (isBusinessError) {
         throw error;
+      }
+
+      // If prepared statement error, recreate client and retry
+      if (isPreparedStatementError) {
+        console.warn(`🔄 Prepared statement error, recreating client (attempt ${attempt + 1}/${maxRetries})`);
+        try {
+          await client.$disconnect();
+        } catch (e) {
+          // Ignore disconnect errors
+        }
+        client = createPrismaClient();
+        globalForPrisma.prisma = client;
+        
+        // Short delay before retry
+        await new Promise(resolve => setTimeout(resolve, 100));
+        continue;
       }
 
       if (isConnectionError && attempt < maxRetries - 1) {
