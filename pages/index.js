@@ -379,10 +379,12 @@ export default function Home() {
       const data = await res.json();
       setPacksBalance(data.balance || 0);
       setCanClaimDaily(false);
-      setNextClaimAt(data.lastDailyClaimAt ? new Date(new Date(data.lastDailyClaimAt).getTime() + 24*60*60*1000).toISOString() : null);
+      const nextClaim = data.lastDailyClaimAt ? new Date(new Date(data.lastDailyClaimAt).getTime() + 24*60*60*1000).toISOString() : null;
+      setNextClaimAt(nextClaim);
+      alert(`Successfully claimed 10 packs! New balance: ${data.balance}`);
     } catch (e) {
       console.error('Daily claim failed:', e);
-      alert('Daily claim failed. Please try again later.');
+      alert(`Daily claim failed: ${e.message}`);
     } finally {
       setClaimLoading(false);
     }
