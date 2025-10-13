@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { fetchFromIpfs, fetchCardanoAsset } from '../utils/ipfs';
 import { showAlert, isTelegramWebApp } from '../utils/telegram';
@@ -38,397 +37,6 @@ const addressUtils = {
       formatted: `${address.slice(0, 8)}...${address.slice(-8)}`,
       prefix: isHex ? 'hex' : address.split('1')[0] // Get the prefix for bech32 addresses
     };
-  }
-};
-
-export default function Home() {
-  const router = useRouter();
-  const { 
-    connected, 
-    address, 
-    balance, 
-    loading, 
-    error: walletError,
-    connect: connectWalletContext,
-    disconnect: disconnectWalletContext,
-    api, 
-    availableWallets,
-    refreshWallets,
-    checkingWallets
-  } = useWallet();
-  const [currentTab, setCurrentTab] = useState('packs');
-  const [currentCards, setCurrentCards] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [rarityFilter, setRarityFilter] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isPackOpening, setIsPackOpening] = useState(false);
-  const [isRevealed, setIsRevealed] = useState(false);
-  const [revealedCards, setRevealedCards] = useState([]);
-  const [statusMessage, setStatusMessage] = useState('Click the pack to open');
-  const [selectedPack, setSelectedPack] = useState(null);
-  const [loadingState, setLoadingState] = useState('');
-  const [selectedGame, setSelectedGame] = useState(null);
-  const [gameCompleted, setGameCompleted] = useState(false);
-  const [gameResults, setGameResults] = useState(null);
-  const [rewardPoints, setRewardPoints] = useState(0);
-  const [error, setError] = useState(null);
-  const [packsBalance, setPacksBalance] = useState(0);
-  const [canClaimDaily, setCanClaimDaily] = useState(false);
-  const [nextClaimAt, setNextClaimAt] = useState(null);
-  const [claimLoading, setClaimLoading] = useState(false);
-
-  // Add a formatted address state to store a more user-friendly address
-  const [displayAddressInfo, setDisplayAddressInfo] = useState(null);
-
-  // Check if a wallet is already connected on page load
-  useEffect(() => {
-    const checkExistingConnection = async () => {
-      if (availableWallets && availableWallets.length > 0 && !connected) {
-        try {
-          // Try to connect to Eternl by default or the first available wallet
-          const walletToTry = availableWallets.find(w => w.name === 'eternl') || availableWallets[0];
-          if (walletToTry) {
-            // await connectWalletContext(walletToTry.name);
-          }
-        } catch (e) {
-          console.error('Error reconnecting to wallet:', e);
-          // setError(`Reconnect failed: ${e.message}`);
-        }
-      }
-    };
-    
-    checkExistingConnection();
-  }, [availableWallets, connected, connectWalletContext]);
-
-  const handleConnectWallet = async (walletName) => {
-    try {
-      setError(null);
-      await connectWalletContext(walletName);
-    } catch (e) {
-      console.error(`Failed to connect to ${walletName}:`, e);
-      setError(`Failed to connect: ${e.message}`);
-    }
-  };
-
-  const handleDisconnectWallet = () => {
-    try {
-      setError(null);
-      disconnectWalletContext();
-    } catch (e) {
-      console.error('Failed to disconnect wallet:', e);
-      setError(`Failed to disconnect: ${e.message}`);
-    }
-  };
-
-  // useEffect to update addressInfo when address from context changes
-  useEffect(() => {
-    if (address) {
-      setDisplayAddressInfo(addressUtils.getAddressInfo(address));
-    } else {
-      setDisplayAddressInfo(null);
-    }
-  }, [address]);
-
-  // Load collection for the connected wallet
-  const loadCollection = async () => {
-    if (!connected || !address) {
-      console.error('No wallet address available to load collection');
-      return;
-    }
-    
-    console.log(`🔍 Loading collection for address: ${address}`);
-    
-    try {
-      setError(null);
-      setStatusMessage('Loading your collection...');
-      
-      const apiUrl = `/api/collections/${address}`;
-      console.log(`📡 Fetching from: ${apiUrl}`);
-      
-      const response = await fetch(apiUrl);
-      console.log(`📊 Response status: ${response.status}`);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ API Error (${response.status}):`, errorText);
-        throw new Error(`Failed to load collection: ${response.status} ${errorText}`);
-      }
-      
-      const cards = await response.json();
-      console.log(`✅ Received response from API:`, cards);
-      
-      // Handle new response format with metadata
-      let cardData = cards;
-      let userMessage = '';
-      
-      if (cards.collection && Array.isArray(cards.collection)) {
-        // New format with metadata
-        cardData = cards.collection;
-        userMessage = cards.message || '';
-        console.log(`📊 Collection data: ${cardData.length} cards, Message: ${userMessage}`);
-      } else if (Array.isArray(cards)) {
-        // Old format - just array of cards
-        cardData = cards;
-        userMessage = `Found ${cards.length} cards in your collection`;
-        console.log(`📊 Legacy format: ${cardData.length} cards`);
-      } else {
-        console.error(`❌ Unexpected response format:`, cards);
-        throw new Error('Unexpected response format from API');
-      }
-      
-      // Debug: Log the structure of the first card
-      if (cardData.length > 0) {
-        console.log(`🔍 First card structure:`, {
-          id: cardData[0].id,
-          name: cardData[0].name,
-          image: cardData[0].image,
-          imageUrl: cardData[0].imageUrl,
-          attack: cardData[0].attack,
-          health: cardData[0].health,
-          speed: cardData[0].speed,
-          attributes: cardData[0].attributes,
-          metadata: cardData[0].metadata
-        });
-      }
-      
-      setCurrentCards(cardData);
-      setStatusMessage(userMessage || '');
-      
-      console.log(`🎯 Collection loaded successfully with ${cardData.length} NFTs`);
-    } catch (e) {
-      console.error('❌ Error loading collection:', e);
-      setStatusMessage('Failed to load collection. Please try again.');
-      setError(`Load collection failed: ${e.message}`);
-    }
-  };
-
-  // Handle card deletion
-  const handleDeleteCard = async (cardToDelete) => {
-    if (!connected || !address) {
-      console.error('No wallet connected for deletion');
-      return;
-    }
-
-    try {
-      console.log(`🗑️ Deleting card: ${cardToDelete.name} (ID: ${cardToDelete.id})`);
-      
-      // Remove from local state immediately for better UX
-      setCurrentCards(prevCards => prevCards.filter(card => card.id !== cardToDelete.id));
-      
-      // Make API call to delete from database
-      const response = await fetch(`/api/collections/${address}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cardId: cardToDelete.id })
-      });
-
-      if (!response.ok) {
-        // If deletion failed, reload the collection to restore the card
-        console.error('Failed to delete card from database, reloading collection...');
-        loadCollection();
-        throw new Error('Failed to delete card from database');
-      }
-
-      console.log(`✅ Card deleted successfully: ${cardToDelete.name}`);
-      setStatusMessage(`Deleted "${cardToDelete.name}" from your collection`);
-      
-      // Clear status message after 3 seconds
-      setTimeout(() => setStatusMessage(''), 3000);
-      
-    } catch (error) {
-      console.error('Error deleting card:', error);
-      setStatusMessage(`Failed to delete "${cardToDelete.name}". Please try again.`);
-      
-      // Reload collection to ensure consistency
-      loadCollection();
-    }
-  };
-  
-  useEffect(() => {
-    if (connected && address) {
-      loadCollection();
-    } else {
-      setCurrentCards([]);
-    }
-  }, [connected, address]);
-
-  useEffect(() => {
-    const fetchPackStatus = async () => {
-      if (!connected || !address) {
-        setPacksBalance(0);
-        setCanClaimDaily(false);
-        setNextClaimAt(null);
-        return;
-      }
-      try {
-        const res = await fetch(`/api/packs/status?address=${encodeURIComponent(address)}`);
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        setPacksBalance(data.balance || 0);
-        setCanClaimDaily(!!data.canClaim);
-        setNextClaimAt(data.nextClaimAt || null);
-      } catch (e) {
-        console.error('Failed to load pack status:', e);
-      }
-    };
-    fetchPackStatus();
-  }, [connected, address]);
-
-  const openPack = async (packType) => {
-    if (!connected) {
-      alert("Please connect your wallet to open a pack.");
-      return;
-    }
-    if (packsBalance <= 0) {
-      alert('No packs remaining. Claim your daily +5 packs first.');
-      return;
-    }
-    setSelectedPack(packType);
-    setIsModalOpen(true);
-    setIsPackOpening(false);
-    setRevealedCards([]);
-    setStatusMessage('Click the pack to open');
-  };
-
-  const handlePackClick = async () => {
-    if (isPackOpening) return;
-    
-    // optimistic reduce balance
-    setPacksBalance(prev => (prev > 0 ? prev - 1 : 0));
-    
-    setIsPackOpening(true);
-    setIsRevealed(false);
-    setStatusMessage(`Fetching ${
-      selectedPack === 'snekkies' 
-        ? 'Snekkie' 
-        : selectedPack === 'titans'
-          ? 'Titan'
-          : 'Frog'
-    } NFT from Cardano...`);
-    
-    try {
-      // Don't send the entire collection as it can make the URL too long
-      // Just send the collection type and wallet address
-      const apiUrl = `/api/openPack?walletAddress=${encodeURIComponent(address)}&collectionType=${selectedPack}`;
-      console.log(`Calling API: ${apiUrl}`);
-      
-      const response = await fetch(apiUrl);
-      
-      if (!response.ok) {
-        // rollback optimistic change on failure
-        setPacksBalance(prev => prev + 1);
-        const errorText = await response.text();
-        console.error(`API error (${response.status}):`, errorText);
-        
-        if (response.status === 409) {
-          throw new Error(`You have collected all available ${
-            selectedPack === 'snekkies' 
-              ? 'Snekkies' 
-              : selectedPack === 'titans'
-                ? 'Titans'
-                : 'Frogs'
-          }!`);
-        }
-        throw new Error(`API returned ${response.status}: ${errorText}`);
-      }
-      
-      const cardData = await response.json();
-      
-      if (cardData) {
-        // Wait for pack opening animation
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setStatusMessage(`Found ${cardData.name}!`);
-        setRevealedCards([cardData]);
-        
-        // Trigger reveal animation
-        setTimeout(() => {
-          setIsRevealed(true);
-        }, 500);
-      } else {
-        throw new Error('No card data received');
-      }
-    } catch (error) {
-      // rollback optimistic change on error
-      setPacksBalance(prev => prev + 1);
-      console.error('Error opening pack:', error);
-      setStatusMessage(`Error: ${error.message}. Please try again.`);
-      // Reset after 3 seconds
-      setTimeout(() => {
-        setIsPackOpening(false);
-        setIsRevealed(false);
-      }, 3000);
-    }
-    setIsPackOpening(false);
-  };
-
-  const handleClaimDaily = async () => {
-    if (!connected || !address) return;
-    if (!canClaimDaily) return;
-    setClaimLoading(true);
-    try {
-      const res = await fetch('/api/packs/claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address })
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text);
-      }
-      const data = await res.json();
-      setPacksBalance(data.balance || 0);
-      setCanClaimDaily(false);
-      setNextClaimAt(data.lastDailyClaimAt ? new Date(new Date(data.lastDailyClaimAt).getTime() + 24*60*60*1000).toISOString() : null);
-    } catch (e) {
-      console.error('Daily claim failed:', e);
-      alert('Daily claim failed. Please try again later.');
-    } finally {
-      setClaimLoading(false);
-    }
-  };
-
-  const addToCollection = async () => {
-    if (!connected || !address) {
-      setError('Please connect your wallet first');
-      return;
-    }
-
-    try {
-      setError(null);
-      setStatusMessage('Adding card to collection...');
-      console.log(`Adding card to collection for address: ${address}`);
-      
-      const response = await fetch(`/api/collections/${address}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(revealedCards)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API response error:', errorText);
-        throw new Error('Failed to save cards');
-      }
-      
-      const updatedCollection = await response.json();
-      setCurrentCards(updatedCollection);
-      setStatusMessage('Card added to your collection!');
-      localStorage.setItem(`frogCards_${address}`, JSON.stringify(updatedCollection));
-      
-      setTimeout(() => {
-        setIsModalOpen(false);
-        setCurrentTab('collection');
-      }, 1500);
-    } catch (e) {
-      console.error('Error saving to collection:', e);
-      setError(e.message);
-      setStatusMessage('Failed to add card to collection. Please try again.');
-    }
-  };
 
   const filteredCards = currentCards.filter(card => {
     const matchesSearch = !searchTerm || 
@@ -1022,4 +630,421 @@ export default function Home() {
       )}
     </div>
   );
-} 
+}
+  }
+};
+
+export default function Home() {
+  const router = useRouter();
+  const { 
+    connected, 
+    address, 
+    balance, 
+    loading, 
+    error: walletError,
+    connect: connectWalletContext,
+    disconnect: disconnectWalletContext,
+    api, 
+    availableWallets,
+    refreshWallets,
+    checkingWallets
+  } = useWallet();
+  const [currentTab, setCurrentTab] = useState('packs');
+  const [currentCards, setCurrentCards] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [rarityFilter, setRarityFilter] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPackOpening, setIsPackOpening] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false);
+  const [revealedCards, setRevealedCards] = useState([]);
+  const [statusMessage, setStatusMessage] = useState('Click the pack to open');
+  const [selectedPack, setSelectedPack] = useState(null);
+  const [loadingState, setLoadingState] = useState('');
+  const [selectedGame, setSelectedGame] = useState(null);
+  const [gameCompleted, setGameCompleted] = useState(false);
+  const [gameResults, setGameResults] = useState(null);
+  const [rewardPoints, setRewardPoints] = useState(0);
+  const [error, setError] = useState(null);
+  const [packsBalance, setPacksBalance] = useState(0);
+  const [canClaimDaily, setCanClaimDaily] = useState(false);
+  const [nextClaimAt, setNextClaimAt] = useState(null);
+  const [claimLoading, setClaimLoading] = useState(false);
+
+  // Add a formatted address state to store a more user-friendly address
+  const [displayAddressInfo, setDisplayAddressInfo] = useState(null);
+
+  // Check if a wallet is already connected on page load
+  useEffect(() => {
+    const checkExistingConnection = async () => {
+      if (availableWallets && availableWallets.length > 0 && !connected) {
+        try {
+          // Try to connect to Eternl by default or the first available wallet
+          const walletToTry = availableWallets.find(w => w.name === 'eternl') || availableWallets[0];
+          if (walletToTry) {
+            // await connectWalletContext(walletToTry.name);
+          }
+        } catch (e) {
+          console.error('Error reconnecting to wallet:', e);
+          // setError(`Reconnect failed: ${e.message}`);
+        }
+      }
+    };
+    
+    checkExistingConnection();
+  }, [availableWallets, connected, connectWalletContext]);
+
+  const handleConnectWallet = async (walletName) => {
+    try {
+      setError(null);
+      await connectWalletContext(walletName);
+    } catch (e) {
+      console.error(`Failed to connect to ${walletName}:`, e);
+      setError(`Failed to connect: ${e.message}`);
+    }
+  };
+
+  const handleDisconnectWallet = () => {
+    try {
+      setError(null);
+      disconnectWalletContext();
+    } catch (e) {
+      console.error('Failed to disconnect wallet:', e);
+      setError(`Failed to disconnect: ${e.message}`);
+    }
+  };
+
+  // useEffect to update addressInfo when address from context changes
+  useEffect(() => {
+    if (address) {
+      setDisplayAddressInfo(addressUtils.getAddressInfo(address));
+    } else {
+      setDisplayAddressInfo(null);
+    }
+  }, [address]);
+
+  // Load collection for the connected wallet
+  const loadCollection = async () => {
+    if (!connected || !address) {
+      console.error('No wallet address available to load collection');
+      return;
+    }
+    
+    console.log(`🔍 Loading collection for address: ${address}`);
+    
+    try {
+      setError(null);
+      setStatusMessage('Loading your collection...');
+      
+      const apiUrl = `/api/collections/${address}`;
+      console.log(`📡 Fetching from: ${apiUrl}`);
+      
+      const response = await fetch(apiUrl);
+      console.log(`📊 Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ API Error (${response.status}):`, errorText);
+        throw new Error(`Failed to load collection: ${response.status} ${errorText}`);
+      }
+      
+      const cards = await response.json();
+      console.log(`✅ Received response from API:`, cards);
+      
+      // Handle new response format with metadata
+      let cardData = cards;
+      let userMessage = '';
+      
+      if (cards.collection && Array.isArray(cards.collection)) {
+        // New format with metadata
+        cardData = cards.collection;
+        userMessage = cards.message || '';
+        console.log(`📊 Collection data: ${cardData.length} cards, Message: ${userMessage}`);
+      } else if (Array.isArray(cards)) {
+        // Old format - just array of cards
+        cardData = cards;
+        userMessage = `Found ${cards.length} cards in your collection`;
+        console.log(`📊 Legacy format: ${cardData.length} cards`);
+      } else {
+        console.error(`❌ Unexpected response format:`, cards);
+        throw new Error('Unexpected response format from API');
+      }
+      
+      // Debug: Log the structure of the first card
+      if (cardData.length > 0) {
+        console.log(`🔍 First card structure:`, {
+          id: cardData[0].id,
+          name: cardData[0].name,
+          image: cardData[0].image,
+          imageUrl: cardData[0].imageUrl,
+          attack: cardData[0].attack,
+          health: cardData[0].health,
+          speed: cardData[0].speed,
+          attributes: cardData[0].attributes,
+          metadata: cardData[0].metadata
+        });
+      }
+      
+      setCurrentCards(cardData);
+      setStatusMessage(userMessage || '');
+      
+      console.log(`🎯 Collection loaded successfully with ${cardData.length} NFTs`);
+    } catch (e) {
+      console.error('❌ Error loading collection:', e);
+      setStatusMessage('Failed to load collection. Please try again.');
+      setError(`Load collection failed: ${e.message}`);
+    }
+  };
+
+  // Handle card deletion
+  const handleDeleteCard = async (cardToDelete) => {
+    if (!connected || !address) {
+      console.error('No wallet connected for deletion');
+      return;
+    }
+
+    try {
+      console.log(`🗑️ Deleting card: ${cardToDelete.name} (ID: ${cardToDelete.id})`);
+      
+      // Remove from local state immediately for better UX
+      setCurrentCards(prevCards => prevCards.filter(card => card.id !== cardToDelete.id));
+      
+      // Make API call to delete from database
+      const response = await fetch(`/api/collections/${address}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cardId: cardToDelete.id })
+      });
+
+      if (!response.ok) {
+        // If deletion failed, reload the collection to restore the card
+        console.error('Failed to delete card from database, reloading collection...');
+        loadCollection();
+        throw new Error('Failed to delete card from database');
+      }
+
+      console.log(`✅ Card deleted successfully: ${cardToDelete.name}`);
+      setStatusMessage(`Deleted "${cardToDelete.name}" from your collection`);
+      
+      // Clear status message after 3 seconds
+      setTimeout(() => setStatusMessage(''), 3000);
+      
+    } catch (error) {
+      console.error('Error deleting card:', error);
+      setStatusMessage(`Failed to delete "${cardToDelete.name}". Please try again.`);
+      
+      // Reload collection to ensure consistency
+      loadCollection();
+    }
+  };
+  
+  useEffect(() => {
+    if (connected && address) {
+      loadCollection();
+    } else {
+      setCurrentCards([]);
+    }
+  }, [connected, address]);
+
+  useEffect(() => {
+    const fetchPackStatus = async () => {
+      if (!connected || !address) {
+        setPacksBalance(0);
+        setCanClaimDaily(false);
+        setNextClaimAt(null);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/packs/status?address=${encodeURIComponent(address)}`);
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        setPacksBalance(data.balance || 0);
+        setCanClaimDaily(!!data.canClaim);
+        setNextClaimAt(data.nextClaimAt || null);
+      } catch (e) {
+        console.error('Failed to load pack status:', e);
+      }
+    };
+    fetchPackStatus();
+  }, [connected, address]);
+
+  const openPack = async (packType) => {
+    if (!connected) {
+      alert("Please connect your wallet to open a pack.");
+      return;
+    }
+    if (packsBalance <= 0) {
+      alert('No packs remaining. Claim your daily +5 packs first.');
+      return;
+    }
+    setSelectedPack(packType);
+    setIsModalOpen(true);
+    setIsPackOpening(false);
+    setRevealedCards([]);
+    setStatusMessage('Click the pack to open');
+  };
+
+  const handlePackClick = async () => {
+    if (isPackOpening) return;
+    
+    // optimistic reduce balance
+    setPacksBalance(prev => (prev > 0 ? prev - 1 : 0));
+    
+    setIsPackOpening(true);
+    setIsRevealed(false);
+    setStatusMessage(`Fetching ${
+      selectedPack === 'snekkies' 
+        ? 'Snekkie' 
+        : selectedPack === 'titans'
+          ? 'Titan'
+          : 'Frog'
+    } NFT from Cardano...`);
+    
+    try {
+      // Don't send the entire collection as it can make the URL too long
+      // Just send the collection type and wallet address
+      const apiUrl = `/api/openPack?walletAddress=${encodeURIComponent(address)}&collectionType=${selectedPack}`;
+      console.log(`Calling API: ${apiUrl}`);
+      
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        // rollback optimistic change on failure
+        setPacksBalance(prev => prev + 1);
+        const errorText = await response.text();
+        console.error(`API error (${response.status}):`, errorText);
+        
+        if (response.status === 409) {
+          throw new Error(`You have collected all available ${
+            selectedPack === 'snekkies' 
+              ? 'Snekkies' 
+              : selectedPack === 'titans'
+                ? 'Titans'
+                : 'Frogs'
+          }!`);
+        }
+        throw new Error(`API returned ${response.status}: ${errorText}`);
+      }
+      
+      const cardData = await response.json();
+      
+      if (cardData) {
+        // Wait for pack opening animation
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setStatusMessage(`Found ${cardData.name}!`);
+        setRevealedCards([cardData]);
+        
+        // Trigger reveal animation
+        setTimeout(() => {
+          setIsRevealed(true);
+        }, 500);
+      } else {
+        throw new Error('No card data received');
+      }
+    } catch (error) {
+      // rollback optimistic change on error
+      setPacksBalance(prev => prev + 1);
+      console.error('Error opening pack:', error);
+      setStatusMessage(`Error: ${error.message}. Please try again.`);
+      // Reset after 3 seconds
+      setTimeout(() => {
+        setIsPackOpening(false);
+        setIsRevealed(false);
+      }, 3000);
+    }
+    setIsPackOpening(false);
+  };
+
+  const handleClaimDaily = async () => {
+    if (!connected || !address) return;
+    if (!canClaimDaily) return;
+    setClaimLoading(true);
+    try {
+      const res = await fetch('/api/packs/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address })
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text);
+      }
+      const data = await res.json();
+      setPacksBalance(data.balance || 0);
+      setCanClaimDaily(false);
+      setNextClaimAt(data.lastDailyClaimAt ? new Date(new Date(data.lastDailyClaimAt).getTime() + 24*60*60*1000).toISOString() : null);
+    } catch (e) {
+      console.error('Daily claim failed:', e);
+      alert('Daily claim failed. Please try again later.');
+    } finally {
+      setClaimLoading(false);
+    }
+  };
+
+  // FIXED: Add to collection function that properly refreshes the collection
+  const addToCollection = async () => {
+    if (!connected || !address) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
+    try {
+      setError(null);
+      setStatusMessage('Adding card to collection...');
+      console.log(`Adding card to collection for address: ${address}`);
+      
+      // Save the card to the database
+      const saveResponse = await fetch(`/api/collections/${address}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(revealedCards)
+      });
+
+      if (!saveResponse.ok) {
+        const errorText = await saveResponse.text();
+        console.error('API response error:', errorText);
+        throw new Error('Failed to save cards');
+      }
+      
+      console.log('✅ Card saved successfully');
+      setStatusMessage('Card added! Refreshing collection...');
+      
+      // CRITICAL FIX: Now fetch the FULL collection to display all cards
+      const collectionResponse = await fetch(`/api/collections/${address}`);
+      
+      if (!collectionResponse.ok) {
+        const errorText = await collectionResponse.text();
+        console.error('Failed to fetch updated collection:', errorText);
+        throw new Error('Failed to fetch updated collection');
+      }
+      
+      const collectionData = await collectionResponse.json();
+      
+      // Handle the response format (same as loadCollection)
+      let cardData = collectionData;
+      if (collectionData.collection && Array.isArray(collectionData.collection)) {
+        cardData = collectionData.collection;
+      } else if (Array.isArray(collectionData)) {
+        cardData = collectionData;
+      }
+      
+      // Update the current cards with the full collection
+      setCurrentCards(cardData);
+      console.log(`✅ Collection refreshed with ${cardData.length} total cards`);
+      
+      setStatusMessage(`Card added! You now have ${cardData.length} cards.`);
+      
+      setTimeout(() => {
+        setIsModalOpen(false);
+        setCurrentTab('collection');
+        setStatusMessage('');
+      }, 1500);
+    } catch (e) {
+      console.error('Error saving to collection:', e);
+      setError(e.message);
+      setStatusMessage('Failed to add card to collection. Please try again.');
+    }
+  };
