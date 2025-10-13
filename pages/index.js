@@ -557,9 +557,9 @@ export default function Home() {
                   className={styles.smallActionBtn}
                   onClick={handleClaimDaily}
                   disabled={!canClaimDaily || claimLoading}
-                  title={canClaimDaily ? 'Claim +5 packs' : (nextClaimAt ? `Next claim at ${new Date(nextClaimAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : 'Claim unavailable')}
+                  title={canClaimDaily ? 'Claim +10 packs' : (nextClaimAt ? `Next claim at ${new Date(nextClaimAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : 'Claim unavailable')}
                 >
-                  {claimLoading ? 'Claiming...' : 'Free +5 Pack'}
+                  {claimLoading ? 'Claiming...' : 'Free +10 Packs'}
                 </button>
                 <button 
                   className={styles.smallSecondaryBtn}
