@@ -18,9 +18,9 @@ export default async function handler(req, res) {
 
     const now = new Date();
     let canClaim = true;
-    let nextClaimAt = now;
+    let nextClaimAt = null;
 
-    // Use updatedAt field since that's what exists in your schema
+    // Use lastUpdated field from getUserBalance
     if (result.lastUpdated) {
       const lastUpdateDate = new Date(result.lastUpdated);
       nextClaimAt = new Date(lastUpdateDate.getTime() + 24 * 60 * 60 * 1000);
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
       address,
       balance: result.balance,
       canClaim,
-      nextClaimAt: nextClaimAt.toISOString(),
+      nextClaimAt: canClaim ? null : (nextClaimAt ? nextClaimAt.toISOString() : null),
       lastDailyClaimAt: result.lastUpdated ? new Date(result.lastUpdated).toISOString() : null
     });
   } catch (error) {
