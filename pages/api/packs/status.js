@@ -1,4 +1,4 @@
-import { withDatabase, getUserBalance } from '../../../utils/db';
+import { prisma } from '../../../utils/db';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -12,40 +12,49 @@ export default async function handler(req, res) {
   }
 
   try {
-    const result = await withDatabase(async () => {
-      return await getUserBalance(address);
+    let user = await prisma.user.findUnique({
+      where: { address },
+      select: { balance: true, lastUpdated: true }
     });
+
+    if (!user) {
+      // New user, can claim immediately
+      return res.status(200).json({
+        address,
+        balance: 0,
+        canClaim: true,
+        nextClaimAt: null,
+        lastDailyClaimAt: null
+      });
+    }
 
     const now = new Date();
     let canClaim = true;
-    let nextClaimAt = now;
+    let nextClaimAt = null;
 
-    // Use updatedAt field since that's what exists in your schema
-    if (result.lastUpdated) {
-      const lastUpdateDate = new Date(result.lastUpdated);
-      nextClaimAt = new Date(lastUpdateDate.getTime() + 24 * 60 * 60 * 1000);
-      canClaim = now >= nextClaimAt;
+    if (user.lastUpdated) {
+      const lastUpdateDate = new Date(user.lastUpdated);
+      const nextAllowed = new Date(lastUpdateDate.getTime() + 24 * 60 * 60 * 1000);
+      canClaim = now >= nextAllowed;
+      if (!canClaim) {
+        nextClaimAt = nextAllowed.toISOString();
+      }
     }
+
+    const balance = typeof user.balance === 'string' ? parseInt(user.balance || '0', 10) : (user.balance ?? 0);
 
     return res.status(200).json({
       address,
-      balance: result.balance,
+      balance,
       canClaim,
-      nextClaimAt: nextClaimAt.toISOString(),
-      lastDailyClaimAt: result.lastUpdated ? new Date(result.lastUpdated).toISOString() : null
+      nextClaimAt,
+      lastDailyClaimAt: user.lastUpdated ? user.lastUpdated.toISOString() : null
     });
   } catch (error) {
     console.error('Error in packs/status:', error);
     
-    const isConnectionError = 
-      error.code === 'P1001' ||
-      error.code === 'P1008' ||
-      error.code === 'P1017' ||
-      error.message?.includes('connect') || 
-      error.message?.includes('timeout');
-    
-    return res.status(isConnectionError ? 503 : 500).json({ 
-      message: isConnectionError ? 'Database temporarily unavailable' : 'Failed to get pack status',
+    return res.status(500).json({ 
+      message: 'Failed to get pack status',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

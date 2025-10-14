@@ -1,6 +1,6 @@
 import { prisma } from '../../../utils/db';
 
-const DAILY_AMOUNT = 5;
+const DAILY_AMOUNT = 10;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default async function handler(req, res) {
@@ -16,19 +16,32 @@ export default async function handler(req, res) {
 
     let user = await prisma.user.findUnique({ where: { address } });
     if (!user) {
-      user = await prisma.user.create({ data: { address } });
+      // Create new user with 10 packs
+      const now = new Date();
+      user = await prisma.user.create({ 
+        data: { 
+          address, 
+          balance: String(DAILY_AMOUNT),
+          lastUpdated: now
+        } 
+      });
+      
+      return res.status(200).json({
+        success: true,
+        balance: DAILY_AMOUNT,
+        lastDailyClaimAt: now.toISOString()
+      });
     }
 
     const now = new Date();
-    // Backward-compatible: use lastUpdated as the daily-claim timestamp
-    const last = user.lastDailyClaimAt ? new Date(user.lastDailyClaimAt) : (user.lastUpdated ? new Date(user.lastUpdated) : null);
+    const last = user.lastUpdated ? new Date(user.lastUpdated) : null;
     const nextAllowed = last ? new Date(last.getTime() + DAY_MS) : new Date(0);
 
     if (last && now < nextAllowed) {
       return res.status(429).json({
         message: 'Daily claim not available yet',
         nextClaimAt: nextAllowed.toISOString(),
-        balance: user.balance ?? 0
+        balance: typeof user.balance === 'string' ? parseInt(user.balance || '0', 10) : (user.balance ?? 0)
       });
     }
 
@@ -46,12 +59,10 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       balance: typeof updated.balance === 'string' ? parseInt(updated.balance || '0', 10) : (updated.balance ?? 0),
-      lastDailyClaimAt: updated.lastUpdated ? new Date(updated.lastUpdated).toISOString() : null
+      lastDailyClaimAt: updated.lastUpdated.toISOString()
     });
   } catch (error) {
     console.error('Error in packs/claim:', error);
     return res.status(500).json({ message: 'Failed to claim daily packs', error: error.message });
   }
 }
-
-

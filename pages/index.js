@@ -379,10 +379,12 @@ export default function Home() {
       const data = await res.json();
       setPacksBalance(data.balance || 0);
       setCanClaimDaily(false);
-      setNextClaimAt(data.lastDailyClaimAt ? new Date(new Date(data.lastDailyClaimAt).getTime() + 24*60*60*1000).toISOString() : null);
+      const nextClaim = data.lastDailyClaimAt ? new Date(new Date(data.lastDailyClaimAt).getTime() + 24*60*60*1000).toISOString() : null;
+      setNextClaimAt(nextClaim);
+      alert(`Successfully claimed 10 packs! New balance: ${data.balance}`);
     } catch (e) {
       console.error('Daily claim failed:', e);
-      alert('Daily claim failed. Please try again later.');
+      alert(`Daily claim failed: ${e.message}`);
     } finally {
       setClaimLoading(false);
     }
@@ -555,9 +557,9 @@ export default function Home() {
                   className={styles.smallActionBtn}
                   onClick={handleClaimDaily}
                   disabled={!canClaimDaily || claimLoading}
-                  title={canClaimDaily ? 'Claim +5 packs' : (nextClaimAt ? `Next claim at ${new Date(nextClaimAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : 'Claim unavailable')}
+                  title={canClaimDaily ? 'Claim +10 packs' : (nextClaimAt ? `Next claim at ${new Date(nextClaimAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : 'Claim unavailable')}
                 >
-                  {claimLoading ? 'Claiming...' : 'Free +5 Pack'}
+                  {claimLoading ? 'Claiming...' : 'Free +10 Packs'}
                 </button>
                 <button 
                   className={styles.smallSecondaryBtn}
