@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   try {
     let user = await prisma.user.findUnique({
       where: { address },
-      select: { balance: true, updatedAt: true }
+      select: { balance: true, lastUpdated: true }
     });
 
     if (!user) {
@@ -32,8 +32,8 @@ export default async function handler(req, res) {
     let canClaim = true;
     let nextClaimAt = null;
 
-    if (user.updatedAt) {
-      const lastUpdateDate = new Date(user.updatedAt);
+    if (user.lastUpdated) {
+      const lastUpdateDate = new Date(user.lastUpdated);
       const nextAllowed = new Date(lastUpdateDate.getTime() + 24 * 60 * 60 * 1000);
       canClaim = now >= nextAllowed;
       if (!canClaim) {
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
       balance,
       canClaim,
       nextClaimAt,
-      lastDailyClaimAt: user.updatedAt ? user.updatedAt.toISOString() : null
+      lastDailyClaimAt: user.lastUpdated ? user.lastUpdated.toISOString() : null
     });
   } catch (error) {
     console.error('Error in packs/status:', error);
