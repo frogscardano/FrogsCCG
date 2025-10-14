@@ -8,8 +8,6 @@ import Head from 'next/head';
 import styles from '../styles/Home.module.css';
 import WalletConnect from '../components/WalletConnect';
 import { useWallet } from '../contexts/WalletContext';
-import BattleArena from '../components/BattleArena';
-import MemoryGame from '../components/MemoryGame';
 import Solitaire from '../components/Solitaire';
 import { useRouter } from 'next/router';
 import { lovelaceToAda } from '../utils/cardano';
@@ -814,78 +812,17 @@ export default function Home() {
                       >
                         ← Back to Games
                       </button>
-                      <h3>{selectedGame === 'battle' ? 'Battle Arena' : 
-                          selectedGame === 'solitaire' ? 'Solitaire' :
-                          'Memory Match'}</h3>
+                      <h3>{selectedGame === 'solitaire' ? 'Solitaire' : 'Game'}</h3>
                     </div>
-                    
-                    {selectedGame === 'battle' && (
-                      <BattleArena
-                        cards={currentCards}
-                        onGameComplete={(results) => {
-                          setGameCompleted(true);
-                          setGameResults(results);
-                          setRewardPoints(prev => prev + (results.rewardPoints || 0));
-                          
-                          // Save results or give rewards
-                          try {
-                            fetch('/api/rewards', {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                              },
-                              body: JSON.stringify({
-                                address: address || 'guest',
-                                source: selectedGame,
-                                points: results.rewardPoints || 0,
-                                gameData: results
-                              }),
-                            });
-                          } catch (err) {
-                            console.error('Failed to save game results:', err);
-                          }
-                        }}
-                      />
-                    )}
                     
                     {selectedGame === 'solitaire' && (
                       <Solitaire
-                        nfts={currentCards.length >= 13 ? currentCards.slice(0, 13) : currentCards} // Use available cards or all if less than 13
+                        nfts={currentCards.length >= 13 ? currentCards.slice(0, 13) : currentCards}
                         onGameComplete={(results) => {
                           setGameCompleted(true);
                           setGameResults(results);
                           setRewardPoints(prev => prev + (results.rewardPoints || 0));
                           
-                          // Save results or give rewards
-                          try {
-                            fetch('/api/rewards', {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                              },
-                              body: JSON.stringify({
-                                address: address || 'guest',
-                                source: selectedGame,
-                                points: results.rewardPoints || 0,
-                                gameData: results
-                              }),
-                            });
-                          } catch (err) {
-                            console.error('Failed to save game results:', err);
-                          }
-                        }}
-                      />
-                    )}
-                    
-                    {selectedGame === 'memory' && (
-                      <MemoryGame
-                        cards={currentCards}
-                        onGameComplete={(results) => {
-                          setGameCompleted(true);
-                          setGameResults(results);
-                          setRewardPoints(prev => prev + (results.rewardPoints || 0));
-                          
-                          // Save results or give rewards
                           try {
                             fetch('/api/rewards', {
                               method: 'POST',
@@ -936,31 +873,11 @@ export default function Home() {
                     
                     <div 
                       className={styles.gameCard} 
-                      onClick={() => setSelectedGame('battle')}
-                    >
-                      <h3>Battle Arena</h3>
-                      <p>Turn-based card battles using card stats</p>
-                      <div className={styles.gameIcon}>⚔️</div>
-                      <button className={styles.playButton}>Play</button>
-                    </div>
-                    
-                    <div 
-                      className={styles.gameCard} 
                       onClick={() => setSelectedGame('solitaire')}
                     >
                       <h3>Solitaire</h3>
                       <p>Classic solitaire game with your NFT collection</p>
                       <div className={styles.gameIcon}>🃏</div>
-                      <button className={styles.playButton}>Play</button>
-                    </div>
-                    
-                    <div 
-                      className={styles.gameCard} 
-                      onClick={() => setSelectedGame('memory')}
-                    >
-                      <h3>Memory Match</h3>
-                      <p>Match cards with same attributes in a grid</p>
-                      <div className={styles.gameIcon}>🧩</div>
                       <button className={styles.playButton}>Play</button>
                     </div>
                   </div>
