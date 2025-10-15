@@ -18,14 +18,14 @@ const COLLECTIONS = {
     rarityBreakpoints: { legendary: 5, epic: 20, rare: 500 },
     useBlockfrost: true
   },
-  'snekkies': {
-    policyId: 'b558ea5ecfa2a6e9701dab150248e94104402f789c090426eb60eb60',
+  'babysneklets': {
+    policyId: '0f0dc956aa0bf7fdf513a658f305755cda09ca27579ad6459466a25d',
     blockedNumbers: [],
-    name: 'Snekkies',
-    maxNumber: 7777,
-    fallbackIpfs: 'QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3',
-    rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 },
-    useBlockfrost: true 
+    name: 'BabySneklets',
+    maxNumber: 4275,
+    fallbackIpfs: '',
+    rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 }, // The rest are common
+    useBlockfrost: true  
   },
   'titans': {
     policyId: '53d6297f4ede5cd3bfed7281b73fad3dac8dc86a950f7454d84c16ad',
