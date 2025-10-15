@@ -298,8 +298,8 @@ export default function Home() {
     setIsPackOpening(true);
     setIsRevealed(false);
     setStatusMessage(`Fetching ${
-      selectedPack === 'snekkies' 
-        ? 'Snekkie' 
+      selectedPack === 'babysneklets' 
+        ? 'BabySneklet' 
         : selectedPack === 'titans'
           ? 'Titan'
           : 'Frog'
@@ -321,8 +321,8 @@ export default function Home() {
         
         if (response.status === 409) {
           throw new Error(`You have collected all available ${
-            selectedPack === 'snekkies' 
-              ? 'Snekkies' 
+            selectedPack === 'babysneklets' 
+                ? 'BabySneklets' 
               : selectedPack === 'titans'
                 ? 'Titans'
                 : 'Frogs'
@@ -489,8 +489,8 @@ export default function Home() {
   // Add this function to get the appropriate card back image based on selected pack
   const getCardBackImage = (packType) => {
     switch(packType) {
-      case 'snekkies':
-        return '/images/card-back-snekkies.png';
+      case 'babysneklets':
+        return '/images/card-back-babysneklets.png';
       case 'titans':
         return '/images/card-back-titans.png';
       default: // frogs
@@ -661,13 +661,13 @@ export default function Home() {
               
               <div 
                 className={styles.pack}
-                onClick={() => openPack('snekkies')}
-                data-policy-id="b1d156f83ef3a68d9a82bd4a8a7c1e5edbabb200f9bac3e093d9e25d"
+                onClick={() => openPack('babysneklets')}
+                data-policy-id="0f0dc956aa0bf7fdf513a658f305755cda09ca27579ad6459466a25d"
               >
                 <div className={styles.packImage}>🐍</div>
-                <h3 className={styles.packTitle}>Snekkies Card Pack</h3>
+                <h3 className={styles.packTitle}>BabySneklets Card Pack</h3>
                 <p className={styles.packDescription}>
-                  Contains 1 random Snekkie card from the Cardano NFT collection via BlockFrost
+                  Contains 1 random BabySneklet card from the Cardano NFT collection via BlockFrost
                 </p>
                 <button className={styles.actionBtn}>Open Pack</button>
               </div>
@@ -903,8 +903,8 @@ export default function Home() {
           }}>×</div>
           <div className={styles.modalContent}>
             <h2>Opening {
-              selectedPack === 'snekkies' 
-                ? 'Snekkies' 
+              selectedPack === 'babysneklets' 
+                ? 'BabySneklets' 
                 : selectedPack === 'titans'
                   ? 'Titans'
                   : 'Frog'
