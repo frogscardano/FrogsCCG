@@ -37,7 +37,7 @@ const Team = ({
             synergies = checkTitanSynergies(cardNumbers, cards);
             break;
           case 'frogs':
-          case 'snekkies':
+          case 'babysneklets':
           default:
             synergies = getTeamSynergies(cardNumbers);
             break;
