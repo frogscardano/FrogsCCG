@@ -8,7 +8,7 @@ const blockfrost = new BlockFrostAPI({
 });
 
 // --------------------------------------------------
-// 1.  CONFIG – only BabySneklets changed
+//  COLLECTIONS CONFIG
 // --------------------------------------------------
 const COLLECTIONS = {
   frogs: {
@@ -25,7 +25,7 @@ const COLLECTIONS = {
     blockedNumbers: [],
     name: 'BabySneklets',
     maxNumber: 4275,
-    fallbackIpfs: null,          // <-- no single hash
+    fallbackIpfs: null,
     rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 },
     useBlockfrost: true
   },
@@ -41,7 +41,7 @@ const COLLECTIONS = {
 };
 
 // --------------------------------------------------
-// 2.  HELPERS – unchanged
+//  HELPERS
 // --------------------------------------------------
 function determineRarity(assetNumber, collection) {
   const num = parseInt(assetNumber);
@@ -78,30 +78,26 @@ function sanitizeNumber(number, collectionConfig) {
 }
 
 // --------------------------------------------------
-// 3.  NEW – pull token-specific IPFS hash for BabySneklets
+//  IMAGE URL EXTRACTION
 // --------------------------------------------------
-const ipfsGateway = cid =>
-  cid ? `https://ipfs.io/ipfs/${cid.replace('ipfs://', '')}` : null;
-
-function extractBabySnekletsImageUrl(assetDetails) {
-  try {
-    const meta = assetDetails.onchain_metadata;
-    if (!meta) return null;
-    const policyMap = meta['721']?.[COLLECTIONS.babysneklets.policyId];
-    if (!policyMap) return null;
-    // key is "BabySneklets<number>"
-    const tokenMeta = Object.values(policyMap)[0];
-    const ipfsHash = tokenMeta?.image;
-    return ipfsGateway(ipfsHash);
-  } catch {
-    return null;
+function extractImageUrl(metadata, collectionId) {
+  // 1. BabySneklets – 721 → policy → token → image
+  if (collectionId === 'babysneklets') {
+    try {
+      const policyMap = metadata.onchain_metadata?.['721']?.[COLLECTIONS.babysneklets.policyId];
+      if (!policyMap) return null;
+      const tokenMeta = Object.values(policyMap)[0];
+      const ipfsHash = tokenMeta?.image;
+      if (ipfsHash?.startsWith('ipfs://')) {
+        return `https://ipfs.io/ipfs/${ipfsHash.replace('ipfs://', '')}`;
+      }
+      return ipfsHash || null;
+    } catch {
+      return null;
+    }
   }
-}
 
-// --------------------------------------------------
-// 4.  OLD extractImageUrl – unchanged for other collections
-// --------------------------------------------------
-function extractImageUrl(metadata) {
+  // 2. All other collections – original logic
   if (metadata.onchain_metadata?.image) {
     let imageUrl = metadata.onchain_metadata.image;
     if (imageUrl.startsWith('ipfs://')) {
@@ -122,7 +118,7 @@ function extractImageUrl(metadata) {
 }
 
 // --------------------------------------------------
-// 5.  generateRandomCard – only image line changed for BabySneklets
+//  RANDOM CARD GENERATOR
 // --------------------------------------------------
 function generateRandomCard(collectionConfig, userCards) {
   let randomNumber;
@@ -143,10 +139,9 @@ function generateRandomCard(collectionConfig, userCards) {
       ? getTitanStats(randomNumber, rarity, [])
       : getFrogStats(randomNumber, rarity);
 
-  // NEW: BabySneklets needs per-token IPFS – fallback to old pattern for others
   const imageUrl =
     collectionConfig.id === 'babysneklets'
-      ? `PLACEHOLDER_${randomNumber}` // will be overwritten after Blockfrost call
+      ? `PLACEHOLDER_${randomNumber}` // replaced after Blockfrost call
       : `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${randomNumber}.png`;
 
   return {
@@ -170,7 +165,7 @@ function generateRandomCard(collectionConfig, userCards) {
 }
 
 // --------------------------------------------------
-// 6.  MAIN ENDPOINT – only image-assignment part changed
+//  API HANDLER
 // --------------------------------------------------
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ message: 'Method not allowed' });
@@ -209,7 +204,6 @@ export default async function handler(req, res) {
     const collectionConfig = { ...COLLECTIONS[requestedCollection], id: requestedCollection };
     console.log(`Using policy ID: ${collectionConfig.policyId} for ${collectionConfig.name}`);
 
-    // ---------- non-Blockfrost collections ----------
     if (!collectionConfig.useBlockfrost) {
       console.log(`Collection ${collectionConfig.name} is using direct random generation`);
       try {
@@ -221,7 +215,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // ---------- Blockfrost collections ----------
     let validNumber = null;
     let attempts = 0;
     let selectedAsset, assetDetails;
@@ -245,21 +238,20 @@ export default async function handler(req, res) {
 
         assetDetails = await blockfrost.assetsById(selectedAsset.asset);
 
-        // ---------- NUMBER EXTRACTION ----------
         let nftNumber;
-        // 1. try image URL
+
         if (assetDetails.onchain_metadata?.image) {
           const imageUrl = assetDetails.onchain_metadata.image;
           console.log(`Found image URL: ${imageUrl}`);
           const imageMatch = imageUrl.match(/\/(\d+)\.png$/);
           if (imageMatch?.[1]) nftNumber = sanitizeNumber(imageMatch[1], collectionConfig);
         }
-        // 2. try metadata name
+
         if (!nftNumber && assetDetails.onchain_metadata?.name) {
           const nameMatch = assetDetails.onchain_metadata.name.match(/(\d+)/);
           if (nameMatch?.[1]) nftNumber = sanitizeNumber(nameMatch[1], collectionConfig);
         }
-        // 3. Titans hex decode
+
         if (!nftNumber && collectionConfig.id === 'titans') {
           try {
             const hexPart = selectedAsset.asset.replace(collectionConfig.policyId, '');
@@ -273,7 +265,7 @@ export default async function handler(req, res) {
             console.error('Error decoding hex asset name:', e);
           }
         }
-        // 4. fallback to asset_name digits
+
         if (!nftNumber) {
           const assetNameDigits = assetDetails.asset_name?.match(/\d+/)?.[0];
           nftNumber = sanitizeNumber(assetNameDigits, collectionConfig);
@@ -294,16 +286,12 @@ export default async function handler(req, res) {
       }
     }
 
-    // ---------- BUILD FINAL CARD ----------
     if (validNumber) {
       try {
-        // NEW: BabySneklets → token-specific IPFS; others → old logic
-        const extractedImageUrl =
-          collectionConfig.id === 'babysneklets'
-            ? extractBabySnekletsImageUrl(assetDetails)
-            : extractImageUrl(assetDetails);
-
-        const fallbackImageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`;
+        const extractedImageUrl = extractImageUrl(assetDetails, collectionConfig.id);
+        const fallbackImageUrl = collectionConfig.fallbackIpfs
+          ? `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`
+          : null;
         const imageUrl = extractedImageUrl || fallbackImageUrl;
 
         console.log('Asset ID:', selectedAsset.asset);
@@ -350,7 +338,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // ---------- LAST-RESORT RANDOM CARD ----------
     console.log(`Couldn't find a valid NFT after ${attempts} attempts, generating a random one...`);
     try {
       const card = generateRandomCard(collectionConfig, userCards);
