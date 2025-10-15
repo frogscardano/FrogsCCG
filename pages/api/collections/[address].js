@@ -25,7 +25,7 @@ const sanitizeTokenId = (tokenId, nftName = null) => {
   let sanitized = String(tokenId).trim();
   
   // If it's a name like "Titans #852", keep it as is
-  if (sanitized.includes('#') || sanitized.includes('Frogs') || sanitized.includes('Snekkies') || sanitized.includes('Titans')) {
+  if (sanitized.includes('#') || sanitized.includes('Frogs') || sanitized.includes('BabySneklets') || sanitized.includes('Titans')) {
     return sanitized;
   }
   
@@ -69,7 +69,7 @@ function calculateGameStats(nftData) {
   // If collection is still Unknown, try to detect from NFT name
   if (collection === 'Unknown' && nftData.name) {
     if (nftData.name.includes('Frogs')) collection = 'Frogs';
-    else if (nftData.name.includes('Snekkies')) collection = 'Snekkies';
+    else if (nftData.name.includes('BabySneklets')) collection = 'BabySneklets';
     else if (nftData.name.includes('Titans')) collection = 'Titans';
   }
   let stats;
@@ -80,7 +80,7 @@ function calculateGameStats(nftData) {
       stats = getTitanStats(nftNumber, rarity, nftData.attributes);
       break;
     case 'frogs':
-    case 'snekkies':
+    case 'babysneklets':
     default:
       stats = getFrogStats(nftNumber, rarity);
       break;
@@ -90,8 +90,8 @@ function calculateGameStats(nftData) {
   let bonus = { attack: 0, health: 0, speed: 0 };
   
   switch (collection.toLowerCase()) {
-    case 'snekkies':
-      bonus = { attack: 5, health: 0, speed: 10 }; // Snekkies are fast
+    case 'babysneklets':
+      bonus = { attack: 5, health: 0, speed: 10 }; // BabySneklets are fast
       break;
     case 'titans':
       bonus = { attack: 5, health: 10, speed: -3 }; // Titans are strong but slow (reduced bonus since base stats are higher)
@@ -216,7 +216,7 @@ export default async function handler(req, res) {
             let collectionName = 'Unknown';
             if (nft.name) {
               if (nft.name.includes('Frogs')) collectionName = 'Frogs';
-              else if (nft.name.includes('Snekkies')) collectionName = 'Snekkies';
+              else if (nft.name.includes('BabySneklets')) collectionName = 'BabySneklets';
               else if (nft.name.includes('Titans')) collectionName = 'Titans';
             }
             
