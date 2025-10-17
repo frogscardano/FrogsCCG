@@ -23,7 +23,7 @@ const COLLECTIONS = {
     blockedNumbers: [],
     name: 'Snekkies',
     maxNumber: 7777,
-    fallbackIpfs: 'QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3',
+    fallbackIpfs: 'Qmb8NUraY4g957EBEGEJDfgahoedmjEPvHReACmQCkm4VB',
     rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 },
     useBlockfrost: true 
   },
