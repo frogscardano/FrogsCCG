@@ -1,0 +1,420 @@
+.container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: #fff;
+}
+
+.header {
+  padding: 2rem;
+  text-align: center;
+  position: relative;
+}
+
+.backLink {
+  position: absolute;
+  left: 2rem;
+  top: 2rem;
+  color: #ff9800;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  background: rgba(255, 152, 0, 0.1);
+}
+
+.backLink:hover {
+  background: rgba(255, 152, 0, 0.2);
+  transform: translateX(-5px);
+}
+
+.header h1 {
+  font-size: 3rem;
+  margin: 0;
+  background: linear-gradient(45deg, #ff9800, #ffb74d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 30px rgba(255, 152, 0, 0.3);
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.introSection {
+  text-align: center;
+  margin-bottom: 4rem;
+  padding: 3rem 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 152, 0, 0.2);
+}
+
+.heartIcon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: heartbeat 1.5s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.1); }
+  50% { transform: scale(1); }
+}
+
+.introSection h2 {
+  font-size: 2.5rem;
+  margin-bottom: 1.5rem;
+  color: #ff9800;
+}
+
+.message {
+  font-size: 1.2rem;
+  line-height: 1.8;
+  margin-bottom: 1.5rem;
+  color: #ddd;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.supportOptions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: 2rem;
+  margin-bottom: 4rem;
+}
+
+.supportCard {
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  border-radius: 20px;
+  padding: 2.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 152, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.supportCard:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 20px 40px rgba(255, 152, 0, 0.2);
+  border-color: rgba(255, 152, 0, 0.3);
+}
+
+.cardIcon {
+  font-size: 3.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.supportCard h3 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: #ff9800;
+  text-align: center;
+}
+
+.supportCard p {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: #bbb;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.tokenInfo {
+  margin-bottom: 2rem;
+}
+
+.tokenInfo label {
+  display: block;
+  font-size: 0.9rem;
+  color: #888;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.addressBox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #333;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid #444;
+}
+
+.addressBox code {
+  flex: 1;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #ff9800;
+  word-break: break-all;
+}
+
+.copyBtn {
+  background: #444;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+}
+
+.copyBtn:hover {
+  background: #555;
+  transform: scale(1.1);
+}
+
+.poolInfo {
+  background: rgba(255, 152, 0, 0.1);
+  padding: 1.5rem;
+  border-radius: 10px;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(255, 152, 0, 0.2);
+}
+
+.poolDetail {
+  margin: 0.5rem 0;
+  font-size: 1rem;
+  color: #ddd;
+}
+
+.poolDetail strong {
+  color: #ff9800;
+  margin-right: 0.5rem;
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.actionButton {
+  flex: 1;
+  min-width: 150px;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1rem;
+  text-align: center;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.primaryButton {
+  background: linear-gradient(45deg, #ff9800, #ffb74d);
+  color: #000;
+  box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
+}
+
+.primaryButton:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(255, 152, 0, 0.5);
+}
+
+.secondaryButton {
+  background: transparent;
+  color: #ff9800;
+  border-color: #ff9800;
+}
+
+.secondaryButton:hover {
+  background: rgba(255, 152, 0, 0.1);
+  transform: translateY(-3px);
+}
+
+.alternativeSupport {
+  margin-bottom: 4rem;
+  text-align: center;
+}
+
+.alternativeSupport h3 {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: #ff9800;
+}
+
+.supportGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.supportItem {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2rem;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 152, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.supportItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 152, 0, 0.3);
+  transform: translateY(-5px);
+}
+
+.itemIcon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.supportItem h4 {
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+  color: #ff9800;
+}
+
+.supportItem p {
+  color: #bbb;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.thankYouSection {
+  margin-bottom: 4rem;
+}
+
+.thankYouBox {
+  background: linear-gradient(145deg, rgba(255, 152, 0, 0.1), rgba(255, 152, 0, 0.05));
+  padding: 3rem;
+  border-radius: 20px;
+  text-align: center;
+  border: 2px solid rgba(255, 152, 0, 0.3);
+  box-shadow: 0 10px 30px rgba(255, 152, 0, 0.2);
+}
+
+.thankYouBox h3 {
+  font-size: 2.5rem;
+  margin-bottom: 1.5rem;
+  color: #ff9800;
+}
+
+.thankYouBox p {
+  font-size: 1.2rem;
+  line-height: 1.8;
+  color: #ddd;
+  margin-bottom: 2rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.teamSignature {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 152, 0, 0.2);
+}
+
+.teamSignature p {
+  font-size: 1rem;
+  color: #bbb;
+  margin: 0.5rem 0;
+}
+
+.teamName {
+  font-size: 1.3rem !important;
+  font-weight: 600;
+  color: #ff9800 !important;
+  font-style: italic;
+}
+
+.footer {
+  text-align: center;
+  padding: 2rem;
+  color: #888;
+  border-top: 1px solid rgba(255, 152, 0, 0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .header h1 {
+    font-size: 2rem;
+  }
+
+  .backLink {
+    position: static;
+    display: inline-block;
+    margin-bottom: 1rem;
+  }
+
+  .introSection {
+    padding: 2rem 1rem;
+  }
+
+  .introSection h2 {
+    font-size: 1.8rem;
+  }
+
+  .message {
+    font-size: 1rem;
+  }
+
+  .supportOptions {
+    grid-template-columns: 1fr;
+  }
+
+  .supportCard {
+    padding: 1.5rem;
+  }
+
+  .cardIcon {
+    font-size: 2.5rem;
+  }
+
+  .supportCard h3 {
+    font-size: 1.5rem;
+  }
+
+  .buttonGroup {
+    flex-direction: column;
+  }
+
+  .actionButton {
+    min-width: 100%;
+  }
+
+  .supportGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .thankYouBox {
+    padding: 2rem 1.5rem;
+  }
+
+  .thankYouBox h3 {
+    font-size: 1.8rem;
+  }
+
+  .thankYouBox p {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .main {
+    padding: 1rem;
+  }
+
+  .supportCard {
+    padding: 1rem;
+  }
+
+  .addressBox {
+    flex-direction: column;
+  }
+
+  .copyBtn {
+    width: 100%;
+  }
+}
