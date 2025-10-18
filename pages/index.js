@@ -615,32 +615,37 @@ export default function Home() {
       </header>
 
       <div className={styles.tabs}>
-        <div 
-          className={`${styles.tab} ${currentTab === 'packs' ? styles.active : ''}`}
-          onClick={() => setCurrentTab('packs')}
-        >
-          Card Packs
-        </div>
-        <div 
-          className={`${styles.tab} ${currentTab === 'collection' ? styles.active : ''}`}
-          onClick={() => setCurrentTab('collection')}
-        >
-          My Collection
-        </div>
-        <div 
-          className={`${styles.tab} ${currentTab === 'teams' ? styles.active : ''}`}
-          onClick={() => setCurrentTab('teams')}
-        >
-          Teams
-        </div>
-        <div 
-          className={`${styles.tab} ${currentTab === 'games' ? styles.active : ''}`}
-          onClick={() => setCurrentTab('games')}
-        >
-          Games
-        </div>
-      </div>
-
+  <div 
+    className={`${styles.tab} ${currentTab === 'packs' ? styles.active : ''}`}
+    onClick={() => setCurrentTab('packs')}
+  >
+    Card Packs
+  </div>
+  <div 
+    className={`${styles.tab} ${currentTab === 'collection' ? styles.active : ''}`}
+    onClick={() => setCurrentTab('collection')}
+  >
+    My Collection
+  </div>
+  <div 
+    className={`${styles.tab} ${currentTab === 'teams' ? styles.active : ''}`}
+    onClick={() => setCurrentTab('teams')}
+  >
+    Teams
+  </div>
+  <div 
+    className={`${styles.tab} ${currentTab === 'games' ? styles.active : ''}`}
+    onClick={() => setCurrentTab('games')}
+  >
+    Games
+  </div>
+  <div 
+    className={styles.tab}
+    onClick={() => router.push('/support')}
+  >
+    ❤️ Support Us
+  </div>
+</div>
       <main className={styles.main}>
         {currentTab === 'packs' ? (
           <div className={styles.packsTab}>
