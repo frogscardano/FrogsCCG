@@ -18,11 +18,11 @@ const COLLECTIONS = {
     rarityBreakpoints: { legendary: 5, epic: 20, rare: 500 },
     useBlockfrost: true
   },
-  'snekkies': {
-    policyId: 'b558ea5ecfa2a6e9701dab150248e94104402f789c090426eb60eb60',
+  'HOSKY C(ash grab)NFT': {
+    policyId: 'a5bb0e5bb275a573d744a021f9b3bff73595468e002755b447e01559',
     blockedNumbers: [],
-    name: 'Snekkies',
-    maxNumber: 7777,
+    name: 'HOSKY C(ash grab)NFT',
+    maxNumber: 420420,
     fallbackIpfs: 'Qmb8NUraY4g957EBEGEJDfgahoedmjEPvHReACmQCkm4VB',
     rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 },
     useBlockfrost: true 
