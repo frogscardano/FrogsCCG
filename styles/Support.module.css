@@ -232,6 +232,17 @@
   transform: translateY(-3px);
 }
 
+.collectSection {
+  margin-bottom: 4rem;
+  display: flex;
+  justify-content: center;
+}
+
+.collectSection .supportCard {
+  max-width: 600px;
+  width: 100%;
+}
+
 .alternativeSupport {
   margin-bottom: 4rem;
   text-align: center;
