@@ -160,7 +160,7 @@ export default function Support() {
             <div className={styles.supportItem}>
               <span className={styles.itemIcon}>💬</span>
               <h4>Share & Spread the Word</h4>
-              <p>Tell your friends about our project <3</p>
+              <p>Tell your friends about our project</p>
             </div>
             <div className={styles.supportItem}>
               <span className={styles.itemIcon}>🐛</span>
