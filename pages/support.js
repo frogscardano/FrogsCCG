@@ -81,8 +81,6 @@ export default function Support() {
               >
                 Buy on SundaeSwap
               </a>
-              
-              </a>
             </div>
           </div>
 
@@ -151,7 +149,6 @@ export default function Support() {
                 className={`${styles.actionButton} ${styles.primaryButton}`}
               >
                 View Frogs on JPG.store
-              </a>
               </a>
             </div>
           </div>
