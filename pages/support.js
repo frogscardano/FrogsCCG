@@ -25,7 +25,7 @@ export default function Support() {
     <div className={styles.container}>
       <Head>
         <title>Support Us - Cardano NFT Collection</title>
-        <meta name="description" content="Support our project by buying $HOP tokens or staking to LEAP" />
+        <meta name="description" content="Support us by buying $HOP/Frogs or staking to LEAP" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
@@ -41,23 +41,23 @@ export default function Support() {
           <div className={styles.heartIcon}>❤️</div>
           <h2>Thank You for Being Here!</h2>
           <p className={styles.message}>
-            We've poured our hearts into creating this NFT collection and gaming experience 
-            on the Cardano blockchain. Every line of code, every design decision, and every 
-            feature was crafted with passion and dedication to bring you something special.
+            We've poured our hearts into creating this platform and gaming experience. 
+            Everyone should be able to fetch NFTs without spending a fortune. 
+            We worked hard to bring you something special. Hope you like it.
           </p>
           <p className={styles.message}>
             If you're enjoying what we've built, we'd be incredibly grateful for your support. 
-            Here are some ways you can help us continue developing and improving this project:
+            Here are some ways you can help us:
           </p>
         </section>
 
         <section className={styles.supportOptions}>
           <div className={styles.supportCard}>
             <div className={styles.cardIcon}>🪙</div>
-            <h3>Buy $HOP Token</h3>
+            <h3>Buy $HOP</h3>
             <p>
-              Support the project by purchasing $HOP tokens. Your investment helps us 
-              continue development and add new features to the platform.
+              Support the project by purchasing $HOP. Your investment helps us 
+              continue development, gives $HOP an another utility and add new features to the platform.
             </p>
             <div className={styles.tokenInfo}>
               <label>Token Policy ID:</label>
@@ -81,13 +81,7 @@ export default function Support() {
               >
                 Buy on SundaeSwap
               </a>
-              <a 
-                href={`https://www.jpg.store/search?search=${hopTokenPolicyId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${styles.actionButton} ${styles.secondaryButton}`}
-              >
-                View on JPG.store
+              
               </a>
             </div>
           </div>
@@ -96,7 +90,7 @@ export default function Support() {
             <div className={styles.cardIcon}>🎯</div>
             <h3>Stake to LEAP</h3>
             <p>
-              Delegate your ADA to the LEAP stake pool to support decentralization 
+              Delegate your ADA to our pool LEAP to support decentralization 
               and earn rewards while helping the Cardano ecosystem grow.
             </p>
             <div className={styles.poolInfo}>
@@ -109,7 +103,7 @@ export default function Support() {
             </div>
             <div className={styles.buttonGroup}>
               <a 
-                href="https://adapools.org/pool/search?q=LEAP"
+                href="https://beta.cexplorer.io/pool/pool154xmvhp4jnz7phwcla09uvzqnn3ch54lh2yzrt2znxdgc4trp8x"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`${styles.actionButton} ${styles.primaryButton}`}
@@ -117,7 +111,7 @@ export default function Support() {
                 Find LEAP Pool
               </a>
               <a 
-                href="https://cardano.org/stake-pool-delegation"
+                href="https://www.ledger.com/academy/cardano-staking-how-to-stake-ada"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`${styles.actionButton} ${styles.secondaryButton}`}
@@ -131,9 +125,9 @@ export default function Support() {
         <section className={styles.collectSection}>
           <div className={styles.supportCard}>
             <div className={styles.cardIcon}>🐸</div>
-            <h3>Collect Our Frogs NFTs</h3>
+            <h3>HODL Frogs for passive income!</h3>
             <p>
-              Check out our amazing Frogs NFT collection on JPG.store. Collect unique 
+              Get yourself some Frogs today!. Collect unique 
               frogs and join our community of collectors!
             </p>
             <div className={styles.tokenInfo}>
@@ -158,13 +152,6 @@ export default function Support() {
               >
                 View Frogs on JPG.store
               </a>
-              <a 
-                href={`https://www.jpg.store/collection/${frogsPolicyId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${styles.actionButton} ${styles.secondaryButton}`}
-              >
-                Browse Collection
               </a>
             </div>
           </div>
@@ -176,7 +163,7 @@ export default function Support() {
             <div className={styles.supportItem}>
               <span className={styles.itemIcon}>💬</span>
               <h4>Share & Spread the Word</h4>
-              <p>Tell your friends about our project on social media</p>
+              <p>Tell your friends about our project <3</p>
             </div>
             <div className={styles.supportItem}>
               <span className={styles.itemIcon}>🐛</span>
@@ -201,13 +188,13 @@ export default function Support() {
             <h3>🙏 Thank You!</h3>
             <p>
               Your support means the world to us. Whether you buy $HOP, stake to LEAP, 
-              collect our Frogs NFTs, or simply use and enjoy our platform, you're helping 
+              collect Frogs or simply use and enjoy our platform, you're helping 
               us build something amazing on Cardano. We're grateful to have you as part of 
               our community!
             </p>
             <div className={styles.teamSignature}>
-              <p>With gratitude,</p>
-              <p className={styles.teamName}>The Cardano NFT Collection Team</p>
+              <p>With love,</p>
+              <p className={styles.teamName}>Frogs Team</p>
             </div>
           </div>
         </section>
