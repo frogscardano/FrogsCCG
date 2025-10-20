@@ -1,7 +1,6 @@
 // utils/hoskyIpfsLoader.js
 import fs from 'fs';
 import path from 'path';
-import Papa from 'papaparse';
 
 let hoskyIpfsMap = null;
 
@@ -19,18 +18,16 @@ export function loadHoskyIpfsMap() {
     const csvPath = path.join(process.cwd(), 'utils', 'data', 'hosky-ipfs.csv');
     const fileContent = fs.readFileSync(csvPath, 'utf-8');
     
-    // Parse CSV
-    const parsed = Papa.parse(fileContent, {
-      header: false,
-      skipEmptyLines: true
-    });
-
+    // Parse CSV manually (simple split, no need for papaparse)
+    const lines = fileContent.split('\n').filter(line => line.trim());
+    
     // Create Map for fast lookup: tokenNumber -> ipfsHash
     hoskyIpfsMap = new Map();
     
-    parsed.data.forEach((row, index) => {
+    lines.forEach((line, index) => {
       const tokenNumber = index + 1; // Lines start at 1
-      const ipfsHash = row[1]; // Second column has the IPFS hash
+      const columns = line.split(',');
+      const ipfsHash = columns[1]; // Second column has the IPFS hash
       
       if (ipfsHash && ipfsHash.trim()) {
         hoskyIpfsMap.set(tokenNumber, ipfsHash.trim());
