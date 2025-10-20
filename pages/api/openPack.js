@@ -2,6 +2,7 @@ import { BlockFrostAPI } from '@blockfrost/blockfrost-js';
 import { getFrogStats } from '../../utils/frogData.js';
 import { getTitanStats } from '../../utils/titansData.js';
 import { withDatabase, consumePack } from '../../utils/db.js';
+import { getHoskyImageUrl } from '../../utils/hoskyIpfsLoader.js';
 
 const blockfrost = new BlockFrostAPI({
   projectId: process.env.BLOCKFROST_API_KEY,
@@ -16,7 +17,8 @@ const COLLECTIONS = {
     maxNumber: 5000,
     fallbackIpfs: 'QmXwXzVg8CvnzFwxnvsjMNq7JAHVn3qyMbwpGumi5AJhXC',
     rarityBreakpoints: { legendary: 5, epic: 20, rare: 500 },
-    useBlockfrost: true
+    useBlockfrost: true,
+    useCsvLookup: false
   },
   'snekkies': {
     policyId: 'b558ea5ecfa2a6e9701dab150248e94104402f789c090426eb60eb60',
@@ -25,7 +27,8 @@ const COLLECTIONS = {
     maxNumber: 7777,
     fallbackIpfs: 'QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3',
     rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 },
-    useBlockfrost: true 
+    useBlockfrost: true,
+    useCsvLookup: false
   },
   'titans': {
     policyId: '53d6297f4ede5cd3bfed7281b73fad3dac8dc86a950f7454d84c16ad',
@@ -34,7 +37,18 @@ const COLLECTIONS = {
     maxNumber: 6500,
     fallbackIpfs: 'QmZGxPG7zLmYbNVZijx1Z6P3rZ2UFLtN5rWhrqFTJc9bMx',
     rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 },
-    useBlockfrost: true 
+    useBlockfrost: true,
+    useCsvLookup: false
+  },
+  'hosky': {
+    policyId: 'a0028f350aaabe0545fdcb56b039bfb08e4bb4d8c4d7c3c7d481c235',
+    blockedNumbers: [],
+    name: 'HOSKY',
+    maxNumber: 420420,
+    fallbackIpfs: null,
+    rarityBreakpoints: { legendary: 100, epic: 1000, rare: 10000 },
+    useBlockfrost: true,
+    useCsvLookup: true
   }
 };
 
@@ -130,12 +144,23 @@ function generateRandomCard(collectionConfig, userCards) {
   ];
   const stats = collectionConfig.id === 'titans' ? getTitanStats(randomNumber, rarity, basicAttributes) : getFrogStats(randomNumber, rarity);
   
+  // Handle image URL - use CSV lookup for Hosky, fallback for others
+  let imageUrl;
+  if (collectionConfig.useCsvLookup) {
+    imageUrl = getHoskyImageUrl(randomNumber);
+    if (!imageUrl) {
+      throw new Error(`No IPFS hash found for ${collectionConfig.name} #${randomNumber}`);
+    }
+  } else {
+    imageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${randomNumber}.png`;
+  }
+  
   return {
     id: `${collectionConfig.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     name: `${collectionConfig.name} #${randomNumber}`,
     description: `A unique ${collectionConfig.name} from the Cardano blockchain collection`,
     rarity: rarity,
-    image: `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${randomNumber}.png`,
+    image: imageUrl,
     attack: stats.attack,
     health: stats.health,
     speed: stats.speed,
@@ -299,6 +324,46 @@ export default async function handler(req, res) {
             }
           }
           
+          // For Hosky collection, try to decode the hex asset name
+          if (collectionConfig.id === 'hosky') {
+            try {
+              // Convert the hex asset name to ASCII and extract the number
+              const hexPart = selectedAsset.asset.replace(collectionConfig.policyId, '');
+              let text = '';
+              
+              // Convert hex to ASCII
+              for (let i = 0; i < hexPart.length; i += 2) {
+                const charCode = parseInt(hexPart.substr(i, 2), 16);
+                if (charCode > 0) { // Skip null bytes
+                  text += String.fromCharCode(charCode);
+                }
+              }
+              
+              console.log(`Decoded Hosky asset name: ${text}`);
+              
+              // Extract the number - try various patterns
+              const patterns = [
+                /HOSKY(\d+)/i,
+                /hosky(\d+)/,
+                /#(\d+)/,
+                /(\d+)/
+              ];
+              
+              for (const pattern of patterns) {
+                const numberMatch = text.match(pattern);
+                if (numberMatch && numberMatch[1]) {
+                  nftNumber = sanitizeNumber(numberMatch[1], collectionConfig);
+                  if (nftNumber) {
+                    console.log(`Extracted number from decoded Hosky asset name: ${nftNumber}`);
+                    break;
+                  }
+                }
+              }
+            } catch (e) {
+              console.error("Error decoding Hosky hex asset name:", e);
+            }
+          }
+          
           // If still no number, try the original approach
           if (!nftNumber) {
             // Extract only the first set of digits from the asset name
@@ -325,17 +390,29 @@ export default async function handler(req, res) {
     
     if (validNumber) {
       try {
-        // Get the actual image URL from the metadata
-        const extractedImageUrl = extractImageUrl(assetDetails);
-        const fallbackImageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`;
-        const imageUrl = extractedImageUrl || fallbackImageUrl;
+        // Get the actual image URL
+        let imageUrl;
+        
+        // Handle Hosky collection with CSV lookup
+        if (collectionConfig.useCsvLookup) {
+          imageUrl = getHoskyImageUrl(validNumber);
+          if (!imageUrl) {
+            console.warn(`No IPFS mapping for ${collectionConfig.name} #${validNumber}, generating random...`);
+            // If no IPFS mapping, generate a random card instead
+            const card = generateRandomCard(collectionConfig, userCards);
+            return res.status(200).json(card);
+          }
+        } else {
+          // Normal image extraction for other collections
+          const extractedImageUrl = extractImageUrl(assetDetails);
+          const fallbackImageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`;
+          imageUrl = extractedImageUrl || fallbackImageUrl;
+        }
         
         console.log('Asset ID:', selectedAsset.asset);
         console.log('NFT Name:', assetDetails.onchain_metadata?.name || assetDetails.asset_name);
         console.log('Original digits:', assetDetails.asset_name?.match(/\d+/)?.[0]);
         console.log(`Valid ${collectionConfig.name} #:`, validNumber);
-        console.log('Extracted image URL:', extractedImageUrl);
-        console.log('Fallback image URL:', fallbackImageUrl);
         console.log('Final image URL:', imageUrl);
         console.log('Metadata structure:', JSON.stringify(assetDetails.onchain_metadata, null, 2));
         
