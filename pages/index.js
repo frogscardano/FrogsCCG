@@ -14,26 +14,18 @@ import { lovelaceToAda } from '../utils/cardano';
 
 // Utility functions for handling Cardano addresses
 const addressUtils = {
-  // Format address for display - handles both hex and bech32 formats
   formatAddressForDisplay: (address) => {
     if (!address) return '';
-    
-    // Check if this is likely a hex address (CIP-30 wallets return addresses in hex format)
     const isHexAddress = /^[0-9a-fA-F]+$/.test(address);
-    
-    // For display purposes we'll just show the first and last few characters
     return `${address.slice(0, 8)}...${address.slice(-8)}`;
   },
-  
-  // For hex addresses, add a debug indicator that this is a hex format
   getAddressInfo: (address) => {
     if (!address) return { isHex: false, formatted: '' };
-    
     const isHex = /^[0-9a-fA-F]+$/.test(address);
     return {
       isHex,
       formatted: `${address.slice(0, 8)}...${address.slice(-8)}`,
-      prefix: isHex ? 'hex' : address.split('1')[0] // Get the prefix for bech32 addresses
+      prefix: isHex ? 'hex' : address.split('1')[0]
     };
   }
 };
@@ -41,18 +33,11 @@ const addressUtils = {
 export default function Home() {
   const router = useRouter();
   const { 
-    connected, 
-    address, 
-    balance, 
-    loading, 
-    error: walletError,
-    connect: connectWalletContext,
-    disconnect: disconnectWalletContext,
-    api, 
-    availableWallets,
-    refreshWallets,
-    checkingWallets
+    connected, address, balance, loading, error: walletError,
+    connect: connectWalletContext, disconnect: disconnectWalletContext,
+    api, availableWallets, refreshWallets, checkingWallets
   } = useWallet();
+  
   const [currentTab, setCurrentTab] = useState('packs');
   const [currentCards, setCurrentCards] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,27 +58,25 @@ export default function Home() {
   const [canClaimDaily, setCanClaimDaily] = useState(false);
   const [nextClaimAt, setNextClaimAt] = useState(null);
   const [claimLoading, setClaimLoading] = useState(false);
-
-  // Add a formatted address state to store a more user-friendly address
   const [displayAddressInfo, setDisplayAddressInfo] = useState(null);
+  
+  // HOSKY STATE
+  const [hoskyPoopScore, setHoskyPoopScore] = useState(0);
+  const [isPoopingHosky, setIsPoopingHosky] = useState(false);
 
-  // Check if a wallet is already connected on page load
   useEffect(() => {
     const checkExistingConnection = async () => {
       if (availableWallets && availableWallets.length > 0 && !connected) {
         try {
-          // Try to connect to Eternl by default or the first available wallet
           const walletToTry = availableWallets.find(w => w.name === 'eternl') || availableWallets[0];
           if (walletToTry) {
             // await connectWalletContext(walletToTry.name);
           }
         } catch (e) {
           console.error('Error reconnecting to wallet:', e);
-          // setError(`Reconnect failed: ${e.message}`);
         }
       }
     };
-    
     checkExistingConnection();
   }, [availableWallets, connected, connectWalletContext]);
 
@@ -117,7 +100,6 @@ export default function Home() {
     }
   };
 
-  // useEffect to update addressInfo when address from context changes
   useEffect(() => {
     if (address) {
       setDisplayAddressInfo(addressUtils.getAddressInfo(address));
@@ -126,7 +108,26 @@ export default function Home() {
     }
   }, [address]);
 
-  // Load collection for the connected wallet
+  // LOAD HOSKY POOP SCORE
+  useEffect(() => {
+    const fetchPoopScore = async () => {
+      if (!connected || !address) {
+        setHoskyPoopScore(0);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/getHoskyPoopmeter?walletAddress=${encodeURIComponent(address)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setHoskyPoopScore(data.poopScore || 0);
+        }
+      } catch (e) {
+        console.error('Failed to load poop score:', e);
+      }
+    };
+    fetchPoopScore();
+  }, [connected, address]);
+
   const loadCollection = async () => {
     if (!connected || !address) {
       console.error('No wallet address available to load collection');
@@ -154,17 +155,14 @@ export default function Home() {
       const cards = await response.json();
       console.log(`✅ Received response from API:`, cards);
       
-      // Handle new response format with metadata
       let cardData = cards;
       let userMessage = '';
       
       if (cards.collection && Array.isArray(cards.collection)) {
-        // New format with metadata
         cardData = cards.collection;
         userMessage = cards.message || '';
         console.log(`📊 Collection data: ${cardData.length} cards, Message: ${userMessage}`);
       } else if (Array.isArray(cards)) {
-        // Old format - just array of cards
         cardData = cards;
         userMessage = `Found ${cards.length} cards in your collection`;
         console.log(`📊 Legacy format: ${cardData.length} cards`);
@@ -173,7 +171,6 @@ export default function Home() {
         throw new Error('Unexpected response format from API');
       }
       
-      // Debug: Log the structure of the first card
       if (cardData.length > 0) {
         console.log(`🔍 First card structure:`, {
           id: cardData[0].id,
@@ -199,7 +196,6 @@ export default function Home() {
     }
   };
 
-  // Handle card deletion
   const handleDeleteCard = async (cardToDelete) => {
     if (!connected || !address) {
       console.error('No wallet connected for deletion');
@@ -209,10 +205,8 @@ export default function Home() {
     try {
       console.log(`🗑️ Deleting card: ${cardToDelete.name} (ID: ${cardToDelete.id})`);
       
-      // Remove from local state immediately for better UX
       setCurrentCards(prevCards => prevCards.filter(card => card.id !== cardToDelete.id));
       
-      // Make API call to delete from database
       const response = await fetch(`/api/collections/${address}`, {
         method: 'DELETE',
         headers: {
@@ -222,7 +216,6 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        // If deletion failed, reload the collection to restore the card
         console.error('Failed to delete card from database, reloading collection...');
         loadCollection();
         throw new Error('Failed to delete card from database');
@@ -231,14 +224,11 @@ export default function Home() {
       console.log(`✅ Card deleted successfully: ${cardToDelete.name}`);
       setStatusMessage(`Deleted "${cardToDelete.name}" from your collection`);
       
-      // Clear status message after 3 seconds
       setTimeout(() => setStatusMessage(''), 3000);
       
     } catch (error) {
       console.error('Error deleting card:', error);
       setStatusMessage(`Failed to delete "${cardToDelete.name}". Please try again.`);
-      
-      // Reload collection to ensure consistency
       loadCollection();
     }
   };
@@ -292,7 +282,6 @@ export default function Home() {
   const handlePackClick = async () => {
     if (isPackOpening) return;
     
-    // optimistic reduce balance
     setPacksBalance(prev => (prev > 0 ? prev - 1 : 0));
     
     setIsPackOpening(true);
@@ -306,15 +295,12 @@ export default function Home() {
     } NFT from Cardano...`);
     
     try {
-      // Don't send the entire collection as it can make the URL too long
-      // Just send the collection type and wallet address
       const apiUrl = `/api/openPack?walletAddress=${encodeURIComponent(address)}&collectionType=${selectedPack}`;
       console.log(`Calling API: ${apiUrl}`);
       
       const response = await fetch(apiUrl);
       
       if (!response.ok) {
-        // rollback optimistic change on failure
         setPacksBalance(prev => prev + 1);
         const errorText = await response.text();
         console.error(`API error (${response.status}):`, errorText);
@@ -334,12 +320,10 @@ export default function Home() {
       const cardData = await response.json();
       
       if (cardData) {
-        // Wait for pack opening animation
         await new Promise(resolve => setTimeout(resolve, 1000));
         setStatusMessage(`Found ${cardData.name}!`);
         setRevealedCards([cardData]);
         
-        // Trigger reveal animation
         setTimeout(() => {
           setIsRevealed(true);
         }, 500);
@@ -347,17 +331,52 @@ export default function Home() {
         throw new Error('No card data received');
       }
     } catch (error) {
-      // rollback optimistic change on error
       setPacksBalance(prev => prev + 1);
       console.error('Error opening pack:', error);
       setStatusMessage(`Error: ${error.message}. Please try again.`);
-      // Reset after 3 seconds
       setTimeout(() => {
         setIsPackOpening(false);
         setIsRevealed(false);
       }, 3000);
     }
     setIsPackOpening(false);
+  };
+
+  // HANDLE HOSKY POOP
+  const handlePoopHosky = async () => {
+    if (!connected || isPoopingHosky) {
+      alert("Please connect your wallet to poop HOSKY.");
+      return;
+    }
+    
+    setIsPoopingHosky(true);
+    setStatusMessage('💩 Pooping a HOSKY...');
+    
+    try {
+      const apiUrl = `/api/poopHosky?walletAddress=${encodeURIComponent(address)}`;
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to poop HOSKY: ${errorText}`);
+      }
+      
+      const cardData = await response.json();
+      setHoskyPoopScore(cardData.poopScore);
+      
+      setSelectedPack('hosky');
+      setRevealedCards([cardData]);
+      setIsRevealed(true);
+      setIsModalOpen(true);
+      setStatusMessage(`💩 Pooped ${cardData.name}! Poopmeter: ${cardData.poopScore}`);
+      
+    } catch (error) {
+      console.error('Error pooping HOSKY:', error);
+      setStatusMessage(`Error: ${error.message}`);
+      alert(`Failed to poop HOSKY: ${error.message}`);
+    } finally {
+      setIsPoopingHosky(false);
+    }
   };
 
   const handleClaimDaily = async () => {
@@ -416,7 +435,6 @@ export default function Home() {
       console.log('✅ Card saved successfully');
       setStatusMessage('Card added! Refreshing collection...');
       
-      // FIXED: Fetch the full collection after saving
       const collectionResponse = await fetch(`/api/collections/${address}`);
       
       if (!collectionResponse.ok) {
@@ -427,7 +445,6 @@ export default function Home() {
       
       const collectionData = await collectionResponse.json();
       
-      // Handle the response format
       let cardData = collectionData;
       if (collectionData.collection && Array.isArray(collectionData.collection)) {
         cardData = collectionData.collection;
@@ -435,7 +452,6 @@ export default function Home() {
         cardData = collectionData;
       }
       
-      // Update the current cards with the full collection
       setCurrentCards(cardData);
       console.log(`✅ Collection refreshed with ${cardData.length} total cards`);
       
@@ -472,13 +488,8 @@ export default function Home() {
 
   const handlePackPurchase = async (packType, txHash) => {
     try {
-      // Wait for transaction confirmation
       setStatusMessage('Waiting for transaction confirmation...');
-      
-      // You can add transaction confirmation check here
       await new Promise(resolve => setTimeout(resolve, 5000));
-      
-      // Open the pack
       openPack(packType);
     } catch (error) {
       console.error('Error processing purchase:', error);
@@ -486,34 +497,29 @@ export default function Home() {
     }
   };
 
-  // Add this function to get the appropriate card back image based on selected pack
   const getCardBackImage = (packType) => {
     switch(packType) {
       case 'snekkies':
         return '/images/card-back-snekkies.png';
       case 'titans':
         return '/images/card-back-titans.png';
-      default: // frogs
+      default:
         return '/images/card-back.png';
     }
   };
 
-  // Check if Cardano wallets are available
   const isCardanoAvailable = () => {
     return typeof window !== 'undefined' && window.cardano !== undefined;
   };
 
-  // Check if VESPR is installed
   const isVesprAvailable = () => {
     return isCardanoAvailable() && window.cardano.vespr !== undefined;
   };
 
-  // Connect to VESPR wallet
   const connectVespr = async () => {
     if (!isVesprAvailable()) {
       throw new Error("VESPR wallet is not installed. Please install it first.");
     }
-    
     return connectWalletContext('vespr');
   };
 
@@ -615,37 +621,38 @@ export default function Home() {
       </header>
 
       <div className={styles.tabs}>
-  <div 
-    className={`${styles.tab} ${currentTab === 'packs' ? styles.active : ''}`}
-    onClick={() => setCurrentTab('packs')}
-  >
-    Card Packs
-  </div>
-  <div 
-    className={`${styles.tab} ${currentTab === 'collection' ? styles.active : ''}`}
-    onClick={() => setCurrentTab('collection')}
-  >
-    My Collection
-  </div>
-  <div 
-    className={`${styles.tab} ${currentTab === 'teams' ? styles.active : ''}`}
-    onClick={() => setCurrentTab('teams')}
-  >
-    Teams
-  </div>
-  <div 
-    className={`${styles.tab} ${currentTab === 'games' ? styles.active : ''}`}
-    onClick={() => setCurrentTab('games')}
-  >
-    Games
-  </div>
-  <div 
-    className={styles.tab}
-    onClick={() => router.push('/support')}
-  >
-    ❤️ Support Us
-  </div>
-</div>
+        <div 
+          className={`${styles.tab} ${currentTab === 'packs' ? styles.active : ''}`}
+          onClick={() => setCurrentTab('packs')}
+        >
+          Card Packs
+        </div>
+        <div 
+          className={`${styles.tab} ${currentTab === 'collection' ? styles.active : ''}`}
+          onClick={() => setCurrentTab('collection')}
+        >
+          My Collection
+        </div>
+        <div 
+          className={`${styles.tab} ${currentTab === 'teams' ? styles.active : ''}`}
+          onClick={() => setCurrentTab('teams')}
+        >
+          Teams
+        </div>
+        <div 
+          className={`${styles.tab} ${currentTab === 'games' ? styles.active : ''}`}
+          onClick={() => setCurrentTab('games')}
+        >
+          Games
+        </div>
+        <div 
+          className={styles.tab}
+          onClick={() => router.push('/support')}
+        >
+          ❤️ Support Us
+        </div>
+      </div>
+      
       <main className={styles.main}>
         {currentTab === 'packs' ? (
           <div className={styles.packsTab}>
@@ -654,7 +661,6 @@ export default function Home() {
               <div 
                 className={styles.pack}
                 onClick={() => openPack('frogs')}
-                data-policy-id="3cf8489b12ded9346708bed263307b362ce813636f92bddfd46e02ec"
               >
                 <div className={styles.packImage}>🐸</div>
                 <h3 className={styles.packTitle}>Frog Card Pack</h3>
@@ -667,7 +673,6 @@ export default function Home() {
               <div 
                 className={styles.pack}
                 onClick={() => openPack('snekkies')}
-                data-policy-id="b1d156f83ef3a68d9a82bd4a8a7c1e5edbabb200f9bac3e093d9e25d"
               >
                 <div className={styles.packImage}>🐍</div>
                 <h3 className={styles.packTitle}>Snekkies Card Pack</h3>
@@ -680,7 +685,6 @@ export default function Home() {
               <div 
                 className={styles.pack}
                 onClick={() => openPack('titans')}
-                data-policy-id="53d6297f4ede5cd3bfed7281b73fad3dac8dc86a950f7454d84c16ad"
               >
                 <div className={styles.packImage}>🦁</div>
                 <h3 className={styles.packTitle}>Titans Card Pack</h3>
@@ -688,6 +692,92 @@ export default function Home() {
                   Contains 1 random Titan card from the Cardano NFT collection via BlockFrost
                 </p>
                 <button className={styles.actionBtn}>Open Pack</button>
+              </div>
+            </div>
+
+            {/* HOSKY POOP SECTION */}
+            <div style={{
+              background: 'linear-gradient(135deg, #fff5e6 0%, #ffe6cc 100%)',
+              border: '3px dashed #8B4513',
+              borderRadius: '16px',
+              padding: '2rem',
+              marginTop: '3rem',
+              textAlign: 'center'
+            }}>
+              <h3 style={{color: '#8B4513', fontSize: '1.5rem', marginBottom: '1rem'}}>
+                💩 Special HOSKY Feature
+              </h3>
+              
+              <button
+                onClick={handlePoopHosky}
+                disabled={isPoopingHosky || !connected}
+                style={{
+                  background: isPoopingHosky ? '#666' : 'linear-gradient(135deg, #8B4513 0%, #654321 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '1rem 2rem',
+                  borderRadius: '12px',
+                  fontSize: '1.2rem',
+                  fontWeight: 'bold',
+                  cursor: isPoopingHosky || !connected ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  boxShadow: '0 4px 12px rgba(139, 69, 19, 0.3)',
+                  marginBottom: '1.5rem',
+                  opacity: isPoopingHosky || !connected ? 0.6 : 1
+                }}
+              >
+                <span style={{fontSize: '1.5rem'}}>{isPoopingHosky ? '⏳' : '💩'}</span>
+                <span>{isPoopingHosky ? 'Pooping...' : 'Poop a HOSKY'}</span>
+              </button>
+
+              <div style={{
+                background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+                border: '3px solid #8B4513',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                maxWidth: '300px',
+                margin: '0 auto 1.5rem',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  color: '#8B4513',
+                  marginBottom: '0.5rem'
+                }}>
+                  <span style={{fontSize: '1.5rem'}}>💩</span>
+                  <span>Hosky Poopmeter</span>
+                </div>
+                <div style={{
+                  fontSize: '2.5rem',
+                  fontWeight: 'bold',
+                  color: '#8B4513',
+                  margin: '0.5rem 0',
+                  textShadow: '2px 2px 4px rgba(0, 0, 0, 0.1)'
+                }}>
+                  {hoskyPoopScore.toLocaleString()}
+                </div>
+                <div style={{
+                  fontSize: '0.9rem',
+                  color: '#666',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Total poops
+                </div>
+              </div>
+
+              <div style={{color: '#8B4513', fontSize: '0.95rem', lineHeight: '1.6'}}>
+                <p>💩 Poop HOSKY cards for FREE!</p>
+                <p>⚡ No packs required</p>
+                <p>📊 Cards are temporary (not saved)</p>
+                <p>🏆 Build your Poopmeter score</p>
               </div>
             </div>
           </div>
@@ -912,12 +1002,16 @@ export default function Home() {
                 ? 'Snekkies' 
                 : selectedPack === 'titans'
                   ? 'Titans'
-                  : 'Frog'
-            } Pack with BlockFrost</h2>
+                  : selectedPack === 'hosky'
+                    ? '💩 HOSKY'
+                    : 'Frog'
+            } Pack {selectedPack !== 'hosky' ? 'with BlockFrost' : ''}</h2>
+            
             <div className={styles.packOpening}>
               <div 
                 className={`${styles.packWrapper} ${isPackOpening ? styles.opened : ''} ${isRevealed ? styles.revealed : ''}`} 
-                onClick={handlePackClick}
+                onClick={selectedPack === 'hosky' ? null : handlePackClick}
+                style={{cursor: selectedPack === 'hosky' ? 'default' : 'pointer'}}
               >
                 <div className={styles.packFront}>
                   <img 
@@ -956,13 +1050,31 @@ export default function Home() {
                 </div>
               </div>
             </div>
+            
             <div className={styles.statusMessage}>
               {statusMessage}
             </div>
+            
             {isRevealed && revealedCards.length > 0 && (
-              <button className={styles.actionBtn} onClick={addToCollection}>
-                Add to Collection
-              </button>
+              <>
+                {selectedPack === 'hosky' ? (
+                  <div style={{
+                    background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                    color: 'white',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    margin: '1rem 0',
+                    fontWeight: 'bold',
+                    fontSize: '0.9rem'
+                  }}>
+                    💩 Temporary HOSKY - Not saved to collection
+                  </div>
+                ) : (
+                  <button className={styles.actionBtn} onClick={addToCollection}>
+                    Add to Collection
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
