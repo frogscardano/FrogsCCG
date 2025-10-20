@@ -16,7 +16,7 @@ export default function Support() {
   const frogsPolicyId = '3cf8489b12ded9346708bed263307b362ce813636f92bddfd46e02ec';
   
   // HOP token - Note: Replace with actual HOP token policy if different
-  const hopTokenPolicyId = 'af3d70acf4bd5b3abb319a7d75c89fb3e56eafcdd46b2e9b57a2557f4686f70';
+  const hopTokenPolicyId = 'e90f72af7212f37b1af072d74d326e7d1bc15c21f8ca4180d4fd931f';
   
   // LEAP stake pool ticker
   const leapPoolTicker = 'LEAP';
@@ -74,7 +74,7 @@ export default function Support() {
             </div>
             <div className={styles.buttonGroup}>
               <a 
-                href={`https://app.sundaeswap.finance/#/swap?swap_from=.&swap_to=${hopTokenPolicyId}.484f50`}
+                href={`https://app.sundae.fi/exchange?given=ada.lovelace&taken=e90f72af7212f37b1af072d74d326e7d1bc15c21f8ca4180d4fd931f.484f50&routeIdent=cd9f2021bf92ed7c2f5f30412db0fb526f179cf75c08fe267f5608bf`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`${styles.actionButton} ${styles.primaryButton}`}
