@@ -644,6 +644,40 @@ export default function Home() {
         {currentTab === 'packs' ? (
           <div className={styles.packsTab}>
             <h2>Open an NFT Card Pack</h2>
+            
+            {/* Poopmeter Display */}
+            <div style={{
+              background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+              border: '2px solid #8B4513',
+              borderRadius: '12px',
+              padding: '1rem',
+              maxWidth: '250px',
+              margin: '0 auto 2rem',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                color: '#8B4513',
+                marginBottom: '0.3rem'
+              }}>
+                <span style={{fontSize: '1.2rem'}}>💩</span>
+                <span>Hosky Poopmeter</span>
+              </div>
+              <div style={{
+                fontSize: '2rem',
+                fontWeight: 'bold',
+                color: '#8B4513',
+                textShadow: '2px 2px 4px rgba(0, 0, 0, 0.1)'
+              }}>
+                {hoskyPoopScore.toLocaleString()}
+              </div>
+            </div>
+
             <div className={styles.packContainer}>
               <div 
                 className={styles.pack}
@@ -680,91 +714,17 @@ export default function Home() {
                 </p>
                 <button className={styles.actionBtn}>Open Pack</button>
               </div>
-            </div>
-
-            {/* HOSKY POOP SECTION */}
-            <div style={{
-              background: 'linear-gradient(135deg, #fff5e6 0%, #ffe6cc 100%)',
-              border: '3px dashed #8B4513',
-              borderRadius: '16px',
-              padding: '2rem',
-              marginTop: '3rem',
-              textAlign: 'center'
-            }}>
-              <h3 style={{color: '#8B4513', fontSize: '1.5rem', marginBottom: '1rem'}}>
-                💩 Special HOSKY Feature
-              </h3>
               
-              <button
-                onClick={handlePoopHosky}
-                disabled={isPoopingHosky || !connected}
-                style={{
-                  background: isPoopingHosky ? '#666' : 'linear-gradient(135deg, #8B4513 0%, #654321 100%)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '1rem 2rem',
-                  borderRadius: '12px',
-                  fontSize: '1.2rem',
-                  fontWeight: 'bold',
-                  cursor: isPoopingHosky || !connected ? 'not-allowed' : 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  boxShadow: '0 4px 12px rgba(139, 69, 19, 0.3)',
-                  marginBottom: '1.5rem',
-                  opacity: isPoopingHosky || !connected ? 0.6 : 1
-                }}
+              <div 
+                className={styles.pack}
+                onClick={() => openPack('hosky')}
               >
-                <span style={{fontSize: '1.5rem'}}>{isPoopingHosky ? '⏳' : '💩'}</span>
-                <span>{isPoopingHosky ? 'Pooping...' : 'Poop a HOSKY'}</span>
-              </button>
-
-              <div style={{
-                background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
-                border: '3px solid #8B4513',
-                borderRadius: '16px',
-                padding: '1.5rem',
-                maxWidth: '300px',
-                margin: '0 auto 1.5rem',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  color: '#8B4513',
-                  marginBottom: '0.5rem'
-                }}>
-                  <span style={{fontSize: '1.5rem'}}>💩</span>
-                  <span>Hosky Poopmeter</span>
-                </div>
-                <div style={{
-                  fontSize: '2.5rem',
-                  fontWeight: 'bold',
-                  color: '#8B4513',
-                  margin: '0.5rem 0',
-                  textShadow: '2px 2px 4px rgba(0, 0, 0, 0.1)'
-                }}>
-                  {hoskyPoopScore.toLocaleString()}
-                </div>
-                <div style={{
-                  fontSize: '0.9rem',
-                  color: '#666',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  Total poops
-                </div>
-              </div>
-
-              <div style={{color: '#8B4513', fontSize: '0.95rem', lineHeight: '1.6'}}>
-                <p>💩 Poop HOSKY cards for FREE!</p>
-                <p>⚡ No packs required</p>
-                <p>📊 Cards are temporary (not saved)</p>
-                <p>🏆 Build your Poopmeter score</p>
+                <div className={styles.packImage}>💩</div>
+                <h3 className={styles.packTitle}>Poop HOSKY</h3>
+                <p className={styles.packDescription}>
+                  Contains 1 random HOSKY card from the Cardano NFT collection via BlockFrost
+                </p>
+                <button className={styles.actionBtn}>Poop a HOSKY</button>
               </div>
             </div>
           </div>
