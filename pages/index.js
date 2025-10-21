@@ -957,8 +957,8 @@ export default function Home() {
             <div className={styles.packOpening}>
               <div 
                 className={`${styles.packWrapper} ${isPackOpening ? styles.opened : ''} ${isRevealed ? styles.revealed : ''}`} 
-                onClick={selectedPack === 'hosky' ? null : handlePackClick}
-                style={{cursor: selectedPack === 'hosky' ? 'default' : 'pointer'}}
+                onClick={handlePackClick}
+                style={{cursor: 'pointer'}}
               >
                 <div className={styles.packFront}>
                   <img 
