@@ -93,7 +93,7 @@ function extractImageUrl(metadata) {
     const file = metadata.onchain_metadata.files[0];
     if (file.src && file.src.startsWith('ipfs://')) {
       const ipfsHash = file.src.replace('ipfs://', '');
-      return `ipfs://${ipfsHash}`;
+      return `https://ipfs.io/ipfs/${ipfsHash}`;
     }
     return file.src || null;
   }
