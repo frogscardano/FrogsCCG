@@ -3,6 +3,7 @@ import { getFrogStats } from '../../utils/frogData.js';
 import { getTitanStats } from '../../utils/titansData.js';
 import { withDatabase, consumePack } from '../../utils/db.js';
 import { getHoskyImageUrl } from '../../utils/hoskyIpfsLoader.js';
+import { prisma } from '../../utils/db.js';
 
 const blockfrost = new BlockFrostAPI({
   projectId: process.env.BLOCKFROST_API_KEY,
@@ -47,7 +48,7 @@ const COLLECTIONS = {
     maxNumber: 420420,
     fallbackIpfs: null,
     rarityBreakpoints: { legendary: 100, epic: 1000, rare: 10000 },
-    useBlockfrost: true,
+    useBlockfrost: false, // HOSKY doesn't use Blockfrost - just random + CSV
     useCsvLookup: true
   }
 };
@@ -197,23 +198,6 @@ export default async function handler(req, res) {
 
     console.log(`🔍 Validated wallet address: ${walletAddress} (length: ${walletAddress.length})`);
 
-    // OPTIMIZED: Use atomic consumePack transaction instead of manual balance check
-    const packResult = await withDatabase(async () => {
-      return await consumePack(walletAddress);
-    });
-    
-    if (!packResult.success) {
-      return res.status(402).json({ 
-        message: 'No packs remaining. Claim your daily +5 packs.',
-        balance: packResult.balance
-      });
-    }
-    
-    console.log(`✅ Pack consumed. Remaining balance: ${packResult.balance}`);
-    
-    // Get current collection from request query
-    const userCards = req.query.collection ? JSON.parse(req.query.collection) : [];
-    
     // Get requested collection type (defaulting to frogs if not specified)
     const requestedCollection = req.query.collectionType || 'frogs';
     console.log(`Requested collection: ${requestedCollection}`);
@@ -230,6 +214,65 @@ export default async function handler(req, res) {
     };
     
     console.log(`Using policy ID: ${collectionConfig.policyId} for ${collectionConfig.name}`);
+
+    // HOSKY is FREE - skip pack consumption
+    if (requestedCollection !== 'hosky') {
+      // Consume pack for non-HOSKY collections
+      const packResult = await withDatabase(async () => {
+        return await consumePack(walletAddress);
+      });
+      
+      if (!packResult.success) {
+        return res.status(402).json({ 
+          message: 'No packs remaining. Claim your daily +5 packs.',
+          balance: packResult.balance
+        });
+      }
+      
+      console.log(`✅ Pack consumed. Remaining balance: ${packResult.balance}`);
+    } else {
+      console.log(`💩 HOSKY is FREE - no pack consumed`);
+    }
+    
+    // Get current collection from request query
+    const userCards = req.query.collection ? JSON.parse(req.query.collection) : [];
+    
+    // Special handling for HOSKY - no Blockfrost, just random generation
+    if (requestedCollection === 'hosky') {
+      console.log(`Collection ${collectionConfig.name} is using direct random generation with CSV lookup`);
+      try {
+        const card = generateRandomCard(collectionConfig, userCards);
+        
+        // Increment Hosky Poopmeter
+        try {
+          const user = await prisma.user.upsert({
+            where: { address: walletAddress },
+            update: {
+              hoskyPoopmeter: { increment: 1 }
+            },
+            create: {
+              address: walletAddress,
+              balance: '0',
+              hoskyPoopmeter: 1
+            },
+            select: {
+              hoskyPoopmeter: true
+            }
+          });
+          
+          card.poopScore = user.hoskyPoopmeter;
+          console.log(`✅ Poopmeter updated: ${user.hoskyPoopmeter}`);
+        } catch (dbError) {
+          console.error('Error updating poopmeter:', dbError);
+          card.poopScore = 0;
+        }
+        
+        return res.status(200).json(card);
+      } catch (error) {
+        console.error('Error generating HOSKY card:', error);
+        return res.status(500).json({ message: 'Error generating HOSKY card', error: error.message });
+      }
+    }
     
     // Special handling for collections that don't use BlockFrost (like Snekkies)
     if (!collectionConfig.useBlockfrost) {
@@ -324,46 +367,6 @@ export default async function handler(req, res) {
             }
           }
           
-          // For Hosky collection, try to decode the hex asset name
-          if (collectionConfig.id === 'hosky') {
-            try {
-              // Convert the hex asset name to ASCII and extract the number
-              const hexPart = selectedAsset.asset.replace(collectionConfig.policyId, '');
-              let text = '';
-              
-              // Convert hex to ASCII
-              for (let i = 0; i < hexPart.length; i += 2) {
-                const charCode = parseInt(hexPart.substr(i, 2), 16);
-                if (charCode > 0) { // Skip null bytes
-                  text += String.fromCharCode(charCode);
-                }
-              }
-              
-              console.log(`Decoded Hosky asset name: ${text}`);
-              
-              // Extract the number - try various patterns
-              const patterns = [
-                /HOSKY(\d+)/i,
-                /hosky(\d+)/,
-                /#(\d+)/,
-                /(\d+)/
-              ];
-              
-              for (const pattern of patterns) {
-                const numberMatch = text.match(pattern);
-                if (numberMatch && numberMatch[1]) {
-                  nftNumber = sanitizeNumber(numberMatch[1], collectionConfig);
-                  if (nftNumber) {
-                    console.log(`Extracted number from decoded Hosky asset name: ${nftNumber}`);
-                    break;
-                  }
-                }
-              }
-            } catch (e) {
-              console.error("Error decoding Hosky hex asset name:", e);
-            }
-          }
-          
           // If still no number, try the original approach
           if (!nftNumber) {
             // Extract only the first set of digits from the asset name
@@ -390,24 +393,10 @@ export default async function handler(req, res) {
     
     if (validNumber) {
       try {
-        // Get the actual image URL
-        let imageUrl;
-        
-        // Handle Hosky collection with CSV lookup
-        if (collectionConfig.useCsvLookup) {
-          imageUrl = getHoskyImageUrl(validNumber);
-          if (!imageUrl) {
-            console.warn(`No IPFS mapping for ${collectionConfig.name} #${validNumber}, generating random...`);
-            // If no IPFS mapping, generate a random card instead
-            const card = generateRandomCard(collectionConfig, userCards);
-            return res.status(200).json(card);
-          }
-        } else {
-          // Normal image extraction for other collections
-          const extractedImageUrl = extractImageUrl(assetDetails);
-          const fallbackImageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`;
-          imageUrl = extractedImageUrl || fallbackImageUrl;
-        }
+        // Normal image extraction for Blockfrost collections
+        const extractedImageUrl = extractImageUrl(assetDetails);
+        const fallbackImageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`;
+        const imageUrl = extractedImageUrl || fallbackImageUrl;
         
         console.log('Asset ID:', selectedAsset.asset);
         console.log('NFT Name:', assetDetails.onchain_metadata?.name || assetDetails.asset_name);
@@ -444,8 +433,6 @@ export default async function handler(req, res) {
 
         console.log(`✅ Generated card for ${collectionConfig.name} #${validNumber}`);
         
-        // CRITICAL FIX: Return the card WITHOUT saving to database
-        // The frontend will handle saving when user clicks "add to collection"
         return res.status(200).json(card);
       } catch (error) {
         console.error('Error generating card:', error);
