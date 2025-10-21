@@ -149,7 +149,9 @@ function generateRandomCard(collectionConfig, userCards) {
   let imageUrl;
   if (collectionConfig.useCsvLookup) {
     imageUrl = getHoskyImageUrl(randomNumber);
+    console.log(`HOSKY #${randomNumber} image URL: ${imageUrl}`); // DEBUG LOG
     if (!imageUrl) {
+      console.error(`❌ No IPFS hash found for ${collectionConfig.name} #${randomNumber}`);
       throw new Error(`No IPFS hash found for ${collectionConfig.name} #${randomNumber}`);
     }
   } else {
@@ -243,25 +245,42 @@ export default async function handler(req, res) {
       try {
         const card = generateRandomCard(collectionConfig, userCards);
         
-        // Increment Hosky Poopmeter
+        // Increment Hosky Poopmeter - use the SAME pattern as consumePack
         try {
-          const user = await prisma.user.upsert({
+          // First ensure user exists
+          const existingUser = await prisma.user.findUnique({
             where: { address: walletAddress },
-            update: {
-              hoskyPoopmeter: { increment: 1 }
-            },
-            create: {
-              address: walletAddress,
-              balance: '0',
-              hoskyPoopmeter: 1
-            },
-            select: {
-              hoskyPoopmeter: true
-            }
+            select: { id: true, hoskyPoopmeter: true }
           });
+
+          let newPoopScore = 0;
+
+          if (existingUser) {
+            // User exists, just increment
+            const updatedUser = await prisma.user.update({
+              where: { address: walletAddress },
+              data: { 
+                hoskyPoopmeter: (existingUser.hoskyPoopmeter || 0) + 1 
+              },
+              select: { hoskyPoopmeter: true }
+            });
+            newPoopScore = updatedUser.hoskyPoopmeter;
+          } else {
+            // Create new user with poopmeter = 1
+            const newUser = await prisma.user.create({
+              data: {
+                id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                address: walletAddress,
+                balance: '0',
+                hoskyPoopmeter: 1
+              },
+              select: { hoskyPoopmeter: true }
+            });
+            newPoopScore = newUser.hoskyPoopmeter;
+          }
           
-          card.poopScore = user.hoskyPoopmeter;
-          console.log(`✅ Poopmeter updated: ${user.hoskyPoopmeter}`);
+          card.poopScore = newPoopScore;
+          console.log(`✅ Poopmeter updated: ${newPoopScore}`);
         } catch (dbError) {
           console.error('Error updating poopmeter:', dbError);
           card.poopScore = 0;
