@@ -93,7 +93,7 @@ function extractImageUrl(metadata) {
     const file = metadata.onchain_metadata.files[0];
     if (file.src && file.src.startsWith('ipfs://')) {
       const ipfsHash = file.src.replace('ipfs://', '');
-      return `https://ipfs.io/ipfs/${ipfsHash}`;
+      return `ipfs://${ipfsHash}`;
     }
     return file.src || null;
   }
@@ -155,7 +155,7 @@ function generateRandomCard(collectionConfig, userCards) {
       throw new Error(`No IPFS hash found for ${collectionConfig.name} #${randomNumber}`);
     }
   } else {
-    imageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${randomNumber}.png`;
+    imageUrl = `ipfs://${collectionConfig.fallbackIpfs}/${randomNumber}.png`;
   }
   
   return {
@@ -414,7 +414,7 @@ export default async function handler(req, res) {
       try {
         // Normal image extraction for Blockfrost collections
         const extractedImageUrl = extractImageUrl(assetDetails);
-        const fallbackImageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`;
+        const fallbackImageUrl = `ipfs://${collectionConfig.fallbackIpfs}/${validNumber}.png`;
         const imageUrl = extractedImageUrl || fallbackImageUrl;
         
         console.log('Asset ID:', selectedAsset.asset);
