@@ -62,7 +62,6 @@ export default function Home() {
   
   // HOSKY STATE
   const [hoskyPoopScore, setHoskyPoopScore] = useState(0);
-  const [isPoopingHosky, setIsPoopingHosky] = useState(false);
 
   useEffect(() => {
     const checkExistingConnection = async () => {
