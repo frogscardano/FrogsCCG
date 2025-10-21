@@ -366,43 +366,6 @@ export default function Home() {
     setIsPackOpening(false);
   };
 
-  // HANDLE HOSKY POOP
-  const handlePoopHosky = async () => {
-    if (!connected || isPoopingHosky) {
-      alert("Please connect your wallet to poop HOSKY.");
-      return;
-    }
-    
-    setIsPoopingHosky(true);
-    setStatusMessage('💩 Pooping a HOSKY...');
-    
-    try {
-      const apiUrl = `/api/poopHosky?walletAddress=${encodeURIComponent(address)}`;
-      const response = await fetch(apiUrl);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to poop HOSKY: ${errorText}`);
-      }
-      
-      const cardData = await response.json();
-      setHoskyPoopScore(cardData.poopScore);
-      
-      setSelectedPack('hosky');
-      setRevealedCards([cardData]);
-      setIsRevealed(true);
-      setIsModalOpen(true);
-      setStatusMessage(`💩 Pooped ${cardData.name}! Poopmeter: ${cardData.poopScore}`);
-      
-    } catch (error) {
-      console.error('Error pooping HOSKY:', error);
-      setStatusMessage(`Error: ${error.message}`);
-      alert(`Failed to poop HOSKY: ${error.message}`);
-    } finally {
-      setIsPoopingHosky(false);
-    }
-  };
-
   const handleClaimDaily = async () => {
     if (!connected || !address) return;
     if (!canClaimDaily) return;
