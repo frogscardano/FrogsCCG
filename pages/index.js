@@ -268,7 +268,8 @@ export default function Home() {
       alert("Please connect your wallet to open a pack.");
       return;
     }
-    if (packsBalance <= 0) {
+    // HOSKY is FREE - no pack balance check
+    if (packType !== 'hosky' && packsBalance <= 0) {
       alert('No packs remaining. Claim your daily +5 packs first.');
       return;
     }
@@ -282,26 +283,39 @@ export default function Home() {
   const handlePackClick = async () => {
     if (isPackOpening) return;
     
-    setPacksBalance(prev => (prev > 0 ? prev - 1 : 0));
+    // HOSKY is FREE - don't consume pack balance
+    if (selectedPack !== 'hosky') {
+      setPacksBalance(prev => (prev > 0 ? prev - 1 : 0));
+    }
     
     setIsPackOpening(true);
     setIsRevealed(false);
-    setStatusMessage(`Fetching ${
-      selectedPack === 'snekkies' 
-        ? 'Snekkie' 
-        : selectedPack === 'titans'
-          ? 'Titan'
-          : 'Frog'
-    } NFT from Cardano...`);
+    
+    const packName = selectedPack === 'snekkies' 
+      ? 'Snekkie' 
+      : selectedPack === 'titans'
+        ? 'Titan'
+        : selectedPack === 'hosky'
+          ? 'HOSKY'
+          : 'Frog';
+    
+    setStatusMessage(`Fetching ${packName} NFT from Cardano...`);
     
     try {
-      const apiUrl = `/api/openPack?walletAddress=${encodeURIComponent(address)}&collectionType=${selectedPack}`;
+      // Use different API for HOSKY
+      const apiUrl = selectedPack === 'hosky' 
+        ? `/api/poopHosky?walletAddress=${encodeURIComponent(address)}`
+        : `/api/openPack?walletAddress=${encodeURIComponent(address)}&collectionType=${selectedPack}`;
+      
       console.log(`Calling API: ${apiUrl}`);
       
       const response = await fetch(apiUrl);
       
       if (!response.ok) {
-        setPacksBalance(prev => prev + 1);
+        // Only refund pack for non-HOSKY packs
+        if (selectedPack !== 'hosky') {
+          setPacksBalance(prev => prev + 1);
+        }
         const errorText = await response.text();
         console.error(`API error (${response.status}):`, errorText);
         
@@ -311,13 +325,20 @@ export default function Home() {
               ? 'Snekkies' 
               : selectedPack === 'titans'
                 ? 'Titans'
-                : 'Frogs'
+                : selectedPack === 'hosky'
+                  ? 'HOSKYs'
+                  : 'Frogs'
           }!`);
         }
         throw new Error(`API returned ${response.status}: ${errorText}`);
       }
       
       const cardData = await response.json();
+      
+      // Update poopmeter if HOSKY
+      if (selectedPack === 'hosky' && cardData.poopScore !== undefined) {
+        setHoskyPoopScore(cardData.poopScore);
+      }
       
       if (cardData) {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -331,7 +352,10 @@ export default function Home() {
         throw new Error('No card data received');
       }
     } catch (error) {
-      setPacksBalance(prev => prev + 1);
+      // Only refund pack for non-HOSKY packs
+      if (selectedPack !== 'hosky') {
+        setPacksBalance(prev => prev + 1);
+      }
       console.error('Error opening pack:', error);
       setStatusMessage(`Error: ${error.message}. Please try again.`);
       setTimeout(() => {
