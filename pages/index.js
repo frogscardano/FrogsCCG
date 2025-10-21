@@ -952,7 +952,7 @@ export default function Home() {
                   : selectedPack === 'hosky'
                     ? '💩 HOSKY'
                     : 'Frog'
-            } Pack {selectedPack !== 'hosky' ? 'with BlockFrost' : ''}</h2>
+            } Pack with BlockFrost</h2>
             
             <div className={styles.packOpening}>
               <div 
