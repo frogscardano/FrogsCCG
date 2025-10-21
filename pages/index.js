@@ -279,91 +279,89 @@ export default function Home() {
     setStatusMessage('Click the pack to open');
   };
 
-  const handlePackClick = async () => {
-    if (isPackOpening) return;
+const handlePackClick = async () => {
+  if (isPackOpening) return;
+  
+  // HOSKY is FREE - don't consume pack balance
+  if (selectedPack !== 'hosky') {
+    setPacksBalance(prev => (prev > 0 ? prev - 1 : 0));
+  }
+  
+  setIsPackOpening(true);
+  setIsRevealed(false);
+  
+  const packName = selectedPack === 'snekkies' 
+    ? 'Snekkie' 
+    : selectedPack === 'titans'
+      ? 'Titan'
+      : selectedPack === 'hosky'
+        ? 'HOSKY'
+        : 'Frog';
+  
+  setStatusMessage(`Fetching ${packName} NFT from Cardano...`);
+  
+  try {
+    // ALL collections use the same API endpoint now
+    const apiUrl = `/api/openPack?walletAddress=${encodeURIComponent(address)}&collectionType=${selectedPack}`;
     
-    // HOSKY is FREE - don't consume pack balance
-    if (selectedPack !== 'hosky') {
-      setPacksBalance(prev => (prev > 0 ? prev - 1 : 0));
-    }
+    console.log(`Calling API: ${apiUrl}`);
     
-    setIsPackOpening(true);
-    setIsRevealed(false);
+    const response = await fetch(apiUrl);
     
-    const packName = selectedPack === 'snekkies' 
-      ? 'Snekkie' 
-      : selectedPack === 'titans'
-        ? 'Titan'
-        : selectedPack === 'hosky'
-          ? 'HOSKY'
-          : 'Frog';
-    
-    setStatusMessage(`Fetching ${packName} NFT from Cardano...`);
-    
-    try {
-      // Use different API for HOSKY
-      const apiUrl = selectedPack === 'hosky' 
-        ? `/api/poopHosky?walletAddress=${encodeURIComponent(address)}`
-        : `/api/openPack?walletAddress=${encodeURIComponent(address)}&collectionType=${selectedPack}`;
-      
-      console.log(`Calling API: ${apiUrl}`);
-      
-      const response = await fetch(apiUrl);
-      
-      if (!response.ok) {
-        // Only refund pack for non-HOSKY packs
-        if (selectedPack !== 'hosky') {
-          setPacksBalance(prev => prev + 1);
-        }
-        const errorText = await response.text();
-        console.error(`API error (${response.status}):`, errorText);
-        
-        if (response.status === 409) {
-          throw new Error(`You have collected all available ${
-            selectedPack === 'snekkies' 
-              ? 'Snekkies' 
-              : selectedPack === 'titans'
-                ? 'Titans'
-                : selectedPack === 'hosky'
-                  ? 'HOSKYs'
-                  : 'Frogs'
-          }!`);
-        }
-        throw new Error(`API returned ${response.status}: ${errorText}`);
-      }
-      
-      const cardData = await response.json();
-      
-      // Update poopmeter if HOSKY
-      if (selectedPack === 'hosky' && cardData.poopScore !== undefined) {
-        setHoskyPoopScore(cardData.poopScore);
-      }
-      
-      if (cardData) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setStatusMessage(`Found ${cardData.name}!`);
-        setRevealedCards([cardData]);
-        
-        setTimeout(() => {
-          setIsRevealed(true);
-        }, 500);
-      } else {
-        throw new Error('No card data received');
-      }
-    } catch (error) {
+    if (!response.ok) {
       // Only refund pack for non-HOSKY packs
       if (selectedPack !== 'hosky') {
         setPacksBalance(prev => prev + 1);
       }
-      console.error('Error opening pack:', error);
-      setStatusMessage(`Error: ${error.message}. Please try again.`);
-      setTimeout(() => {
-        setIsPackOpening(false);
-        setIsRevealed(false);
-      }, 3000);
+      const errorText = await response.text();
+      console.error(`API error (${response.status}):`, errorText);
+      
+      if (response.status === 409) {
+        throw new Error(`You have collected all available ${
+          selectedPack === 'snekkies' 
+            ? 'Snekkies' 
+            : selectedPack === 'titans'
+              ? 'Titans'
+              : selectedPack === 'hosky'
+                ? 'HOSKYs'
+                : 'Frogs'
+        }!`);
+      }
+      throw new Error(`API returned ${response.status}: ${errorText}`);
     }
-    setIsPackOpening(false);
-  };
+    
+    const cardData = await response.json();
+    
+    // Update poopmeter if HOSKY
+    if (selectedPack === 'hosky' && cardData.poopScore !== undefined) {
+      setHoskyPoopScore(cardData.poopScore);
+    }
+    
+    if (cardData) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setStatusMessage(`Found ${cardData.name}!`);
+      setRevealedCards([cardData]);
+      
+      setTimeout(() => {
+        setIsRevealed(true);
+      }, 500);
+    } else {
+      throw new Error('No card data received');
+    }
+  } catch (error) {
+    // Only refund pack for non-HOSKY packs
+    if (selectedPack !== 'hosky') {
+      setPacksBalance(prev => prev + 1);
+    }
+    console.error('Error opening pack:', error);
+    setStatusMessage(`Error: ${error.message}. Please try again.`);
+    setTimeout(() => {
+      setIsPackOpening(false);
+      setIsRevealed(false);
+    }, 3000);
+  }
+  setIsPackOpening(false);
+};
 
   const handleClaimDaily = async () => {
     if (!connected || !address) return;
