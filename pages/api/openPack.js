@@ -414,7 +414,7 @@ export default async function handler(req, res) {
       try {
         // Normal image extraction for Blockfrost collections
         const extractedImageUrl = extractImageUrl(assetDetails);
-        const fallbackImageUrl = `ipfs://${collectionConfig.fallbackIpfs}/${validNumber}.png`;
+        const fallbackImageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`;
         const imageUrl = extractedImageUrl || fallbackImageUrl;
         
         console.log('Asset ID:', selectedAsset.asset);
