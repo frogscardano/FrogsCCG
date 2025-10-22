@@ -155,7 +155,7 @@ function generateRandomCard(collectionConfig, userCards) {
       throw new Error(`No IPFS hash found for ${collectionConfig.name} #${randomNumber}`);
     }
   } else {
-    imageUrl = `ipfs://${collectionConfig.fallbackIpfs}/${randomNumber}.png`;
+    imageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${randomNumber}.png`;
   }
   
   return {
