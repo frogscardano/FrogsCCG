@@ -83,7 +83,7 @@ function extractImageUrl(metadata) {
     
     if (imageUrl.startsWith('ipfs://')) {
       const ipfsHash = imageUrl.replace('ipfs://', '');
-      return `ipfs://${ipfsHash}`;
+      return `https://ipfs.io/ipfs/${ipfsHash}`;
     }
     
     return imageUrl;
