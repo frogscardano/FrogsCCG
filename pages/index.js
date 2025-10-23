@@ -62,6 +62,7 @@ export default function Home() {
   
   // HOSKY STATE
   const [hoskyPoopScore, setHoskyPoopScore] = useState(0);
+  const [hoskyModalStep, setHoskyModalStep] = useState('viewing');
 
   useEffect(() => {
     const checkExistingConnection = async () => {
@@ -362,6 +363,18 @@ const handlePackClick = async () => {
   }
   setIsPackOpening(false);
 };
+  const handleHoskyConfirm = async () => {
+  if (selectedPack !== 'hosky') return;
+  
+  setHoskyModalStep('confirmed');
+  setStatusMessage('💩 Poopmeter +1!');
+  
+  setTimeout(() => {
+    setIsModalOpen(false);
+    setHoskyModalStep('viewing');
+    setIsRevealed(false);
+  }, 1500);
+};
 
   const handleClaimDaily = async () => {
     if (!connected || !address) return;
@@ -642,29 +655,7 @@ const handlePackClick = async () => {
           <div className={styles.packsTab}>
             <h2>Open an NFT Card Pack</h2>
             
-            {/* Poopmeter Display */}
-            <div style={{
-              background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
-              border: '2px solid #8B4513',
-              borderRadius: '12px',
-              padding: '1rem',
-              maxWidth: '250px',
-              margin: '0 auto 2rem',
-              textAlign: 'center'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                color: '#8B4513',
-                marginBottom: '0.3rem'
-              }}>
-                <span style={{fontSize: '1.2rem'}}>💩</span>
-                <span>Hosky Poopmeter</span>
-              </div>
+            
               <div style={{
                 fontSize: '2rem',
                 fontWeight: 'bold',
@@ -749,6 +740,22 @@ const handlePackClick = async () => {
                   const collectionAttr = card.attributes?.find(attr => attr.trait_type === "Collection");
                   return collectionAttr ? collectionAttr.value : "Unknown";
                 }))].join(', ')}</p>
+               <p style={{
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+  border: '2px solid #8B4513',
+  borderRadius: '8px',
+  padding: '0.5rem 1rem',
+  marginTop: '0.5rem'
+}}>
+  <span style={{fontSize: '1.2rem'}}>💩</span>
+  <span style={{fontWeight: 600, color: '#8B4513'}}>Hosky Poopmeter:</span>
+  <span style={{fontSize: '1.3rem', fontWeight: 'bold', color: '#8B4513'}}>
+    {hoskyPoopScore.toLocaleString()}
+  </span>
+</p>
               )}
             </div>
             <div className={styles.filters}>
@@ -1002,18 +1009,38 @@ const handlePackClick = async () => {
             {isRevealed && revealedCards.length > 0 && (
               <>
                 {selectedPack === 'hosky' ? (
-                  <div style={{
-                    background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-                    color: 'white',
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    margin: '1rem 0',
-                    fontWeight: 'bold',
-                    fontSize: '0.9rem'
-                  }}>
-                    💩 Temporary HOSKY - Not saved to collection
-                  </div>
-                ) : (
+  <>
+    {hoskyModalStep === 'viewing' ? (
+      <button 
+        className={styles.actionBtn}
+        onClick={handleHoskyConfirm}
+        style={{
+          background: 'linear-gradient(135deg, #8B4513 0%, #654321 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.5rem',
+          margin: '1rem auto'
+        }}
+      >
+        <span style={{fontSize: '1.5rem'}}>💩</span>
+        <span>OK</span>
+      </button>
+    ) : (
+      <div style={{
+        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        color: 'white',
+        padding: '0.75rem',
+        borderRadius: '8px',
+        margin: '1rem 0',
+        fontWeight: 'bold',
+        fontSize: '0.9rem'
+      }}>
+        ✅ Poopmeter +1!
+      </div>
+    )}
+  </>
+) : (
                   <button className={styles.actionBtn} onClick={addToCollection}>
                     Add to Collection
                   </button>
