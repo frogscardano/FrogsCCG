@@ -655,7 +655,14 @@ const handlePackClick = async () => {
           <div className={styles.packsTab}>
             <h2>Open an NFT Card Pack</h2>
             
-            
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              marginBottom: '1rem'
+            }}>
+              <span style={{fontSize: '1.2rem'}}>💩</span>
+              <span style={{fontWeight: 600}}>Hosky Poopmeter:</span>
               <div style={{
                 fontSize: '2rem',
                 fontWeight: 'bold',
