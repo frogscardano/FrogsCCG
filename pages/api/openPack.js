@@ -4,6 +4,7 @@ import { getTitanStats } from '../../utils/titansData.js';
 import { withDatabase, consumePack } from '../../utils/db.js';
 import { getHoskyImageUrl } from '../../utils/hoskyIpfsLoader.js';
 import { prisma } from '../../utils/db.js';
+import { getHoskyImageUrl } from '../../utils/hoskyIpfsLoader.js';
 
 const blockfrost = new BlockFrostAPI({
   projectId: process.env.BLOCKFROST_API_KEY,
@@ -240,58 +241,48 @@ export default async function handler(req, res) {
     const userCards = req.query.collection ? JSON.parse(req.query.collection) : [];
     
     // Special handling for HOSKY - no Blockfrost, just random generation
-    if (requestedCollection === 'hosky') {
-      console.log(`Collection ${collectionConfig.name} is using direct random generation with CSV lookup`);
-      try {
-        const card = generateRandomCard(collectionConfig, userCards);
-        
-        // Increment Hosky Poopmeter - use the SAME pattern as consumePack
-        try {
-          // First ensure user exists
-          const existingUser = await prisma.user.findUnique({
-            where: { address: walletAddress },
-            select: { id: true, hoskyPoopmeter: true }
-          });
-
-          let newPoopScore = 0;
-
-          if (existingUser) {
-            // User exists, just increment
-            const updatedUser = await prisma.user.update({
-              where: { address: walletAddress },
-              data: { 
-                hoskyPoopmeter: (existingUser.hoskyPoopmeter || 0) + 1 
-              },
-              select: { hoskyPoopmeter: true }
-            });
-            newPoopScore = updatedUser.hoskyPoopmeter;
-          } else {
-            // Create new user with poopmeter = 1
-            const newUser = await prisma.user.create({
-              data: {
-                id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                address: walletAddress,
-                balance: '0',
-                hoskyPoopmeter: 1
-              },
-              select: { hoskyPoopmeter: true }
-            });
-            newPoopScore = newUser.hoskyPoopmeter;
-          }
-          
-          card.poopScore = newPoopScore;
-          console.log(`✅ Poopmeter updated: ${newPoopScore}`);
-        } catch (dbError) {
-          console.error('Error updating poopmeter:', dbError);
-          card.poopScore = 0;
-        }
-        
-        return res.status(200).json(card);
-      } catch (error) {
-        console.error('Error generating HOSKY card:', error);
-        return res.status(500).json({ message: 'Error generating HOSKY card', error: error.message });
-      }
+if (requestedCollection === 'hosky') {
+  console.log(`Collection ${collectionConfig.name} is using direct random generation with CSV lookup`);
+  try {
+    const card = generateRandomCard(collectionConfig, userCards);
+    
+    // Validate the image URL before returning
+    if (!card.image || card.image === 'undefined' || card.image.includes('undefined')) {
+      console.error(`❌ Invalid image URL generated: ${card.image}`);
+      throw new Error(`Invalid image URL for HOSKY #${card.tokenId}`);
     }
+    
+    console.log(`✅ Valid HOSKY image URL: ${card.image}`);
+    
+    // Increment Hosky Poopmeter
+    try {
+      const updatedUser = await prisma.user.upsert({
+        where: { address: walletAddress },
+        update: { 
+          hoskyPoopmeter: { increment: 1 }
+        },
+        create: {
+          id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          address: walletAddress,
+          balance: '0',
+          hoskyPoopmeter: 1
+        },
+        select: { hoskyPoopmeter: true }
+      });
+      
+      card.poopScore = updatedUser.hoskyPoopmeter;
+      console.log(`✅ Poopmeter updated: ${updatedUser.hoskyPoopmeter}`);
+    } catch (dbError) {
+      console.error('Error updating poopmeter:', dbError);
+      card.poopScore = 0;
+    }
+    
+    return res.status(200).json(card);
+  } catch (error) {
+    console.error('Error generating HOSKY card:', error);
+    return res.status(500).json({ message: 'Error generating HOSKY card', error: error.message });
+  }
+}
     
     // Special handling for collections that don't use BlockFrost (like Snekkies)
     if (!collectionConfig.useBlockfrost) {
