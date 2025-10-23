@@ -54,11 +54,13 @@ export function getHoskyIpfs(tokenNumber) {
 /**
  * Get full IPFS URL for a Hosky token
  */
+// Make sure this function is working correctly
 export function getHoskyImageUrl(tokenNumber) {
-  const ipfsHash = getHoskyIpfs(tokenNumber);
+  // Your CSV lookup logic here
+  const ipfsHash = lookupHashFromCSV(tokenNumber);
   
-  if (!ipfsHash) {
-    console.warn(`⚠️ No IPFS hash found for Hosky #${tokenNumber}`);
+  if (!ipfsHash || ipfsHash === 'undefined') {
+    console.error(`❌ No IPFS hash found for HOSKY #${tokenNumber}`);
     return null;
   }
   
