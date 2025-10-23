@@ -743,6 +743,7 @@ const handlePackClick = async () => {
               <p>Connected Address: {displayAddressInfo?.formatted}</p>
               <p>Total NFTs: {currentCards.length}</p>
               {currentCards.length > 0 && (
+                <>
                 <p>Collections: {[...new Set(currentCards.map(card => {
                   const collectionAttr = card.attributes?.find(attr => attr.trait_type === "Collection");
                   return collectionAttr ? collectionAttr.value : "Unknown";
@@ -763,6 +764,7 @@ const handlePackClick = async () => {
     {hoskyPoopScore.toLocaleString()}
   </span>
 </p>
+    </>
               )}
             </div>
             <div className={styles.filters}>
