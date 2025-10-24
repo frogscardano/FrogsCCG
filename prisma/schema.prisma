@@ -40,6 +40,7 @@ model User {
   balance     String?
   assets      String?
   lastUpdated DateTime?
+hoskyPoopmeter Int     @default(0)  
   NFT         NFT[]
   teams       Team[]
   @@map("User")
