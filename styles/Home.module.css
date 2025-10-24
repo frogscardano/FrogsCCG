@@ -1697,3 +1697,113 @@
   border-radius: 5px;
   font-size: 0.9rem;
 }
+
+/* Add this at the end of your existing Home.module.css file */
+
+/* HOSKY Wide Pack Styling */
+.hoskyPack {
+  width: 100% !important;
+  max-width: 600px !important;
+  grid-column: 1 / -1; /* Spans all columns */
+  margin: 0 auto;
+}
+
+.hoskyPack .packImage {
+  font-size: 8rem !important;
+  margin-bottom: 1.5rem;
+}
+
+.hoskyPack .packTitle {
+  font-size: 2rem !important;
+  background: linear-gradient(45deg, #ff9800, #f57c00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hoskyPack .packDescription {
+  font-size: 1rem !important;
+  max-width: 500px;
+  margin: 0 auto 1.5rem;
+}
+
+/* Update pack container to use CSS Grid */
+.packContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin: 2rem 0;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Ensure regular packs don't get affected */
+.pack:not(.hoskyPack) {
+  width: 280px;
+  justify-self: center;
+}
+
+/* Add special styling for HOSKY button */
+.hoskyPack .actionBtn {
+  background: linear-gradient(135deg, #8B4513 0%, #654321 100%);
+  color: white;
+  font-size: 1.1rem;
+  padding: 1rem 2rem;
+  box-shadow: 0 4px 15px rgba(139, 69, 19, 0.4);
+  transition: all 0.3s ease;
+}
+
+.hoskyPack .actionBtn:hover {
+  background: linear-gradient(135deg, #654321 0%, #8B4513 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(139, 69, 19, 0.6);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .hoskyPack {
+    grid-column: 1;
+    max-width: 100%;
+  }
+  
+  .hoskyPack .packImage {
+    font-size: 5rem !important;
+  }
+  
+  .hoskyPack .packTitle {
+    font-size: 1.5rem !important;
+  }
+}
+
+/* Add animation for HOSKY pack */
+@keyframes hoskyPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+.hoskyPack:hover {
+  animation: hoskyPulse 2s ease-in-out infinite;
+}
+
+/* Image loading fallback styles */
+.cardImage img[src*="ipfs"] {
+  background: linear-gradient(135deg, #333 0%, #222 100%);
+}
+
+.cardImage img {
+  transition: opacity 0.3s ease;
+}
+
+.cardImage img.loading {
+  opacity: 0.5;
+}
+
+.cardImage img.error {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
