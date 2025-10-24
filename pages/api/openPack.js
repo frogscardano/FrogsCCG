@@ -239,59 +239,93 @@ export default async function handler(req, res) {
     // Get current collection from request query
     const userCards = req.query.collection ? JSON.parse(req.query.collection) : [];
     
-    // Special handling for HOSKY - no Blockfrost, just random generation
-    if (requestedCollection === 'hosky') {
-      console.log(`Collection ${collectionConfig.name} is using direct random generation with CSV lookup`);
+if (requestedCollection === 'hosky') {
+  console.log(`Collection ${collectionConfig.name} is using direct random generation with CSV lookup`);
+  
+  try {
+    let card = null;
+    let attempts = 0;
+    const maxAttempts = 50;
+
+    // Keep trying until we get a card with a valid image URL
+    while (!card && attempts < maxAttempts) {
+      attempts++;
+      
       try {
-        const card = generateRandomCard(collectionConfig, userCards);
+        const tempCard = generateRandomCard(collectionConfig, userCards);
         
-        // Increment Hosky Poopmeter - use the SAME pattern as consumePack
-        try {
-          // First ensure user exists
-          const existingUser = await prisma.user.findUnique({
-            where: { address: walletAddress },
-            select: { id: true, hoskyPoopmeter: true }
-          });
-
-          let newPoopScore = 0;
-
-          if (existingUser) {
-            // User exists, just increment
-            const updatedUser = await prisma.user.update({
-              where: { address: walletAddress },
-              data: { 
-                hoskyPoopmeter: (existingUser.hoskyPoopmeter || 0) + 1 
-              },
-              select: { hoskyPoopmeter: true }
-            });
-            newPoopScore = updatedUser.hoskyPoopmeter;
-          } else {
-            // Create new user with poopmeter = 1
-            const newUser = await prisma.user.create({
-              data: {
-                id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                address: walletAddress,
-                balance: '0',
-                hoskyPoopmeter: 1
-              },
-              select: { hoskyPoopmeter: true }
-            });
-            newPoopScore = newUser.hoskyPoopmeter;
-          }
-          
-          card.poopScore = newPoopScore;
-          console.log(`✅ Poopmeter updated: ${newPoopScore}`);
-        } catch (dbError) {
-          console.error('Error updating poopmeter:', dbError);
-          card.poopScore = 0;
+        // Validate that the image URL exists
+        if (tempCard.image && tempCard.image.includes('ipfs')) {
+          console.log(`✅ HOSKY #${tempCard.tokenId} has valid IPFS URL: ${tempCard.image}`);
+          card = tempCard;
+          break;
+        } else {
+          console.log(`⚠️ Attempt ${attempts}: HOSKY card missing valid image URL`);
         }
-        
-        return res.status(200).json(card);
-      } catch (error) {
-        console.error('Error generating HOSKY card:', error);
-        return res.status(500).json({ message: 'Error generating HOSKY card', error: error.message });
+      } catch (genError) {
+        console.error(`⚠️ Attempt ${attempts} failed:`, genError.message);
       }
     }
+
+    if (!card) {
+      throw new Error('Failed to generate HOSKY card with valid image after multiple attempts');
+    }
+    
+    // Increment Hosky Poopmeter
+    try {
+      const existingUser = await prisma.user.findUnique({
+        where: { address: walletAddress },
+        select: { id: true, hoskyPoopmeter: true }
+      });
+
+      let newPoopScore = 0;
+
+      if (existingUser) {
+        const updatedUser = await prisma.user.update({
+          where: { address: walletAddress },
+          data: { 
+            hoskyPoopmeter: (existingUser.hoskyPoopmeter || 0) + 1 
+          },
+          select: { hoskyPoopmeter: true }
+        });
+        newPoopScore = updatedUser.hoskyPoopmeter;
+      } else {
+        const newUser = await prisma.user.create({
+          data: {
+            id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            address: walletAddress,
+            balance: '0',
+            hoskyPoopmeter: 1
+          },
+          select: { hoskyPoopmeter: true }
+        });
+        newPoopScore = newUser.hoskyPoopmeter;
+      }
+      
+      card.poopScore = newPoopScore;
+      console.log(`✅ Poopmeter updated: ${newPoopScore}`);
+    } catch (dbError) {
+      console.error('Error updating poopmeter:', dbError);
+      card.poopScore = 0;
+    }
+    
+    // Add multiple IPFS gateway fallbacks to the response
+    card.imageGateways = [
+      card.image,
+      card.image.replace('ipfs.io', 'cloudflare-ipfs.com'),
+      card.image.replace('ipfs.io', 'gateway.pinata.cloud')
+    ];
+    
+    console.log(`✅ Returning HOSKY card with ${card.imageGateways.length} gateway options`);
+    return res.status(200).json(card);
+  } catch (error) {
+    console.error('❌ Error generating HOSKY card:', error);
+    return res.status(500).json({ 
+      message: 'Error generating HOSKY card', 
+      error: error.message 
+    });
+  }
+}
     
     // Special handling for collections that don't use BlockFrost (like Snekkies)
     if (!collectionConfig.useBlockfrost) {
