@@ -2,6 +2,8 @@ import { BlockFrostAPI } from '@blockfrost/blockfrost-js';
 import { getFrogStats } from '../../utils/frogData.js';
 import { getTitanStats } from '../../utils/titansData.js';
 import { withDatabase, consumePack } from '../../utils/db.js';
+import { getHoskyImageUrl } from '../../utils/hoskyIpfsLoader.js';
+import { prisma } from '../../utils/db.js';
 
 const blockfrost = new BlockFrostAPI({
   projectId: process.env.BLOCKFROST_API_KEY,
@@ -16,7 +18,8 @@ const COLLECTIONS = {
     maxNumber: 5000,
     fallbackIpfs: 'QmXwXzVg8CvnzFwxnvsjMNq7JAHVn3qyMbwpGumi5AJhXC',
     rarityBreakpoints: { legendary: 5, epic: 20, rare: 500 },
-    useBlockfrost: true
+    useBlockfrost: true,
+    useCsvLookup: false
   },
   'snekkies': {
     policyId: 'b558ea5ecfa2a6e9701dab150248e94104402f789c090426eb60eb60',
@@ -25,7 +28,8 @@ const COLLECTIONS = {
     maxNumber: 7777,
     fallbackIpfs: 'QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3',
     rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 },
-    useBlockfrost: true 
+    useBlockfrost: true,
+    useCsvLookup: false
   },
   'titans': {
     policyId: '53d6297f4ede5cd3bfed7281b73fad3dac8dc86a950f7454d84c16ad',
@@ -34,7 +38,18 @@ const COLLECTIONS = {
     maxNumber: 6500,
     fallbackIpfs: 'QmZGxPG7zLmYbNVZijx1Z6P3rZ2UFLtN5rWhrqFTJc9bMx',
     rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 },
-    useBlockfrost: true 
+    useBlockfrost: true,
+    useCsvLookup: false
+  },
+  'hosky': {
+    policyId: 'a0028f350aaabe0545fdcb56b039bfb08e4bb4d8c4d7c3c7d481c235',
+    blockedNumbers: [],
+    name: 'HOSKY',
+    maxNumber: 420420,
+    fallbackIpfs: null,
+    rarityBreakpoints: { legendary: 100, epic: 1000, rare: 10000 },
+    useBlockfrost: false, // HOSKY doesn't use Blockfrost - just random + CSV
+    useCsvLookup: true
   }
 };
 
@@ -130,12 +145,25 @@ function generateRandomCard(collectionConfig, userCards) {
   ];
   const stats = collectionConfig.id === 'titans' ? getTitanStats(randomNumber, rarity, basicAttributes) : getFrogStats(randomNumber, rarity);
   
+  // Handle image URL - use CSV lookup for Hosky, fallback for others
+  let imageUrl;
+  if (collectionConfig.useCsvLookup) {
+    imageUrl = getHoskyImageUrl(randomNumber);
+    console.log(`HOSKY #${randomNumber} image URL: ${imageUrl}`); // DEBUG LOG
+    if (!imageUrl) {
+      console.error(`❌ No IPFS hash found for ${collectionConfig.name} #${randomNumber}`);
+      throw new Error(`No IPFS hash found for ${collectionConfig.name} #${randomNumber}`);
+    }
+  } else {
+    imageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${randomNumber}.png`;
+  }
+  
   return {
     id: `${collectionConfig.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     name: `${collectionConfig.name} #${randomNumber}`,
     description: `A unique ${collectionConfig.name} from the Cardano blockchain collection`,
     rarity: rarity,
-    image: `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${randomNumber}.png`,
+    image: imageUrl,
     attack: stats.attack,
     health: stats.health,
     speed: stats.speed,
@@ -172,23 +200,6 @@ export default async function handler(req, res) {
 
     console.log(`🔍 Validated wallet address: ${walletAddress} (length: ${walletAddress.length})`);
 
-    // OPTIMIZED: Use atomic consumePack transaction instead of manual balance check
-    const packResult = await withDatabase(async () => {
-      return await consumePack(walletAddress);
-    });
-    
-    if (!packResult.success) {
-      return res.status(402).json({ 
-        message: 'No packs remaining. Claim your daily +5 packs.',
-        balance: packResult.balance
-      });
-    }
-    
-    console.log(`✅ Pack consumed. Remaining balance: ${packResult.balance}`);
-    
-    // Get current collection from request query
-    const userCards = req.query.collection ? JSON.parse(req.query.collection) : [];
-    
     // Get requested collection type (defaulting to frogs if not specified)
     const requestedCollection = req.query.collectionType || 'frogs';
     console.log(`Requested collection: ${requestedCollection}`);
@@ -205,6 +216,82 @@ export default async function handler(req, res) {
     };
     
     console.log(`Using policy ID: ${collectionConfig.policyId} for ${collectionConfig.name}`);
+
+    // HOSKY is FREE - skip pack consumption
+    if (requestedCollection !== 'hosky') {
+      // Consume pack for non-HOSKY collections
+      const packResult = await withDatabase(async () => {
+        return await consumePack(walletAddress);
+      });
+      
+      if (!packResult.success) {
+        return res.status(402).json({ 
+          message: 'No packs remaining. Claim your daily +5 packs.',
+          balance: packResult.balance
+        });
+      }
+      
+      console.log(`✅ Pack consumed. Remaining balance: ${packResult.balance}`);
+    } else {
+      console.log(`💩 HOSKY is FREE - no pack consumed`);
+    }
+    
+    // Get current collection from request query
+    const userCards = req.query.collection ? JSON.parse(req.query.collection) : [];
+    
+    // Special handling for HOSKY - no Blockfrost, just random generation
+    if (requestedCollection === 'hosky') {
+      console.log(`Collection ${collectionConfig.name} is using direct random generation with CSV lookup`);
+      try {
+        const card = generateRandomCard(collectionConfig, userCards);
+        
+        // Increment Hosky Poopmeter - use the SAME pattern as consumePack
+        try {
+          // First ensure user exists
+          const existingUser = await prisma.user.findUnique({
+            where: { address: walletAddress },
+            select: { id: true, hoskyPoopmeter: true }
+          });
+
+          let newPoopScore = 0;
+
+          if (existingUser) {
+            // User exists, just increment
+            const updatedUser = await prisma.user.update({
+              where: { address: walletAddress },
+              data: { 
+                hoskyPoopmeter: (existingUser.hoskyPoopmeter || 0) + 1 
+              },
+              select: { hoskyPoopmeter: true }
+            });
+            newPoopScore = updatedUser.hoskyPoopmeter;
+          } else {
+            // Create new user with poopmeter = 1
+            const newUser = await prisma.user.create({
+              data: {
+                id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                address: walletAddress,
+                balance: '0',
+                hoskyPoopmeter: 1
+              },
+              select: { hoskyPoopmeter: true }
+            });
+            newPoopScore = newUser.hoskyPoopmeter;
+          }
+          
+          card.poopScore = newPoopScore;
+          console.log(`✅ Poopmeter updated: ${newPoopScore}`);
+        } catch (dbError) {
+          console.error('Error updating poopmeter:', dbError);
+          card.poopScore = 0;
+        }
+        
+        return res.status(200).json(card);
+      } catch (error) {
+        console.error('Error generating HOSKY card:', error);
+        return res.status(500).json({ message: 'Error generating HOSKY card', error: error.message });
+      }
+    }
     
     // Special handling for collections that don't use BlockFrost (like Snekkies)
     if (!collectionConfig.useBlockfrost) {
@@ -325,7 +412,7 @@ export default async function handler(req, res) {
     
     if (validNumber) {
       try {
-        // Get the actual image URL from the metadata
+        // Normal image extraction for Blockfrost collections
         const extractedImageUrl = extractImageUrl(assetDetails);
         const fallbackImageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`;
         const imageUrl = extractedImageUrl || fallbackImageUrl;
@@ -334,8 +421,6 @@ export default async function handler(req, res) {
         console.log('NFT Name:', assetDetails.onchain_metadata?.name || assetDetails.asset_name);
         console.log('Original digits:', assetDetails.asset_name?.match(/\d+/)?.[0]);
         console.log(`Valid ${collectionConfig.name} #:`, validNumber);
-        console.log('Extracted image URL:', extractedImageUrl);
-        console.log('Fallback image URL:', fallbackImageUrl);
         console.log('Final image URL:', imageUrl);
         console.log('Metadata structure:', JSON.stringify(assetDetails.onchain_metadata, null, 2));
         
@@ -367,8 +452,6 @@ export default async function handler(req, res) {
 
         console.log(`✅ Generated card for ${collectionConfig.name} #${validNumber}`);
         
-        // CRITICAL FIX: Return the card WITHOUT saving to database
-        // The frontend will handle saving when user clicks "add to collection"
         return res.status(200).json(card);
       } catch (error) {
         console.error('Error generating card:', error);

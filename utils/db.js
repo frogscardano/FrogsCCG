@@ -506,3 +506,46 @@ export async function deleteTeam(address, teamId) {
 
   return { message: 'Team deleted successfully' };
 }
+
+// ============================================================================
+// HOSKY POOPMETER OPERATIONS
+// ============================================================================
+
+/**
+ * Get user's Hosky Poopmeter score
+ */
+export async function getHoskyPoopmeter(address) {
+  if (!address) throw new Error('Address is required');
+
+  const user = await prisma.user.findUnique({
+    where: { address },
+    select: { hoskyPoopmeter: true }
+  });
+
+  return user?.hoskyPoopmeter || 0;
+}
+
+/**
+ * Increment user's Hosky Poopmeter score
+ */
+export async function incrementHoskyPoopmeter(address) {
+  if (!address) throw new Error('Address is required');
+
+  // Ensure user exists and increment atomically
+  const user = await prisma.user.upsert({
+    where: { address },
+    update: {
+      hoskyPoopmeter: { increment: 1 }
+    },
+    create: {
+      address,
+      balance: '0',
+      hoskyPoopmeter: 1
+    },
+    select: {
+      hoskyPoopmeter: true
+    }
+  });
+
+  return user.hoskyPoopmeter;
+}
