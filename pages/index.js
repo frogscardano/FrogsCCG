@@ -63,6 +63,28 @@ export default function Home() {
   // HOSKY STATE
   const [hoskyPoopScore, setHoskyPoopScore] = useState(0);
 
+  // Image error handler with gateway fallback
+  const handleImageError = (e, card) => {
+    console.log('❌ Image failed to load:', e.target.src);
+    
+    if (card.imageGateways && card.imageGateways.length > 0) {
+      const currentSrc = e.target.src;
+      const currentIndex = card.imageGateways.findIndex(url => url === currentSrc);
+      
+      if (currentIndex !== -1 && currentIndex < card.imageGateways.length - 1) {
+        const nextGateway = card.imageGateways[currentIndex + 1];
+        console.log(`🔄 Trying fallback gateway ${currentIndex + 2}/${card.imageGateways.length}: ${nextGateway.substring(0, 50)}...`);
+        e.target.src = nextGateway;
+        return;
+      }
+    }
+    
+    console.log('⚠️ All gateways failed, using placeholder');
+    e.target.src = getCardBackImage(selectedPack);
+    e.target.style.opacity = '0.5';
+    e.target.style.filter = 'grayscale(100%)';
+  };
+
   useEffect(() => {
     const checkExistingConnection = async () => {
       if (availableWallets && availableWallets.length > 0 && !connected) {
@@ -713,13 +735,13 @@ const handlePackClick = async () => {
               </div>
               
               <div 
-                className={styles.pack}
+                className={`${styles.pack} ${styles.hoskyPack}`}
                 onClick={() => openPack('hosky')}
               >
                 <div className={styles.packImage}>💩</div>
                 <h3 className={styles.packTitle}>Poop HOSKY</h3>
                 <p className={styles.packDescription}>
-                  Contains 1 random HOSKY card from the Cardano NFT collection via BlockFrost
+                  Contains 1 random HOSKY card from the Cardano NFT collection. Free to open!
                 </p>
                 <button className={styles.actionBtn}>Poop a HOSKY</button>
               </div>
@@ -973,11 +995,16 @@ const handlePackClick = async () => {
                       <div className={styles.cardImage} style={{backgroundColor: getColorForRarity(revealedCards[0].rarity)}}>
                         <img 
                           src={revealedCards[0].image} 
-                          alt={revealedCards[0].name} 
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = getCardBackImage(selectedPack);
-                          }} 
+                          alt={revealedCards[0].name}
+                          onError={(e) => handleImageError(e, revealedCards[0])}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            transition: 'opacity 0.3s ease'
+                          }}
+                          loading="eager"
+                          crossOrigin="anonymous"
                         />
                       </div>
                       <div className={styles.cardContent}>
@@ -988,6 +1015,16 @@ const handlePackClick = async () => {
                         >
                           {revealedCards[0].rarity}
                         </div>
+                        {/* Show gateway count for debugging if available */}
+                        {revealedCards[0].imageGateways && revealedCards[0].imageGateways.length > 1 && (
+                          <div style={{
+                            fontSize: '0.7rem',
+                            color: '#888',
+                            marginTop: '0.5rem'
+                          }}>
+                            {revealedCards[0].imageGateways.length} backup gateways available
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
