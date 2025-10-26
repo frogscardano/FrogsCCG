@@ -6,7 +6,7 @@ let hoskyIpfsMap = null;
 
 /**
  * Loads and caches the Hosky IPFS mapping from CSV
- * Format: line number corresponds to token number, value is IPFS hash
+ * Format: token_number,ipfs_hash (one per line)
  */
 export function loadHoskyIpfsMap() {
   if (hoskyIpfsMap) {
@@ -24,35 +24,62 @@ export function loadHoskyIpfsMap() {
     
     const fileContent = fs.readFileSync(csvPath, 'utf-8');
     
-    // Parse CSV manually (simple split, no need for papaparse)
-    const lines = fileContent.split('\n').filter(line => line.trim());
+    // Parse CSV - split by newlines
+    const lines = fileContent.split(/\r?\n/).filter(line => line.trim());
     
     // Create Map for fast lookup: tokenNumber -> ipfsHash
     hoskyIpfsMap = new Map();
     
+    console.log(`📋 Processing ${lines.length} lines from HOSKY CSV...`);
+    
     lines.forEach((line, index) => {
-      const tokenNumber = index + 1; // Lines start at 1
       const columns = line.split(',');
-      const ipfsHash = columns[1]; // Second column has the IPFS hash
       
-      if (ipfsHash && ipfsHash.trim()) {
-        // Clean the IPFS hash - remove 'ipfs://' prefix if present
-        const cleanHash = ipfsHash.trim().replace('ipfs://', '');
-        hoskyIpfsMap.set(tokenNumber, cleanHash);
+      if (columns.length >= 2) {
+        // Format: token_number,ipfs_hash
+        const tokenNumber = parseInt(columns[0].trim());
+        let ipfsHash = columns[1].trim();
+        
+        // Clean the IPFS hash
+        ipfsHash = ipfsHash.replace(/['"]/g, ''); // Remove quotes
+        ipfsHash = ipfsHash.replace('ipfs://', ''); // Remove ipfs:// prefix
+        ipfsHash = ipfsHash.trim(); // Remove whitespace
+        
+        // Validate: Should be 46 chars starting with Qm (CIDv0)
+        if (ipfsHash.startsWith('Qm') && ipfsHash.length === 46) {
+          hoskyIpfsMap.set(tokenNumber, ipfsHash);
+        } else if (ipfsHash.startsWith('baf') && ipfsHash.length > 40) {
+          // CIDv1 format is also valid
+          hoskyIpfsMap.set(tokenNumber, ipfsHash);
+        } else {
+          // Log first few invalid for debugging
+          if (hoskyIpfsMap.size < 3) {
+            console.warn(`⚠️ Line ${index + 1}: Invalid hash "${ipfsHash}" (length: ${ipfsHash.length})`);
+          }
+        }
       }
     });
 
-    console.log(`✅ Loaded ${hoskyIpfsMap.size} Hosky IPFS mappings`);
+    console.log(`✅ Loaded ${hoskyIpfsMap.size} valid HOSKY IPFS mappings`);
     
-    // Log sample entries for debugging
-    const sampleNumbers = Array.from(hoskyIpfsMap.keys()).slice(0, 5);
-    console.log('Sample HOSKY entries:', sampleNumbers.map(n => `#${n}`).join(', '));
+    if (hoskyIpfsMap.size === 0) {
+      console.error('❌ No valid IPFS hashes found in CSV!');
+      throw new Error('No valid IPFS hashes found in CSV');
+    }
+    
+    // Log sample entries
+    const sampleNumbers = Array.from(hoskyIpfsMap.keys()).slice(0, 3);
+    console.log('📝 Sample HOSKY entries:');
+    sampleNumbers.forEach(num => {
+      const hash = hoskyIpfsMap.get(num);
+      console.log(`   HOSKY #${num} -> ${hash}`);
+    });
     
     return hoskyIpfsMap;
     
   } catch (error) {
     console.error('❌ Error loading Hosky IPFS map:', error);
-    throw new Error('Failed to load Hosky IPFS mapping');
+    throw error;
   }
 }
 
@@ -65,14 +92,14 @@ export function getHoskyIpfs(tokenNumber) {
   
   if (!ipfsHash) {
     console.warn(`⚠️ No IPFS hash found for Hosky #${tokenNumber}`);
-    console.log(`Available range: 1-${map.size}`);
+    console.log(`   Available range: 1-${map.size}`);
   }
   
   return ipfsHash;
 }
 
 /**
- * Get full IPFS URL for a Hosky token with multiple gateway options
+ * Get full IPFS URL for a Hosky token
  */
 export function getHoskyImageUrl(tokenNumber) {
   const ipfsHash = getHoskyIpfs(tokenNumber);
@@ -82,17 +109,14 @@ export function getHoskyImageUrl(tokenNumber) {
     return null;
   }
   
-  // Primary gateway (ipfs.io is most reliable)
-  const primaryUrl = `https://ipfs.io/ipfs/${ipfsHash}`;
+  const url = `https://ipfs.io/ipfs/${ipfsHash}`;
+  console.log(`✅ HOSKY #${tokenNumber} -> ${url}`);
   
-  console.log(`✅ HOSKY #${tokenNumber} -> ${ipfsHash.substring(0, 20)}...`);
-  
-  return primaryUrl;
+  return url;
 }
 
 /**
  * Get all available gateway URLs for a HOSKY token
- * Returns array of fallback URLs
  */
 export function getHoskyImageGateways(tokenNumber) {
   const ipfsHash = getHoskyIpfs(tokenNumber);
@@ -110,7 +134,7 @@ export function getHoskyImageGateways(tokenNumber) {
 }
 
 /**
- * Check if a HOSKY number exists in the CSV
+ * Check if a HOSKY number exists
  */
 export function hoskyNumberExists(tokenNumber) {
   const map = loadHoskyIpfsMap();
@@ -118,7 +142,7 @@ export function hoskyNumberExists(tokenNumber) {
 }
 
 /**
- * Get total number of available HOSKY tokens
+ * Get total count
  */
 export function getTotalHoskyCount() {
   const map = loadHoskyIpfsMap();
