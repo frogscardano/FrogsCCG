@@ -23,7 +23,6 @@ export function loadHoskyIpfsMap() {
       const columns = trimmedLine.split(',');
       
       if (columns.length >= 2) {
-        // Read token number from FIRST column, not line index
         const tokenNumber = parseInt(columns[0].trim());
         const ipfsHash = columns[1].trim().replace('ipfs://', '');
         
@@ -34,6 +33,12 @@ export function loadHoskyIpfsMap() {
     });
 
     console.log(`✅ Loaded ${hoskyIpfsMap.size} HOSKY IPFS mappings`);
+    
+    // Log the range of token numbers available
+    const keys = Array.from(hoskyIpfsMap.keys()).sort((a, b) => a - b);
+    console.log(`📊 HOSKY range: #${keys[0]} to #${keys[keys.length - 1]}`);
+    console.log(`📋 First 5 tokens: ${keys.slice(0, 5).join(', ')}`);
+    console.log(`📋 Last 5 tokens: ${keys.slice(-5).join(', ')}`);
     
     return hoskyIpfsMap;
     
@@ -52,8 +57,10 @@ export function getHoskyImageUrl(tokenNumber) {
   const ipfsHash = getHoskyIpfs(tokenNumber);
   
   if (!ipfsHash) {
+    console.error(`❌ No IPFS hash found for HOSKY #${tokenNumber}`);
     return null;
   }
   
-  return `https://ipfs.io/ipfs/${ipfsHash}`;
+  // Use CF-IPFS gateway for better reliability
+  return `https://cf-ipfs.com/ipfs/${ipfsHash}`;
 }
