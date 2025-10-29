@@ -148,13 +148,14 @@ function generateRandomCard(collectionConfig, userCards) {
   // Handle image URL - use CSV lookup for Hosky, fallback for others
   let imageUrl;
   if (collectionConfig.useCsvLookup) {
-    imageUrl = getHoskyImageUrl(randomNumber);
-    console.log(`HOSKY #${randomNumber} image URL: ${imageUrl}`); // DEBUG LOG
-    if (!imageUrl) {
-      console.error(`❌ No IPFS hash found for ${collectionConfig.name} #${randomNumber}`);
-      throw new Error(`No IPFS hash found for ${collectionConfig.name} #${randomNumber}`);
-    }
-  } else {
+  const imageUrls = getHoskyImageUrl(randomNumber);
+  imageUrl = imageUrls[0]; // Use first gateway
+  card.imageUrls = imageUrls; // Pass all for fallback
+  console.log(`HOSKY #${randomNumber} image URLs:`, imageUrls);
+  if (!imageUrl) {
+    throw new Error(`No IPFS hash found for ${collectionConfig.name} #${randomNumber}`);
+  }
+} else {
     imageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${randomNumber}.png`;
   }
   
