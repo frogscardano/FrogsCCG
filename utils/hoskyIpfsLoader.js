@@ -4,6 +4,15 @@ import path from 'path';
 
 let hoskyIpfsMap = null;
 
+// Multiple IPFS gateways for fallback
+const IPFS_GATEWAYS = [
+  'https://ipfs.io/ipfs/',
+  'https://cloudflare-ipfs.com/ipfs/',
+  'https://cf-ipfs.com/ipfs/',
+  'https://gateway.pinata.cloud/ipfs/',
+  'https://dweb.link/ipfs/'
+];
+
 export function loadHoskyIpfsMap() {
   if (hoskyIpfsMap) {
     return hoskyIpfsMap;
@@ -34,11 +43,6 @@ export function loadHoskyIpfsMap() {
 
     console.log(`✅ Loaded ${hoskyIpfsMap.size} HOSKY IPFS mappings`);
     
-    const keys = Array.from(hoskyIpfsMap.keys()).sort((a, b) => a - b);
-    console.log(`📊 HOSKY range: #${keys[0]} to #${keys[keys.length - 1]}`);
-    console.log(`📋 First 5 tokens: ${keys.slice(0, 5).join(', ')}`);
-    console.log(`📋 Last 5 tokens: ${keys.slice(-5).join(', ')}`);
-    
     return hoskyIpfsMap;
     
   } catch (error) {
@@ -60,5 +64,13 @@ export function getHoskyImageUrl(tokenNumber) {
     return null;
   }
   
-  return `https://ipfs.io/ipfs/${ipfsHash}`;
+  // Return all gateway URLs for fallback handling in frontend
+  return IPFS_GATEWAYS.map(gateway => `${gateway}${ipfsHash}`);
+}
+
+// Helper to get single URL (for backward compatibility)
+export function getHoskySingleImageUrl(tokenNumber) {
+  const ipfsHash = getHoskyIpfs(tokenNumber);
+  if (!ipfsHash) return null;
+  return `${IPFS_GATEWAYS[0]}${ipfsHash}`;
 }
