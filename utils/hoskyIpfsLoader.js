@@ -60,5 +60,5 @@ export function getHoskyImageUrl(tokenNumber) {
     return null;
   }
   
-  return `https://cf-ipfs.com/ipfs/${ipfsHash}`;
+  return `https://ipfs.io/ipfs/${ipfsHash}`;
 }
