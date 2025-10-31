@@ -883,10 +883,31 @@ const handlePackClick = async () => {
                 </div>
               </div>
             </div>
-            
             <div className={styles.statusMessage}>
               {statusMessage}
             </div>
+            
+            {isRevealed && revealedCards.length > 0 && (
+              <>
+                {selectedPack === 'hosky' ? (
+                  <div style={{
+                    background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                    color: 'white',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    margin: '1rem 0',
+                    fontWeight: 'bold',
+                    fontSize: '0.9rem'
+                  }}>
+                    💩 Temporary HOSKY - Not saved to collection
+                  </div>
+                ) : (
+                  <button className={styles.actionBtn} onClick={addToCollection}>
+                    Add to Collection
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
