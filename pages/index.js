@@ -59,9 +59,6 @@ export default function Home() {
   const [nextClaimAt, setNextClaimAt] = useState(null);
   const [claimLoading, setClaimLoading] = useState(false);
   const [displayAddressInfo, setDisplayAddressInfo] = useState(null);
-  
-  // HOSKY STATE
-  const [hoskyPoopScore, setHoskyPoopScore] = useState(0);
 
   useEffect(() => {
     const checkExistingConnection = async () => {
@@ -107,25 +104,7 @@ export default function Home() {
     }
   }, [address]);
 
-  // LOAD HOSKY POOP SCORE
-  useEffect(() => {
-    const fetchPoopScore = async () => {
-      if (!connected || !address) {
-        setHoskyPoopScore(0);
-        return;
-      }
-      try {
-        const res = await fetch(`/api/getHoskyPoopmeter?walletAddress=${encodeURIComponent(address)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setHoskyPoopScore(data.poopScore || 0);
-        }
-      } catch (e) {
-        console.error('Failed to load poop score:', e);
-      }
-    };
-    fetchPoopScore();
-  }, [connected, address]);
+  , [connected, address]);
 
   const loadCollection = async () => {
     if (!connected || !address) {
@@ -267,11 +246,7 @@ export default function Home() {
       alert("Please connect your wallet to open a pack.");
       return;
     }
-    // HOSKY is FREE - no pack balance check
-    if (packType !== 'hosky' && packsBalance <= 0) {
-      alert('No packs remaining. Claim your daily +5 packs first.');
-      return;
-    }
+    
     setSelectedPack(packType);
     setIsModalOpen(true);
     setIsPackOpening(false);
@@ -282,20 +257,11 @@ export default function Home() {
 const handlePackClick = async () => {
   if (isPackOpening) return;
   
-  // HOSKY is FREE - don't consume pack balance
-  if (selectedPack !== 'hosky') {
-    setPacksBalance(prev => (prev > 0 ? prev - 1 : 0));
-  }
-  
   setIsPackOpening(true);
   setIsRevealed(false);
   
-  const packName = selectedPack === 'snekkies' 
-    ? 'Snekkie' 
-    : selectedPack === 'titans'
+  const packName = selectedPack === 'titans'
       ? 'Titan'
-      : selectedPack === 'hosky'
-        ? 'HOSKY'
         : 'Frog';
   
   setStatusMessage(`Fetching ${packName} NFT from Cardano...`);
@@ -309,21 +275,14 @@ const handlePackClick = async () => {
     const response = await fetch(apiUrl);
     
     if (!response.ok) {
-      // Only refund pack for non-HOSKY packs
-      if (selectedPack !== 'hosky') {
-        setPacksBalance(prev => prev + 1);
-      }
+      
       const errorText = await response.text();
       console.error(`API error (${response.status}):`, errorText);
       
       if (response.status === 409) {
         throw new Error(`You have collected all available ${
-          selectedPack === 'snekkies' 
-            ? 'Snekkies' 
-            : selectedPack === 'titans'
+          selectedPack === 'titans'
               ? 'Titans'
-              : selectedPack === 'hosky'
-                ? 'HOSKYs'
                 : 'Frogs'
         }!`);
       }
@@ -331,11 +290,6 @@ const handlePackClick = async () => {
     }
     
     const cardData = await response.json();
-    
-    // Update poopmeter if HOSKY
-    if (selectedPack === 'hosky' && cardData.poopScore !== undefined) {
-      setHoskyPoopScore(cardData.poopScore);
-    }
     
     if (cardData) {
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -349,10 +303,7 @@ const handlePackClick = async () => {
       throw new Error('No card data received');
     }
   } catch (error) {
-    // Only refund pack for non-HOSKY packs
-    if (selectedPack !== 'hosky') {
-      setPacksBalance(prev => prev + 1);
-    }
+    
     console.error('Error opening pack:', error);
     setStatusMessage(`Error: ${error.message}. Please try again.`);
     setTimeout(() => {
@@ -483,8 +434,6 @@ const handlePackClick = async () => {
 
   const getCardBackImage = (packType) => {
     switch(packType) {
-      case 'snekkies':
-        return '/images/card-back-snekkies.png';
       case 'titans':
         return '/images/card-back-titans.png';
       default:
@@ -642,38 +591,7 @@ const handlePackClick = async () => {
           <div className={styles.packsTab}>
             <h2>Open an NFT Card Pack</h2>
             
-            {/* Poopmeter Display */}
-            <div style={{
-              background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
-              border: '2px solid #8B4513',
-              borderRadius: '12px',
-              padding: '1rem',
-              maxWidth: '250px',
-              margin: '0 auto 2rem',
-              textAlign: 'center'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                color: '#8B4513',
-                marginBottom: '0.3rem'
-              }}>
-                <span style={{fontSize: '1.2rem'}}>💩</span>
-                <span>Hosky Poopmeter</span>
-              </div>
-              <div style={{
-                fontSize: '2rem',
-                fontWeight: 'bold',
-                color: '#8B4513',
-                textShadow: '2px 2px 4px rgba(0, 0, 0, 0.1)'
-              }}>
-                {hoskyPoopScore.toLocaleString()}
-              </div>
-            </div>
+            
 
             <div className={styles.packContainer}>
               <div 
@@ -690,18 +608,6 @@ const handlePackClick = async () => {
               
               <div 
                 className={styles.pack}
-                onClick={() => openPack('snekkies')}
-              >
-                <div className={styles.packImage}>🐍</div>
-                <h3 className={styles.packTitle}>Snekkies Card Pack</h3>
-                <p className={styles.packDescription}>
-                  Contains 1 random Snekkie card from the Cardano NFT collection via BlockFrost
-                </p>
-                <button className={styles.actionBtn}>Open Pack</button>
-              </div>
-              
-              <div 
-                className={styles.pack}
                 onClick={() => openPack('titans')}
               >
                 <div className={styles.packImage}>🦁</div>
@@ -712,17 +618,6 @@ const handlePackClick = async () => {
                 <button className={styles.actionBtn}>Open Pack</button>
               </div>
               
-              <div 
-                className={styles.pack}
-                onClick={() => openPack('hosky')}
-              >
-                <div className={styles.packImage}>💩</div>
-                <h3 className={styles.packTitle}>Poop HOSKY</h3>
-                <p className={styles.packDescription}>
-                  Contains 1 random HOSKY card from the Cardano NFT collection via BlockFrost
-                </p>
-                <button className={styles.actionBtn}>Poop a HOSKY</button>
-              </div>
             </div>
           </div>
         ) : currentTab === 'collection' ? (
@@ -942,14 +837,10 @@ const handlePackClick = async () => {
           }}>×</div>
           <div className={styles.modalContent}>
             <h2>Opening {
-              selectedPack === 'snekkies' 
-                ? 'Snekkies' 
-                : selectedPack === 'titans'
+              selectedPack === 'titans'
                   ? 'Titans'
-                  : selectedPack === 'hosky'
-                    ? '💩 HOSKY'
                     : 'Frog'
-            } Pack with BlockFrost</h2>
+            } Pack with Love</h2>
             
             <div className={styles.packOpening}>
               <div 
@@ -998,28 +889,6 @@ const handlePackClick = async () => {
             <div className={styles.statusMessage}>
               {statusMessage}
             </div>
-            
-            {isRevealed && revealedCards.length > 0 && (
-              <>
-                {selectedPack === 'hosky' ? (
-                  <div style={{
-                    background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-                    color: 'white',
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    margin: '1rem 0',
-                    fontWeight: 'bold',
-                    fontSize: '0.9rem'
-                  }}>
-                    💩 Temporary HOSKY - Not saved to collection
-                  </div>
-                ) : (
-                  <button className={styles.actionBtn} onClick={addToCollection}>
-                    Add to Collection
-                  </button>
-                )}
-              </>
-            )}
           </div>
         </div>
       )}
