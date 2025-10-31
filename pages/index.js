@@ -104,8 +104,6 @@ export default function Home() {
     }
   }, [address]);
 
-  [connected, address]);
-
   const loadCollection = async () => {
     if (!connected || !address) {
       console.error('No wallet address available to load collection');
