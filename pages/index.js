@@ -104,7 +104,7 @@ export default function Home() {
     }
   }, [address]);
 
-  , [connected, address]);
+  [connected, address]);
 
   const loadCollection = async () => {
     if (!connected || !address) {
