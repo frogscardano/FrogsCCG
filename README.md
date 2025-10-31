@@ -130,7 +130,3 @@ This project uses the Blockfrost API to interact with the Cardano blockchain. Th
 4. Associating NFTs with user wallets
 
 For security reasons, private keys should never be exposed on the client side. All blockchain interactions are handled server-side via API endpoints.
-
-## Testing
-
-For testing purposes, use the Cardano testnet (preprod) before deploying to mainnet. You can get test ADA from the [Cardano Testnet Faucet](https://docs.cardano.org/cardano-testnet/tools/faucet). 
