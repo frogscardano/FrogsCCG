@@ -1,209 +1,285 @@
-import React, { useState, useEffect } from 'react';
-import styles from './Scoreboard.module.css';
+import { useState, useEffect } from 'react';
+import { useWallet } from '../contexts/WalletContext';
+import styles from '../styles/Scoreboard.module.css';
 
-const Scoreboard = () => {
-  const [leaderboardData, setLeaderboardData] = useState(null);
+export default function Scoreboard() {
+  const { address } = useWallet();
   const [leaderboardType, setLeaderboardType] = useState('teams');
-  const [isLoading, setIsLoading] = useState(true);
+  const [leaderboardData, setLeaderboardData] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [myRank, setMyRank] = useState(null);
+  const [limit, setLimit] = useState(50);
+  const [sortBy, setSortBy] = useState('winRate'); // winRate, totalWins, totalBattles
 
   useEffect(() => {
-    fetchLeaderboard();
-  }, [leaderboardType, refreshKey]);
+    loadLeaderboard();
+  }, [leaderboardType, limit, sortBy]);
 
-  const fetchLeaderboard = async () => {
-    setIsLoading(true);
-    setError(null);
-    
+  const loadLeaderboard = async () => {
     try {
-      const response = await fetch(`/api/leaderboard?type=${leaderboardType}&limit=100`);
-      if (!response.ok) throw new Error('Failed to fetch leaderboard');
-      
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`/api/leaderboard?type=${leaderboardType}&limit=${limit}`);
+      if (!response.ok) throw new Error('Failed to load leaderboard');
+
       const data = await response.json();
-      setLeaderboardData(data);
-    } catch (error) {
-      console.error('Error fetching leaderboard:', error);
-      setError('Failed to load leaderboard');
+      let entries = leaderboardType === 'teams' ? data.teams : data.users;
+
+      // Apply additional sorting
+      if (sortBy === 'winRate') {
+        entries = entries.sort((a, b) => b.winRate - a.winRate);
+      } else if (sortBy === 'totalWins') {
+        const winsKey = leaderboardType === 'teams' ? 'battlesWon' : 'totalBattlesWon';
+        entries = entries.sort((a, b) => b[winsKey] - a[winsKey]);
+      } else if (sortBy === 'totalBattles') {
+        const battlesKey = leaderboardType === 'teams' ? 'totalBattles' : 'totalBattles';
+        entries = entries.sort((a, b) => b[battlesKey] - a[battlesKey]);
+      }
+
+      setLeaderboardData(entries);
+
+      // Find current user's rank
+      if (address) {
+        const userIndex = entries.findIndex(entry => {
+          if (leaderboardType === 'teams') {
+            return entry.ownerAddress === address;
+          } else {
+            return entry.address === address;
+          }
+        });
+        setMyRank(userIndex >= 0 ? userIndex + 1 : null);
+      }
+    } catch (err) {
+      console.error('Error loading leaderboard:', err);
+      setError(err.message);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1);
-  };
-
-  const formatAddress = (address) => {
-    if (!address) return 'Unknown';
-    return `${address.slice(0, 8)}...${address.slice(-6)}`;
-  };
-
-  const getRankIcon = (rank) => {
+  const getRankBadge = (rank) => {
     if (rank === 1) return '🥇';
     if (rank === 2) return '🥈';
     if (rank === 3) return '🥉';
     return `#${rank}`;
   };
 
-  const getWinRateColor = (winRate) => {
-    if (winRate >= 80) return '#4CAF50'; // Green
-    if (winRate >= 60) return '#8BC34A'; // Light Green
-    if (winRate >= 40) return '#FFC107'; // Yellow
-    if (winRate >= 20) return '#FF9800'; // Orange
-    return '#F44336'; // Red
+  const getRankClass = (rank) => {
+    if (rank === 1) return styles.gold;
+    if (rank === 2) return styles.silver;
+    if (rank === 3) return styles.bronze;
+    return '';
   };
 
-  if (isLoading) {
-    return (
-      <div className={styles.scoreboard}>
+  const formatAddress = (addr) => {
+    if (!addr) return 'Unknown';
+    return `${addr.slice(0, 8)}...${addr.slice(-6)}`;
+  };
+
+  const getWinRateColor = (winRate) => {
+    if (winRate >= 75) return styles.excellent;
+    if (winRate >= 50) return styles.good;
+    if (winRate >= 25) return styles.average;
+    return styles.poor;
+  };
+
+  return (
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h2>🏆 Global Leaderboard</h2>
+        <p>Compete with the best players and climb to the top!</p>
+      </div>
+
+      <div className={styles.controls}>
+        <div className={styles.typeSelector}>
+          <button
+            className={`${styles.typeButton} ${leaderboardType === 'teams' ? styles.active : ''}`}
+            onClick={() => setLeaderboardType('teams')}
+          >
+            ⚔️ Teams
+          </button>
+          <button
+            className={`${styles.typeButton} ${leaderboardType === 'users' ? styles.active : ''}`}
+            onClick={() => setLeaderboardType('users')}
+          >
+            👤 Players
+          </button>
+        </div>
+
+        <div className={styles.filters}>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className={styles.sortSelect}
+          >
+            <option value="winRate">Win Rate</option>
+            <option value="totalWins">Total Wins</option>
+            <option value="totalBattles">Total Battles</option>
+          </select>
+
+          <select
+            value={limit}
+            onChange={(e) => setLimit(parseInt(e.target.value))}
+            className={styles.limitSelect}
+          >
+            <option value={25}>Top 25</option>
+            <option value={50}>Top 50</option>
+            <option value={100}>Top 100</option>
+          </select>
+        </div>
+      </div>
+
+      {myRank && (
+        <div className={styles.myRank}>
+          <span className={styles.myRankLabel}>Your Rank:</span>
+          <span className={styles.myRankValue}>{getRankBadge(myRank)}</span>
+        </div>
+      )}
+
+      {error && (
+        <div className={styles.error}>
+          <span>❌</span> {error}
+        </div>
+      )}
+
+      {loading ? (
         <div className={styles.loading}>
           <div className={styles.spinner}></div>
           <p>Loading leaderboard...</p>
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={styles.scoreboard}>
-        <div className={styles.error}>
-          <p>❌ {error}</p>
-          <button onClick={handleRefresh} className={styles.refreshButton}>
-            🔄 Try Again
-          </button>
+      ) : leaderboardData.length === 0 ? (
+        <div className={styles.empty}>
+          <p>No {leaderboardType} data available yet.</p>
+          <p>Be the first to compete!</p>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.scoreboard}>
-      <div className={styles.header}>
-        <h2>🏆 Leaderboard</h2>
-        <div className={styles.controls}>
-          <select 
-            value={leaderboardType} 
-            onChange={(e) => setLeaderboardType(e.target.value)}
-            className={styles.typeSelector}
-          >
-            <option value="teams">Top Teams</option>
-            <option value="users">Top Players</option>
-            <option value="recent">Recent Battles</option>
-          </select>
-          <button onClick={handleRefresh} className={styles.refreshButton}>
-            🔄 Refresh
-          </button>
-        </div>
-      </div>
-
-      {leaderboardType === 'teams' && leaderboardData?.teams && (
+      ) : (
         <div className={styles.leaderboard}>
-          <div className={styles.tableHeader}>
-            <span className={styles.rankCol}>Rank</span>
-            <span className={styles.nameCol}>Team Name</span>
-            <span className={styles.ownerCol}>Owner</span>
-            <span className={styles.statsCol}>Wins</span>
-            <span className={styles.statsCol}>Losses</span>
-            <span className={styles.statsCol}>Win Rate</span>
-            <span className={styles.statsCol}>Total Battles</span>
-          </div>
-          
-          {leaderboardData.teams.map((team, index) => (
-            <div key={team.id} className={styles.tableRow}>
-              <span className={styles.rankCol}>
-                <span className={styles.rankIcon}>{getRankIcon(index + 1)}</span>
-              </span>
-              <span className={styles.nameCol}>
-                <strong>{team.name}</strong>
-              </span>
-              <span className={styles.ownerCol}>
-                {formatAddress(team.ownerAddress)}
-              </span>
-              <span className={styles.statsCol}>
-                <span className={styles.wins}>{team.battlesWon}</span>
-              </span>
-              <span className={styles.statsCol}>
-                <span className={styles.losses}>{team.battlesLost}</span>
-              </span>
-              <span className={styles.statsCol}>
-                <span 
-                  className={styles.winRate}
-                  style={{ color: getWinRateColor(team.winRate) }}
-                >
-                  {team.winRate}%
-                </span>
-              </span>
-              <span className={styles.statsCol}>
-                {team.totalBattles}
-              </span>
+          {leaderboardType === 'teams' ? (
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Team Name</th>
+                    <th>Owner</th>
+                    <th>Wins</th>
+                    <th>Losses</th>
+                    <th>Total</th>
+                    <th>Win Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaderboardData.map((team, index) => {
+                    const rank = index + 1;
+                    const isMyTeam = team.ownerAddress === address;
+                    
+                    return (
+                      <tr
+                        key={team.id}
+                        className={`${getRankClass(rank)} ${isMyTeam ? styles.highlighted : ''}`}
+                      >
+                        <td className={styles.rankCell}>
+                          <span className={styles.rankBadge}>
+                            {getRankBadge(rank)}
+                          </span>
+                        </td>
+                        <td className={styles.nameCell}>
+                          <strong>{team.name}</strong>
+                          {isMyTeam && <span className={styles.youBadge}>YOU</span>}
+                        </td>
+                        <td className={styles.addressCell}>
+                          {formatAddress(team.ownerAddress)}
+                        </td>
+                        <td className={styles.statCell}>
+                          <span className={styles.wins}>{team.battlesWon || 0}</span>
+                        </td>
+                        <td className={styles.statCell}>
+                          <span className={styles.losses}>{team.battlesLost || 0}</span>
+                        </td>
+                        <td className={styles.statCell}>
+                          {team.totalBattles || 0}
+                        </td>
+                        <td className={styles.statCell}>
+                          <span className={`${styles.winRate} ${getWinRateColor(team.winRate)}`}>
+                            {team.winRate?.toFixed(1) || '0.0'}%
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          ))}
-        </div>
-      )}
-
-      {leaderboardType === 'users' && leaderboardData?.users && (
-        <div className={styles.leaderboard}>
-          <div className={styles.tableHeader}>
-            <span className={styles.rankCol}>Rank</span>
-            <span className={styles.ownerCol}>Player Address</span>
-            <span className={styles.statsCol}>Total Wins</span>
-            <span className={styles.statsCol}>Total Losses</span>
-            <span className={styles.statsCol}>Win Rate</span>
-            <span className={styles.statsCol}>Active Teams</span>
-            <span className={styles.statsCol}>Total Teams</span>
-          </div>
-          
-          {leaderboardData.users.map((user, index) => (
-            <div key={user.address} className={styles.tableRow}>
-              <span className={styles.rankCol}>
-                <span className={styles.rankIcon}>{getRankIcon(index + 1)}</span>
-              </span>
-              <span className={styles.ownerCol}>
-                {formatAddress(user.address)}
-              </span>
-              <span className={styles.statsCol}>
-                <span className={styles.wins}>{user.totalBattlesWon}</span>
-              </span>
-              <span className={styles.statsCol}>
-                <span className={styles.losses}>{user.totalBattlesLost}</span>
-              </span>
-              <span className={styles.statsCol}>
-                <span 
-                  className={styles.winRate}
-                  style={{ color: getWinRateColor(user.winRate) }}
-                >
-                  {user.winRate}%
-                </span>
-              </span>
-              <span className={styles.statsCol}>
-                {user.activeTeams}
-              </span>
-              <span className={styles.statsCol}>
-                {user.totalTeams}
-              </span>
+          ) : (
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>Teams</th>
+                    <th>Wins</th>
+                    <th>Losses</th>
+                    <th>Total</th>
+                    <th>Win Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaderboardData.map((player, index) => {
+                    const rank = index + 1;
+                    const isMe = player.address === address;
+                    
+                    return (
+                      <tr
+                        key={player.address}
+                        className={`${getRankClass(rank)} ${isMe ? styles.highlighted : ''}`}
+                      >
+                        <td className={styles.rankCell}>
+                          <span className={styles.rankBadge}>
+                            {getRankBadge(rank)}
+                          </span>
+                        </td>
+                        <td className={styles.nameCell}>
+                          <strong>{formatAddress(player.address)}</strong>
+                          {isMe && <span className={styles.youBadge}>YOU</span>}
+                        </td>
+                        <td className={styles.statCell}>
+                          {player.activeTeams || 0}/{player.totalTeams || 0}
+                        </td>
+                        <td className={styles.statCell}>
+                          <span className={styles.wins}>{player.totalBattlesWon || 0}</span>
+                        </td>
+                        <td className={styles.statCell}>
+                          <span className={styles.losses}>{player.totalBattlesLost || 0}</span>
+                        </td>
+                        <td className={styles.statCell}>
+                          {player.totalBattles || 0}
+                        </td>
+                        <td className={styles.statCell}>
+                          <span className={`${styles.winRate} ${getWinRateColor(player.winRate)}`}>
+                            {player.winRate?.toFixed(1) || '0.0'}%
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          ))}
+          )}
         </div>
       )}
 
-      {leaderboardType === 'recent' && (
-        <div className={styles.comingSoon}>
-          <h3>🚧 Coming Soon!</h3>
-          <p>Recent battles feature is under development.</p>
-          <p>Check back soon to see the latest battle results!</p>
-        </div>
-      )}
-
-      {leaderboardData && (
-        <div className={styles.footer}>
-          <p>Showing top {leaderboardData.total} {leaderboardType}</p>
-          <p>Last updated: {new Date().toLocaleString()}</p>
-        </div>
-      )}
+      <div className={styles.footer}>
+        <button onClick={loadLeaderboard} className={styles.refreshButton}>
+          🔄 Refresh
+        </button>
+        <p className={styles.hint}>
+          Battle more to improve your ranking! 🚀
+        </p>
+      </div>
     </div>
   );
-};
-
-export default Scoreboard;
+}
