@@ -571,6 +571,12 @@ const handlePackClick = async () => {
           Teams
         </div>
         <div 
+  className={styles.tab}
+  onClick={() => router.push('/battle')}
+>
+  ⚔️ Battle Arena
+</div>
+        <div 
           className={`${styles.tab} ${currentTab === 'games' ? styles.active : ''}`}
           onClick={() => setCurrentTab('games')}
         >
