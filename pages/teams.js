@@ -27,8 +27,6 @@ const Teams = () => {
         const response = await fetch(`/api/collections/${walletContext.address}`);
         if (response.ok) {
           const data = await response.json();
-          // The collections API returns { collection: [...], userInfo: {...}, message: "..." }
-          // We need to extract the collection array for the TeamBuilder
           if (data.collection && Array.isArray(data.collection)) {
             setCurrentCards(data.collection);
           } else {
@@ -52,7 +50,6 @@ const Teams = () => {
 
   const handleBattleComplete = (result) => {
     console.log('Battle completed:', result);
-    // You can add additional logic here like showing notifications
   };
 
   return (
@@ -115,28 +112,6 @@ const Teams = () => {
           )}
         </div>
 
-        {/* Help section for when teams functionality is not available */}
-        <div className={styles.helpSection}>
-          <div className={styles.helpCard}>
-            <h3>🚧 Teams Functionality Setup</h3>
-            <p>
-              If you're seeing "Failed to load teams" or similar errors, the teams database table 
-              may not be set up yet. This is a one-time setup requirement.
-            </p>
-            <div className={styles.helpSteps}>
-              <h4>Quick Fix:</h4>
-              <ol>
-                <li>Run database migration: <code>npx prisma migrate dev --name add_teams_table</code></li>
-                <li>Restart your application</li>
-                <li>Refresh this page</li>
-              </ol>
-            </div>
-            <p className={styles.helpNote}>
-              <strong>Note:</strong> See <code>TEAMS_SETUP.md</code> for detailed instructions.
-            </p>
-          </div>
-        </div>
-
         <div className={styles.features}>
           <div className={styles.feature}>
             <div className={styles.featureIcon}>⚔️</div>
@@ -174,18 +149,12 @@ const Teams = () => {
             
             <div className={styles.step}>
               <div className={styles.stepNumber}>2</div>
-              <h4>Choose Your Strategy</h4>
-              <p>Consider card synergies, attack/health/speed balance, and team composition.</p>
-            </div>
-            
-            <div className={styles.step}>
-              <div className={styles.stepNumber}>3</div>
               <h4>Battle Other Teams</h4>
               <p>Challenge other players' teams in strategic turn-based battles.</p>
             </div>
             
             <div className={styles.step}>
-              <div className={styles.stepNumber}>4</div>
+              <div className={styles.stepNumber}>3</div>
               <h4>Climb the Ranks</h4>
               <p>Win battles to improve your ranking and earn rewards on the leaderboard.</p>
             </div>
