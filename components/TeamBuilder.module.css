@@ -1,333 +1,423 @@
-.teamBuilder {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
+/* TeamBuilder Component Styles */
+.container {
+  width: 100%;
 }
 
-.header {
+/* Team Display */
+.teamDisplay {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 2.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.teamHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
-}
-
-.header h2 {
-  margin: 0;
-  color: #fff;
-}
-
-.actions {
-  display: flex;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 
-.createButton,
-.battleButton {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.createButton {
-  background-color: #007bff;
-  color: white;
-}
-
-.createButton:hover {
-  background-color: #0056b3;
-}
-
-.battleButton {
-  background-color: #dc3545;
-  color: white;
-}
-
-.battleButton:hover {
-  background-color: #c82333;
-}
-
-.teamCreation {
+.teamName {
+  font-size: 1.5rem;
+  color: #22c55e;
+  margin: 0;
   display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.teamList {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  width: 100%;
-}
-
-.teamItem {
-  position: relative;
-  background: #1a1a1a;
-  border-radius: 8px;
-  padding: 1.5rem;
-  width: 100%;
-}
-
-.teamActions {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  display: flex;
+  align-items: center;
   gap: 0.5rem;
 }
 
+.teamActions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .editButton,
-.deleteButton {
+.deleteButton,
+.saveButton {
   padding: 0.5rem 1rem;
+  border-radius: 6px;
   border: none;
-  border-radius: 4px;
+  font-weight: 600;
   cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
+  transition: all 0.3s;
+  font-size: 0.9rem;
 }
 
 .editButton {
-  background-color: #ffc107;
-  color: #000;
+  background: #3b82f6;
+  color: white;
 }
 
 .editButton:hover {
-  background-color: #e0a800;
+  background: #2563eb;
 }
 
 .deleteButton {
-  background-color: #dc3545;
+  background: #ef4444;
   color: white;
 }
 
 .deleteButton:hover {
-  background-color: #c82333;
+  background: #dc2626;
 }
 
-.infoMessage {
-  background: rgba(0, 123, 255, 0.1);
-  border: 1px solid rgba(0, 123, 255, 0.3);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  text-align: center;
-}
-
-.infoMessage p {
-  margin: 0;
-  color: #007bff;
-  font-size: 0.9rem;
-}
-
-.battleMode {
-  text-align: center;
-}
-
-.battleMode h3 {
-  margin-bottom: 2rem;
-  color: #fff;
-}
-
-.battleTeams {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  margin-bottom: 2rem;
-}
-
-.teamSlot {
-  background: #1a1a1a;
-  padding: 1.5rem;
-  border-radius: 8px;
-  width: 100%;
-  position: relative;
-}
-
-.vs {
-  font-size: 2rem;
-  font-weight: bold;
-  color: #dc3545;
-  margin: 1rem 0;
-}
-
-.teamSelection {
-  cursor: pointer;
-  transition: transform 0.2s;
-  background: #1a1a1a;
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 1rem;
-  width: 100%;
-  position: relative;
-}
-
-.teamSelection:hover {
-  transform: translateY(-4px);
-}
-
-.collectionBadge {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
-  padding: 0.25rem 0.75rem;
-  background-color: #007bff;
+.saveButton {
+  background: #22c55e;
   color: white;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  z-index: 5;
 }
 
-.battleLoading {
+.saveButton:hover {
+  background: #16a34a;
+}
+
+/* CRITICAL: 5 Cards in One Row - Better Sizing */
+.teamCards {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr)); /* 5 equal columns */
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.cardSlot {
+  aspect-ratio: 2/3; /* Better card proportions */
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin: 2rem 0;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+  min-height: 250px; /* Ensure minimum height */
 }
 
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid rgba(255, 255, 255, 0.2);
-  border-top: 4px solid #007bff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
+.cardSlot:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(34, 197, 94, 0.5);
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.battleResult {
-  background-color: #1a1a1a;
-  border-radius: 8px;
-  padding: 2rem;
-  margin: 2rem 0;
-  text-align: left;
-}
-
-.battleTitle {
-  text-align: center;
-  margin-bottom: 1.5rem;
-  color: #fff;
-}
-
-.resultDetails {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 1.5rem;
-}
-
-.teamResult {
+.card {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.6) 100%);
+  border: 2px solid #22c55e;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 1rem;
-  background-color: #2a2a2a;
-  border-radius: 8px;
-  width: 48%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
-.teamResult strong {
+.cardImage {
+  width: 100%;
+  height: 65%;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.cardInfo {
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.9);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.cardName {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: white;
   margin-bottom: 0.5rem;
-  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.teamResult span {
-  font-size: 1.2rem;
-  color: #ffc107;
+.cardStats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.8rem;
 }
 
-.battleOutcome {
-  text-align: center;
-  margin: 1.5rem 0;
-  padding: 1rem;
-  background-color: #343a40;
-  border-radius: 8px;
-  color: #fff;
+.stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #94a3b8;
+  padding: 0.15rem 0;
 }
 
-.battleLog {
-  background-color: #2a2a2a;
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
-  max-height: 200px;
-  overflow-y: auto;
+.stat strong {
+  color: #22c55e;
+  font-size: 0.85rem;
 }
 
-.battleLog p {
-  margin: 0.5rem 0;
-  color: #adb5bd;
+.removeCard {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 28px;
+  height: 28px;
+  background: rgba(239, 68, 68, 0.95);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.1rem;
+  transition: all 0.3s;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-.battleError {
-  color: #dc3545;
+.removeCard:hover {
+  background: #dc2626;
+  transform: scale(1.15);
+}
+
+.emptySlot {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.85rem;
   text-align: center;
   font-weight: 500;
 }
 
-.resetButton {
-  display: block;
-  margin: 0 auto;
-  padding: 0.75rem 1.5rem;
-  background-color: #28a745;
+/* Team Stats */
+.teamStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 1rem;
+}
+
+.teamStat {
+  text-align: center;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.teamStat:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-2px);
+}
+
+.teamStatLabel {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.teamStatValue {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #22c55e;
+  text-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+}
+
+/* Create Team Section */
+.createTeam {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.createTeamHeader {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.teamNameInput {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-size: 1rem;
+}
+
+.teamNameInput::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.createButton,
+.startBattleButton {
+  padding: 0.75rem 2rem;
+  background: #22c55e;
   color: white;
   border: none;
-  border-radius: 4px;
-  font-weight: 500;
+  border-radius: 8px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s;
+  font-size: 1rem;
 }
 
-.resetButton:hover {
-  background-color: #218838;
+.createButton:hover,
+.startBattleButton:hover {
+  background: #16a34a;
+  transform: translateY(-2px);
 }
 
-/* Responsive adjustments */
-@media (min-width: 768px) {
-  .battleTeams {
-    flex-direction: row;
-    align-items: center;
-  }
-  
-  .vs {
-    margin: 0 1rem;
-  }
+.createButton:disabled,
+.startBattleButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
+/* Available Cards Grid - Also 5 columns for consistency */
+.availableCards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+}
+
+.availableCard {
+  aspect-ratio: 3/4;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  overflow: hidden;
+  position: relative;
+}
+
+.availableCard:hover {
+  transform: translateY(-4px);
+  border-color: #22c55e;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+.availableCard.selected {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
+}
+
+/* Loading & Empty States */
 .loading {
   text-align: center;
   padding: 3rem;
-  color: #fff;
+  color: #94a3b8;
 }
 
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top: 4px solid #fff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-.notAuthenticated {
+.emptyState {
   text-align: center;
   padding: 3rem;
-  color: #fff;
-  background-color: #1a1a1a;
-  border-radius: 8px;
-  margin: 2rem 0;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  color: #94a3b8;
 }
 
-.notAuthenticated p {
-  margin: 0;
-  font-size: 1.1rem;
-  opacity: 0.8;
-} 
+.emptyState h3 {
+  color: white;
+  margin-bottom: 1rem;
+}
+
+/* Responsive - Keep 5 cards as long as possible */
+@media (max-width: 1400px) {
+  .teamCards {
+    gap: 1rem;
+  }
+  
+  .cardSlot {
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .teamCards {
+    gap: 0.75rem;
+  }
+  
+  .cardSlot {
+    min-height: 200px;
+  }
+  
+  .cardName {
+    font-size: 0.85rem;
+  }
+  
+  .cardStats {
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .teamCards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .availableCards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .teamCards,
+  .availableCards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .createTeamHeader {
+    flex-direction: column;
+  }
+  
+  .teamNameInput,
+  .createButton {
+    width: 100%;
+  }
+}
+
+/* Scrollbar styling */
+.availableCards::-webkit-scrollbar {
+  width: 8px;
+}
+
+.availableCards::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.availableCards::-webkit-scrollbar-thumb {
+  background: rgba(34, 197, 94, 0.5);
+  border-radius: 4px;
+}
+
+.availableCards::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 197, 94, 0.7);
+}
