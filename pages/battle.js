@@ -550,7 +550,6 @@ export default function BattlePage() {
                             {team.winRate.toFixed(1)}% WR
                           </span>
                         )}
-                        )}
                       </div>
                       <div className={styles.opponentOwner}>
                         Owner: {team.ownerAddress?.slice(0, 8)}...{team.ownerAddress?.slice(-6)}
