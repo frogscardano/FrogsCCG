@@ -197,6 +197,94 @@
   line-height: 1.5;
 }
 
+/* ELO Changes Display */
+.eloChanges {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.eloChanges h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: #22c55e;
+}
+
+.eloChangesSummary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+}
+
+.eloChange {
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.eloChange.eloWin {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.eloChange.eloLoss {
+  border-color: rgba(255, 255, 255, 0.1);
+  opacity: 0.8;
+}
+
+.eloChangeTeam {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: white;
+}
+
+.eloChangeValues {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  font-size: 1.1rem;
+}
+
+.eloOld {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.eloArrow {
+  color: #22c55e;
+  font-size: 1.5rem;
+}
+
+.eloNew {
+  color: white;
+  font-weight: bold;
+  font-size: 1.3rem;
+}
+
+.eloChangeAmount {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.eloChangeAmount.positive {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.eloChangeAmount.negative {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
 .resultsActions {
   display: flex;
   gap: 1rem;
@@ -306,6 +394,7 @@
   color: white;
 }
 
+/* Team Preview */
 .teamPreview {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -318,6 +407,33 @@
   margin-bottom: 1rem;
   text-align: center;
   color: #22c55e;
+}
+
+/* ELO Display */
+.eloDisplay {
+  text-align: center;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.eloLabel {
+  font-size: 0.9rem;
+  margin-right: 0.5rem;
+  opacity: 0.8;
+}
+
+.eloValue {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-right: 0.5rem;
+}
+
+.eloTier {
+  font-size: 0.85rem;
+  opacity: 0.9;
 }
 
 .teamStats {
@@ -591,6 +707,27 @@
 .opponentHeader h4 {
   font-size: 1.1rem;
   margin: 0;
+}
+
+.opponentElo {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0.5rem 0;
+  padding: 0.25rem 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  text-align: center;
+}
+
+.winProbability {
+  font-size: 0.8rem;
+  color: #22c55e;
+  font-weight: 600;
+  text-align: center;
+  margin: 0.25rem 0;
+  padding: 0.25rem;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 4px;
 }
 
 .selectedBadge {
