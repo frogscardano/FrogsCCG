@@ -15,87 +15,173 @@ export default async function handler(req, res) {
     }
 
     console.log(`⚔️ Battle starting between Team A (${teamA.length} cards) and Team B (${teamB.length} cards)`);
+    console.log(`Team IDs: ${teamAId} vs ${teamBId}`);
 
-    // Calculate team stats
-    const calculateTeamStats = (team) => {
-      let totalAttack = 0;
-      let totalHealth = 0;
-      let totalSpeed = 0;
-      let totalPower = 0;
+    // Card-by-card battle simulation with individual attacks
+    const simulateBattle = (teamA, teamB) => {
+      const battleLog = [];
+      
+      // Initialize cards with health
+      const teamACards = teamA.map(card => ({
+        ...card,
+        currentHealth: card.health || 10,
+        maxHealth: card.health || 10,
+        isAlive: true
+      }));
+      
+      const teamBCards = teamB.map(card => ({
+        ...card,
+        currentHealth: card.health || 10,
+        maxHealth: card.health || 10,
+        isAlive: true
+      }));
 
-      team.forEach(card => {
-        totalAttack += card.attack || 1;
-        totalHealth += card.health || 1;
-        totalSpeed += card.speed || 1;
-        totalPower += (card.attack || 1) + (card.health || 1) + (card.speed || 1);
+      battleLog.push({
+        type: 'start',
+        message: '⚔️ Battle started!',
+        teamA: teamACards.map(c => ({ name: c.name, health: c.currentHealth })),
+        teamB: teamBCards.map(c => ({ name: c.name, health: c.currentHealth }))
       });
 
-      return { totalAttack, totalHealth, totalSpeed, totalPower };
-    };
-
-    const teamAStats = calculateTeamStats(teamA);
-    const teamBStats = calculateTeamStats(teamB);
-
-    console.log(`📊 Team A Stats: ATK:${teamAStats.totalAttack} HP:${teamAStats.totalHealth} SPD:${teamAStats.totalSpeed} Total:${teamAStats.totalPower}`);
-    console.log(`📊 Team B Stats: ATK:${teamBStats.totalAttack} HP:${teamBStats.totalHealth} SPD:${teamBStats.totalSpeed} Total:${teamBStats.totalPower}`);
-
-    // Battle simulation
-    const simulateBattle = (teamA, teamB, teamAStats, teamBStats) => {
-      const battleLog = [];
-      let teamAHealth = teamAStats.totalHealth;
-      let teamBHealth = teamBStats.totalHealth;
       let round = 1;
-      const maxRounds = 20;
+      const maxRounds = 50;
 
-      battleLog.push('⚔️ Battle started!');
-      battleLog.push(`Team A: ${teamAStats.totalPower} power | Team B: ${teamBStats.totalPower} power`);
+      while (round <= maxRounds) {
+        const aliveTeamA = teamACards.filter(c => c.isAlive);
+        const aliveTeamB = teamBCards.filter(c => c.isAlive);
 
-      while (teamAHealth > 0 && teamBHealth > 0 && round <= maxRounds) {
-        const teamADamage = Math.floor((teamAStats.totalAttack * 0.8) + (Math.random() * teamAStats.totalAttack * 0.4));
-        const teamBDamage = Math.floor((teamBStats.totalAttack * 0.8) + (Math.random() * teamBStats.totalAttack * 0.4));
+        if (aliveTeamA.length === 0 || aliveTeamB.length === 0) {
+          break;
+        }
 
-        teamBHealth -= teamADamage;
-        teamAHealth -= teamBDamage;
+        battleLog.push({
+          type: 'round_start',
+          round,
+          message: `--- Round ${round} ---`,
+          aliveTeamA: aliveTeamA.length,
+          aliveTeamB: aliveTeamB.length
+        });
 
-        battleLog.push(`Round ${round}: Team A deals ${teamADamage} damage, Team B deals ${teamBDamage} damage`);
-        battleLog.push(`Team A Health: ${Math.max(0, teamAHealth)} | Team B Health: ${Math.max(0, teamBHealth)}`);
+        // Sort by speed for turn order (higher speed goes first)
+        const allCards = [
+          ...aliveTeamA.map(c => ({ ...c, team: 'A' })),
+          ...aliveTeamB.map(c => ({ ...c, team: 'B' }))
+        ].sort((a, b) => (b.speed || 1) - (a.speed || 1));
+
+        // Each card attacks
+        for (const attacker of allCards) {
+          if (!attacker.isAlive) continue;
+
+          const enemyTeam = attacker.team === 'A' ? teamBCards : teamACards;
+          const aliveEnemies = enemyTeam.filter(c => c.isAlive);
+
+          if (aliveEnemies.length === 0) break;
+
+          // Pick random alive enemy
+          const target = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
+          
+          // Calculate damage with variance (80-120% of attack)
+          const baseDamage = attacker.attack || 1;
+          const variance = 0.8 + (Math.random() * 0.4);
+          const damage = Math.round(baseDamage * variance);
+          
+          target.currentHealth -= damage;
+          
+          const targetDied = target.currentHealth <= 0;
+          if (targetDied) {
+            target.isAlive = false;
+            target.currentHealth = 0;
+          }
+
+          battleLog.push({
+            type: 'attack',
+            round,
+            attacker: {
+              name: attacker.name,
+              team: attacker.team,
+              image: attacker.image || attacker.imageUrl
+            },
+            target: {
+              name: target.name,
+              team: target.team === 'A' ? 'B' : 'A',
+              image: target.image || target.imageUrl
+            },
+            damage,
+            targetHealth: Math.max(0, target.currentHealth),
+            targetMaxHealth: target.maxHealth,
+            died: targetDied,
+            message: `${attacker.name} attacks ${target.name} for ${damage} damage!${targetDied ? ' 💀 DEFEATED!' : ''}`
+          });
+
+          // Check if battle is over
+          const stillAliveA = teamACards.filter(c => c.isAlive).length;
+          const stillAliveB = teamBCards.filter(c => c.isAlive).length;
+          
+          if (stillAliveA === 0 || stillAliveB === 0) {
+            break;
+          }
+        }
 
         round++;
       }
 
+      // Determine winner
+      const finalAliveA = teamACards.filter(c => c.isAlive).length;
+      const finalAliveB = teamBCards.filter(c => c.isAlive).length;
+      
       let winner;
-      if (teamAHealth > teamBHealth) {
+      if (finalAliveA > finalAliveB) {
         winner = 'A';
-        battleLog.push('🏆 Team A wins the battle!');
-      } else if (teamBHealth > teamAHealth) {
+      } else if (finalAliveB > finalAliveA) {
         winner = 'B';
-        battleLog.push('🏆 Team B wins the battle!');
       } else {
-        winner = teamAStats.totalPower >= teamBStats.totalPower ? 'A' : 'B';
-        battleLog.push(`🏆 Team ${winner} wins by power advantage!`);
+        // Tie - go by remaining total health
+        const totalHealthA = teamACards.reduce((sum, c) => sum + c.currentHealth, 0);
+        const totalHealthB = teamBCards.reduce((sum, c) => sum + c.currentHealth, 0);
+        winner = totalHealthA >= totalHealthB ? 'A' : 'B';
       }
+
+      battleLog.push({
+        type: 'end',
+        winner,
+        message: `🏆 Team ${winner} wins the battle!`,
+        finalAliveA,
+        finalAliveB,
+        teamACards: teamACards.map(c => ({ 
+          name: c.name, 
+          health: c.currentHealth, 
+          alive: c.isAlive 
+        })),
+        teamBCards: teamBCards.map(c => ({ 
+          name: c.name, 
+          health: c.currentHealth, 
+          alive: c.isAlive 
+        }))
+      });
 
       return {
         winner,
         battleLog,
         rounds: round - 1,
-        finalHealth: {
-          teamA: Math.max(0, teamAHealth),
-          teamB: Math.max(0, teamBHealth)
+        finalState: {
+          teamA: teamACards,
+          teamB: teamBCards
         }
       };
     };
 
-    const battleResult = simulateBattle(teamA, teamB, teamAStats, teamBStats);
+    const battleResult = simulateBattle(teamA, teamB);
 
     // Update team records and ELO in database
     let eloChanges = null;
     if (teamAId && teamBId) {
       try {
         await withDatabase(async (db) => {
+          console.log(`🔍 Fetching team data for ELO calculation...`);
+          
           // Get current team data including ELO
           const [teamAData, teamBData] = await Promise.all([
-            db.Team.findUnique({ 
+            db.team.findUnique({ 
               where: { id: teamAId },
               select: { 
                 eloRating: true, 
@@ -104,7 +190,7 @@ export default async function handler(req, res) {
                 name: true 
               }
             }),
-            db.Team.findUnique({ 
+            db.team.findUnique({ 
               where: { id: teamBId },
               select: { 
                 eloRating: true, 
@@ -115,27 +201,36 @@ export default async function handler(req, res) {
             })
           ]);
 
+          console.log(`📊 Team A (${teamAData?.name}): ELO=${teamAData?.eloRating || 1000}, W/L=${teamAData?.battlesWon}/${teamAData?.battlesLost}`);
+          console.log(`📊 Team B (${teamBData?.name}): ELO=${teamBData?.eloRating || 1000}, W/L=${teamBData?.battlesWon}/${teamBData?.battlesLost}`);
+
+          if (!teamAData || !teamBData) {
+            console.error('❌ One or both teams not found in database');
+            throw new Error('Teams not found');
+          }
+
           // Calculate new ELO ratings
           eloChanges = calculateNewRatings(
             {
-              eloRating: teamAData?.eloRating || 1000,
-              battlesWon: teamAData?.battlesWon || 0,
-              battlesLost: teamAData?.battlesLost || 0
+              eloRating: teamAData.eloRating || 1000,
+              battlesWon: teamAData.battlesWon || 0,
+              battlesLost: teamAData.battlesLost || 0
             },
             {
-              eloRating: teamBData?.eloRating || 1000,
-              battlesWon: teamBData?.battlesWon || 0,
-              battlesLost: teamBData?.battlesLost || 0
+              eloRating: teamBData.eloRating || 1000,
+              battlesWon: teamBData.battlesWon || 0,
+              battlesLost: teamBData.battlesLost || 0
             },
             battleResult.winner
           );
 
-          console.log(`📈 ELO Changes:`, eloChanges);
+          console.log(`📈 ELO Changes calculated:`, eloChanges);
 
           // Update teams with new stats and ELO
           if (battleResult.winner === 'A') {
+            console.log(`Updating Team A as winner...`);
             await Promise.all([
-              db.Team.update({
+              db.team.update({
                 where: { id: teamAId },
                 data: { 
                   battlesWon: { increment: 1 },
@@ -143,7 +238,7 @@ export default async function handler(req, res) {
                   updatedAt: new Date()
                 }
               }),
-              db.Team.update({
+              db.team.update({
                 where: { id: teamBId },
                 data: { 
                   battlesLost: { increment: 1 },
@@ -153,8 +248,9 @@ export default async function handler(req, res) {
               })
             ]);
           } else {
+            console.log(`Updating Team B as winner...`);
             await Promise.all([
-              db.Team.update({
+              db.team.update({
                 where: { id: teamBId },
                 data: { 
                   battlesWon: { increment: 1 },
@@ -162,7 +258,7 @@ export default async function handler(req, res) {
                   updatedAt: new Date()
                 }
               }),
-              db.Team.update({
+              db.team.update({
                 where: { id: teamAId },
                 data: { 
                   battlesLost: { increment: 1 },
@@ -173,11 +269,15 @@ export default async function handler(req, res) {
             ]);
           }
 
-          console.log(`✅ Updated battle records and ELO for teams ${teamAId} and ${teamBId}`);
+          console.log(`✅ Successfully updated battle records and ELO ratings`);
         });
       } catch (dbError) {
         console.error('❌ Failed to update battle records:', dbError);
+        console.error('Error details:', dbError.message);
+        // Don't fail the entire request, just log the error
       }
+    } else {
+      console.warn('⚠️ Missing team IDs, skipping database update');
     }
 
     const response = {
@@ -185,11 +285,7 @@ export default async function handler(req, res) {
       winner: battleResult.winner,
       battleLog: battleResult.battleLog,
       rounds: battleResult.rounds,
-      finalHealth: battleResult.finalHealth,
-      teamStats: {
-        teamA: teamAStats,
-        teamB: teamBStats
-      },
+      finalState: battleResult.finalState,
       eloChanges: eloChanges,
       timestamp: new Date().toISOString()
     };
@@ -201,7 +297,8 @@ export default async function handler(req, res) {
     console.error('❌ Battle API error:', error);
     return res.status(500).json({ 
       error: 'Failed to conduct battle',
-      message: error.message 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
