@@ -81,6 +81,7 @@ export default async function handler(req, res) {
           battlesLost: team.battlesLost,
           totalBattles,
           winRate: parseFloat(winRate),
+          eloRating: team.eloRating || 1000,
           cards: cards,
           nftIds: ids,
           createdAt: team.createdAt,
