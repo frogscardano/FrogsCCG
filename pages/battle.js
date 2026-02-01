@@ -5,255 +5,192 @@ import Link from 'next/link';
 import styles from '../styles/Battle.module.css';
 import { getEloTier, getEloTierColor, getWinProbability, findBestMatches } from '../utils/elo';
 
-export default function BattlePage() {
-  const { connected, address } = useWallet();
+export default function BattleArena() {
+  const { address, connected } = useWallet();
   const [myTeams, setMyTeams] = useState([]);
   const [selectedMyTeam, setSelectedMyTeam] = useState(null);
-  const [opponentTeams, setOpponentTeams] = useState([]);
-  const [selectedOpponentTeam, setSelectedOpponentTeam] = useState(null);
-  const [battleInProgress, setBattleInProgress] = useState(false);
-  const [battleResult, setBattleResult] = useState(null);
+  const [opponentTeam, setOpponentTeam] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [battling, setBattling] = useState(false);
+  const [battleResult, setBattleResult] = useState(null);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterBy, setFilterBy] = useState('similar'); // similar (ELO-based), all, top, random
-  const [showAllOpponents, setShowAllOpponents] = useState(true);
+  
+  // Battle animation state
+  const [currentLogIndex, setCurrentLogIndex] = useState(0);
+  const [battleSpeed, setBattleSpeed] = useState(1000); // ms per action
 
-  // Load user's teams
   useEffect(() => {
     if (connected && address) {
       loadMyTeams();
     }
   }, [connected, address]);
 
-  // Load opponent teams when a team is selected
-  useEffect(() => {
-    if (selectedMyTeam) {
-      loadOpponentTeams();
-    }
-  }, [selectedMyTeam, filterBy]);
-
   const loadMyTeams = async () => {
     try {
       setLoading(true);
-      setError(null);
-      
       console.log(`🔍 Loading teams for address: ${address}`);
       
       const response = await fetch(`/api/teams/${address}`);
       if (!response.ok) {
-        throw new Error(`Failed to load teams: ${response.status}`);
+        throw new Error('Failed to load teams');
       }
       
       const data = await response.json();
-      console.log('📊 Received teams data:', data);
-      
       const teams = data.teams || [];
+      
       console.log(`✅ Found ${teams.length} teams for user`);
-      
-      // Log owner addresses for debugging
-      if (teams.length > 0) {
-        console.log('👤 My teams owner addresses:', teams.map(t => ({
-          name: t.name,
-          owner: t.ownerAddress || 'MISSING'
-        })));
-      }
-      
       setMyTeams(teams);
       
+      // Auto-select first team
       if (teams.length > 0 && !selectedMyTeam) {
-        setSelectedMyTeam(teams[0]);
-        console.log(`🎯 Auto-selected team: ${teams[0].name} (Owner: ${teams[0].ownerAddress})`);
-      } else if (teams.length === 0) {
-        setError('You don\'t have any teams yet. Please create a team first!');
+        const firstTeam = teams[0];
+        console.log(`🎯 Auto-selected team: ${firstTeam.name}`);
+        setSelectedMyTeam(firstTeam);
+        
+        // Auto-find opponent based on ELO
+        await findOpponent(firstTeam);
       }
     } catch (err) {
-      console.error('❌ Error loading teams:', err);
+      console.error('Error loading teams:', err);
       setError(`Failed to load your teams: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadOpponentTeams = async () => {
+  const findOpponent = async (myTeam) => {
     try {
       setLoading(true);
-      setError(null);
+      console.log(`🔍 Finding opponent for ${myTeam.name} (ELO: ${myTeam.eloRating || 1000})`);
       
-      // Get all teams from database
+      // Get all teams
       const response = await fetch(`/api/teams/all?limit=100`);
       if (!response.ok) {
         throw new Error('Failed to load opponent teams');
       }
       
       const data = await response.json();
-      let teams = data.teams || [];
+      let allTeams = data.teams || [];
       
-      console.log(`📊 Loaded ${teams.length} total teams from database`);
-      console.log('🔍 All teams:', teams.map(t => ({
-        name: t.name,
-        owner: t.ownerAddress,
-        elo: t.eloRating || 1000
-      })));
+      console.log(`📊 Loaded ${allTeams.length} total teams from database`);
       
-      // Filter out teams from the same owner (same wallet address)
-      if (selectedMyTeam && selectedMyTeam.ownerAddress) {
-        const myOwnerAddress = selectedMyTeam.ownerAddress;
-        console.log(`🔍 Filtering out teams from my wallet: ${myOwnerAddress}`);
-        
-        const beforeCount = teams.length;
-        teams = teams.filter(team => team.ownerAddress !== myOwnerAddress);
-        const afterCount = teams.length;
-        
-        console.log(`🔍 Filtered: ${beforeCount} total → ${afterCount} opponents (removed ${beforeCount - afterCount} teams from same wallet)`);
-        console.log('✅ Remaining opponent teams:', teams.map(t => ({
-          name: t.name,
-          owner: t.ownerAddress,
-          elo: t.eloRating || 1000
-        })));
+      // Filter out my teams
+      const myOwnerAddress = myTeam.ownerAddress;
+      allTeams = allTeams.filter(team => team.ownerAddress !== myOwnerAddress);
+      
+      console.log(`🔍 After filtering same wallet: ${allTeams.length} opponents`);
+      
+      if (allTeams.length === 0) {
+        setError('No opponents available. Waiting for other players!');
+        setOpponentTeam(null);
+        return;
       }
       
-      // Apply filters
-      if (filterBy === 'similar') {
-        // ELO-based matchmaking - find teams with similar rating
-        const myElo = selectedMyTeam?.eloRating || 1000;
-        teams = findBestMatches(myElo, teams, 20);
-        console.log(`🎯 Found ${teams.length} opponents with similar ELO (±200)`);
-      } else if (filterBy === 'top') {
-        // Sort by ELO rating
-        teams = teams
-          .sort((a, b) => (b.eloRating || 1000) - (a.eloRating || 1000))
-          .slice(0, 20);
-      } else if (filterBy === 'random') {
-        teams = teams.sort(() => Math.random() - 0.5).slice(0, 20);
-      }
+      // Find best match based on ELO
+      const myElo = myTeam.eloRating || 1000;
+      const bestMatches = findBestMatches(myElo, allTeams, 5);
       
-      // Apply search filter
-      if (searchTerm) {
-        teams = teams.filter(team => 
-          team.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
+      // Pick randomly from top 5 matches
+      const selectedOpponent = bestMatches[Math.floor(Math.random() * Math.min(5, bestMatches.length))];
       
-      setOpponentTeams(teams);
+      console.log(`✅ Auto-matched opponent: ${selectedOpponent.name} (ELO: ${selectedOpponent.eloRating || 1000})`);
+      console.log(`📊 ELO difference: ${Math.abs(myElo - (selectedOpponent.eloRating || 1000))}`);
       
-      if (teams.length === 0) {
-        setError('No opponent teams found. Teams from other wallets will appear here!');
-      } else {
-        console.log(`✅ ${teams.length} opponent teams ready for battle (from different wallets)`);
-      }
+      setOpponentTeam(selectedOpponent);
+      setError(null);
     } catch (err) {
-      console.error('Error loading opponent teams:', err);
-      setError(`Failed to load opponents: ${err.message}`);
+      console.error('Error finding opponent:', err);
+      setError(`Failed to find opponent: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const calculateTeamPower = (team) => {
-    if (!team.cards || team.cards.length === 0) return 0;
-    
-    return team.cards.reduce((total, card) => {
-      return total + (card.attack || 0) + (card.health || 0) + (card.speed || 0);
-    }, 0);
-  };
-
   const startBattle = async () => {
-    if (!selectedMyTeam || !selectedOpponentTeam) {
-      setError('Please select both teams to battle');
+    if (!selectedMyTeam || !opponentTeam) {
+      setError('Please select your team and wait for an opponent!');
+      return;
+    }
+
+    if (!selectedMyTeam.cards || selectedMyTeam.cards.length === 0) {
+      setError('Your team has no cards!');
+      return;
+    }
+
+    if (!opponentTeam.cards || opponentTeam.cards.length === 0) {
+      setError('Opponent team has no cards!');
       return;
     }
 
     try {
-      setBattleInProgress(true);
+      setBattling(true);
       setError(null);
-      setBattleResult(null);
+      setCurrentLogIndex(0);
+      
+      console.log(`⚔️ Starting battle: ${selectedMyTeam.name} vs ${opponentTeam.name}`);
+      console.log(`Team A cards:`, selectedMyTeam.cards);
+      console.log(`Team B cards:`, opponentTeam.cards);
 
-      // Prepare team data for battle
-      const teamAData = selectedMyTeam.cards.map(card => ({
-        id: card.id,
-        name: card.name,
-        attack: card.attack || 1,
-        health: card.health || 1,
-        speed: card.speed || 1,
-        rarity: card.rarity || 'Common'
-      }));
-
-      const teamBData = selectedOpponentTeam.cards.map(card => ({
-        id: card.id,
-        name: card.name,
-        attack: card.attack || 1,
-        health: card.health || 1,
-        speed: card.speed || 1,
-        rarity: card.rarity || 'Common'
-      }));
-
-      console.log('Starting battle:', {
-        teamA: selectedMyTeam.name,
-        teamB: selectedOpponentTeam.name
-      });
-
-      // Call battle API
       const response = await fetch('/api/battle', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teamA: teamAData,
-          teamB: teamBData,
+          teamA: selectedMyTeam.cards,
+          teamB: opponentTeam.cards,
           teamAId: selectedMyTeam.id,
-          teamBId: selectedOpponentTeam.id
+          teamBId: opponentTeam.id
         })
       });
 
       if (!response.ok) {
-        throw new Error('Battle simulation failed');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Battle failed');
       }
 
       const result = await response.json();
+      console.log(`✅ Battle completed:`, result);
+      
       setBattleResult(result);
-
-      // Refresh teams to update battle stats
-      setTimeout(() => {
-        loadMyTeams();
-        loadOpponentTeams();
-      }, 2000);
-
+      
     } catch (err) {
       console.error('Battle error:', err);
-      setError(err.message);
-    } finally {
-      setBattleInProgress(false);
+      setError(`Battle failed: ${err.message}`);
+      setBattling(false);
     }
   };
+
+  // Animate battle log step by step
+  useEffect(() => {
+    if (battleResult && battling && currentLogIndex < battleResult.battleLog.length) {
+      const timer = setTimeout(() => {
+        setCurrentLogIndex(prev => prev + 1);
+      }, battleSpeed);
+      
+      return () => clearTimeout(timer);
+    } else if (battleResult && currentLogIndex >= battleResult.battleLog.length) {
+      // Battle animation complete
+      setBattling(false);
+    }
+  }, [battleResult, battling, currentLogIndex, battleSpeed]);
 
   const resetBattle = () => {
     setBattleResult(null);
-    setSelectedOpponentTeam(null);
+    setCurrentLogIndex(0);
+    setBattling(false);
+    
+    // Auto-find new opponent
+    if (selectedMyTeam) {
+      findOpponent(selectedMyTeam);
+    }
   };
 
-  const getRandomOpponent = () => {
-    if (opponentTeams.length === 0) {
-      setError('No teams available. Please refresh the page.');
-      return;
+  const changeTeam = async (teamId) => {
+    const team = myTeams.find(t => t.id === teamId);
+    if (team) {
+      setSelectedMyTeam(team);
+      setBattleResult(null);
+      await findOpponent(team);
     }
-    
-    // Get a random team that's not currently selected
-    const availableTeams = opponentTeams.filter(team => 
-      !selectedOpponentTeam || team.id !== selectedOpponentTeam.id
-    );
-    
-    if (availableTeams.length === 0) {
-      // If only one team, just select it again
-      setSelectedOpponentTeam(opponentTeams[0]);
-      return;
-    }
-    
-    const randomIndex = Math.floor(Math.random() * availableTeams.length);
-    const randomTeam = availableTeams[randomIndex];
-    setSelectedOpponentTeam(randomTeam);
-    console.log(`🎲 Random opponent selected: ${randomTeam.name}`);
   };
 
   if (!connected) {
@@ -280,13 +217,13 @@ export default function BattlePage() {
         <meta name="description" content="Challenge other players in epic team battles" />
       </Head>
 
-      <header className={styles.header}>
+      <div className={styles.header}>
         <Link href="/">
           <a className={styles.backButton}>← Back to Home</a>
         </Link>
         <h1>⚔️ Battle Arena</h1>
         <p>Challenge other players and climb the leaderboard!</p>
-      </header>
+      </div>
 
       {error && (
         <div className={styles.error}>
@@ -296,96 +233,168 @@ export default function BattlePage() {
       )}
 
       {battleResult ? (
-        <div className={styles.battleResults}>
-          <div className={styles.resultsHeader}>
-            <h2>⚔️ Battle Complete!</h2>
+        <div className={styles.battleAnimation}>
+          <div className={styles.battleHeader}>
+            <h2>⚔️ Battle in Progress...</h2>
+            <div className={styles.speedControl}>
+              <label>Speed:</label>
+              <button onClick={() => setBattleSpeed(2000)} className={battleSpeed === 2000 ? styles.active : ''}>Slow</button>
+              <button onClick={() => setBattleSpeed(1000)} className={battleSpeed === 1000 ? styles.active : ''}>Normal</button>
+              <button onClick={() => setBattleSpeed(500)} className={battleSpeed === 500 ? styles.active : ''}>Fast</button>
+              <button onClick={() => setCurrentLogIndex(battleResult.battleLog.length)} className={styles.skipButton}>Skip</button>
+            </div>
           </div>
 
-          <div className={styles.battleSummary}>
-            <div className={`${styles.teamResult} ${battleResult.winner === 'A' ? styles.winner : styles.loser}`}>
+          <div className={styles.battleField}>
+            <div className={styles.teamSide}>
               <h3>{selectedMyTeam.name}</h3>
-              <div className={styles.teamStatus}>
-                {battleResult.winner === 'A' ? '🏆 Victory!' : '💀 Defeat'}
-              </div>
-              <div className={styles.finalStats}>
-                <p>Final Health: {battleResult.finalHealth.teamA}</p>
-                <p>Total Power: {battleResult.teamStats.teamA.totalPower}</p>
+              <div className={styles.cardsGrid}>
+                {battleResult.finalState?.teamA?.map((card, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`${styles.battleCard} ${!card.isAlive ? styles.defeated : ''}`}
+                  >
+                    <img src={card.image || card.imageUrl} alt={card.name} />
+                    <div className={styles.cardName}>{card.name}</div>
+                    <div className={styles.healthBar}>
+                      <div 
+                        className={styles.healthFill}
+                        style={{ 
+                          width: `${(card.currentHealth / card.maxHealth) * 100}%`,
+                          backgroundColor: card.isAlive ? '#22c55e' : '#ef4444'
+                        }}
+                      />
+                      <span>{card.currentHealth} / {card.maxHealth}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className={styles.vsIcon}>VS</div>
+            <div className={styles.vsSection}>
+              <div className={styles.vsIcon}>⚔️</div>
+            </div>
 
-            <div className={`${styles.teamResult} ${battleResult.winner === 'B' ? styles.winner : styles.loser}`}>
-              <h3>{selectedOpponentTeam.name}</h3>
-              <div className={styles.teamStatus}>
-                {battleResult.winner === 'B' ? '🏆 Victory!' : '💀 Defeat'}
-              </div>
-              <div className={styles.finalStats}>
-                <p>Final Health: {battleResult.finalHealth.teamB}</p>
-                <p>Total Power: {battleResult.teamStats.teamB.totalPower}</p>
+            <div className={styles.teamSide}>
+              <h3>{opponentTeam.name}</h3>
+              <div className={styles.cardsGrid}>
+                {battleResult.finalState?.teamB?.map((card, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`${styles.battleCard} ${!card.isAlive ? styles.defeated : ''}`}
+                  >
+                    <img src={card.image || card.imageUrl} alt={card.name} />
+                    <div className={styles.cardName}>{card.name}</div>
+                    <div className={styles.healthBar}>
+                      <div 
+                        className={styles.healthFill}
+                        style={{ 
+                          width: `${(card.currentHealth / card.maxHealth) * 100}%`,
+                          backgroundColor: card.isAlive ? '#22c55e' : '#ef4444'
+                        }}
+                      />
+                      <span>{card.currentHealth} / {card.maxHealth}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
-          <div className={styles.battleLog}>
+          <div className={styles.battleLogContainer}>
             <h3>📜 Battle Log</h3>
-            <div className={styles.logContent}>
-              {battleResult.battleLog.map((log, index) => (
-                <p key={index} className={styles.logEntry}>{log}</p>
+            <div className={styles.battleLog}>
+              {battleResult.battleLog.slice(0, currentLogIndex).map((log, idx) => (
+                <div key={idx} className={`${styles.logEntry} ${styles[log.type]}`}>
+                  {log.type === 'attack' && (
+                    <div className={styles.attackLog}>
+                      <img src={log.attacker.image} alt={log.attacker.name} className={styles.attackerImage} />
+                      <span className={styles.attackText}>
+                        <strong>{log.attacker.name}</strong> deals <strong className={styles.damage}>{log.damage}</strong> damage to <strong>{log.target.name}</strong>
+                        {log.died && <span className={styles.defeated}> 💀 DEFEATED!</span>}
+                      </span>
+                      <img src={log.target.image} alt={log.target.name} className={styles.targetImage} />
+                    </div>
+                  )}
+                  {log.type === 'round_start' && (
+                    <div className={styles.roundStart}>
+                      <strong>--- Round {log.round} ---</strong>
+                      <span>Team A: {log.aliveTeamA} alive | Team B: {log.aliveTeamB} alive</span>
+                    </div>
+                  )}
+                  {log.type === 'start' && (
+                    <div className={styles.battleStart}>⚔️ Battle Started!</div>
+                  )}
+                  {log.type === 'end' && (
+                    <div className={styles.battleEnd}>
+                      🏆 <strong>Team {log.winner} wins!</strong>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>
 
-          {battleResult.eloChanges && (
-            <div className={styles.eloChanges}>
-              <h3>📈 ELO Rating Changes</h3>
-              <div className={styles.eloChangesSummary}>
-                <div className={`${styles.eloChange} ${battleResult.winner === 'A' ? styles.eloWin : styles.eloLoss}`}>
-                  <div className={styles.eloChangeTeam}>{selectedMyTeam.name}</div>
-                  <div className={styles.eloChangeValues}>
-                    <span className={styles.eloOld}>{battleResult.eloChanges.teamA.oldRating}</span>
-                    <span className={styles.eloArrow}>→</span>
-                    <span className={styles.eloNew}>{battleResult.eloChanges.teamA.newRating}</span>
-                    <span className={`${styles.eloChangeAmount} ${battleResult.eloChanges.teamA.change >= 0 ? styles.positive : styles.negative}`}>
-                      {battleResult.eloChanges.teamA.change >= 0 ? '+' : ''}{battleResult.eloChanges.teamA.change}
-                    </span>
+          {currentLogIndex >= battleResult.battleLog.length && (
+            <div className={styles.battleResults}>
+              <div className={styles.resultsHeader}>
+                <h2>
+                  {battleResult.winner === 'A' ? '🏆 Victory!' : '💀 Defeat'}
+                </h2>
+              </div>
+
+              {battleResult.eloChanges && (
+                <div className={styles.eloChanges}>
+                  <h3>📈 ELO Rating Changes</h3>
+                  <div className={styles.eloChangesSummary}>
+                    <div className={`${styles.eloChange} ${battleResult.winner === 'A' ? styles.eloWin : styles.eloLoss}`}>
+                      <div className={styles.eloChangeTeam}>{selectedMyTeam.name}</div>
+                      <div className={styles.eloChangeValues}>
+                        <span className={styles.eloOld}>{battleResult.eloChanges.teamA.oldRating}</span>
+                        <span className={styles.eloArrow}>→</span>
+                        <span className={styles.eloNew}>{battleResult.eloChanges.teamA.newRating}</span>
+                        <span className={`${styles.eloChangeAmount} ${battleResult.eloChanges.teamA.change >= 0 ? styles.positive : styles.negative}`}>
+                          {battleResult.eloChanges.teamA.change >= 0 ? '+' : ''}{battleResult.eloChanges.teamA.change}
+                        </span>
+                      </div>
+                    </div>
+                    <div className={`${styles.eloChange} ${battleResult.winner === 'B' ? styles.eloWin : styles.eloLoss}`}>
+                      <div className={styles.eloChangeTeam}>{opponentTeam.name}</div>
+                      <div className={styles.eloChangeValues}>
+                        <span className={styles.eloOld}>{battleResult.eloChanges.teamB.oldRating}</span>
+                        <span className={styles.eloArrow}>→</span>
+                        <span className={styles.eloNew}>{battleResult.eloChanges.teamB.newRating}</span>
+                        <span className={`${styles.eloChangeAmount} ${battleResult.eloChanges.teamB.change >= 0 ? styles.positive : styles.negative}`}>
+                          {battleResult.eloChanges.teamB.change >= 0 ? '+' : ''}{battleResult.eloChanges.teamB.change}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className={`${styles.eloChange} ${battleResult.winner === 'B' ? styles.eloWin : styles.eloLoss}`}>
-                  <div className={styles.eloChangeTeam}>{selectedOpponentTeam.name}</div>
-                  <div className={styles.eloChangeValues}>
-                    <span className={styles.eloOld}>{battleResult.eloChanges.teamB.oldRating}</span>
-                    <span className={styles.eloArrow}>→</span>
-                    <span className={styles.eloNew}>{battleResult.eloChanges.teamB.newRating}</span>
-                    <span className={`${styles.eloChangeAmount} ${battleResult.eloChanges.teamB.change >= 0 ? styles.positive : styles.negative}`}>
-                      {battleResult.eloChanges.teamB.change >= 0 ? '+' : ''}{battleResult.eloChanges.teamB.change}
-                    </span>
-                  </div>
-                </div>
+              )}
+
+              <div className={styles.resultsActions}>
+                <button onClick={resetBattle} className={styles.primaryButton}>
+                  ⚔️ Next Battle
+                </button>
+                <Link href="/teams">
+                  <a className={styles.secondaryButton}>🏆 View Leaderboard</a>
+                </Link>
               </div>
             </div>
           )}
-
-          <div className={styles.resultsActions}>
-            <button onClick={resetBattle} className={styles.primaryButton}>
-              ⚔️ Battle Again
-            </button>
-            <Link href="/teams">
-              <a className={styles.secondaryButton}>🏆 View Leaderboard</a>
-            </Link>
-          </div>
         </div>
       ) : (
         <div className={styles.battleSetup}>
-          <div className={styles.teamSelection}>
-            <div className={styles.myTeamSection}>
+          <div className={styles.matchup}>
+            <div className={styles.teamDisplay}>
               <h2>👤 Your Team</h2>
               {loading && !selectedMyTeam ? (
                 <div className={styles.loading}>Loading your teams...</div>
               ) : myTeams.length === 0 ? (
                 <div className={styles.noTeams}>
                   <p>You don't have any teams yet!</p>
-                  <Link href="/">
+                  <Link href="/teams">
                     <a className={styles.createTeamButton}>Create a Team</a>
                   </Link>
                 </div>
@@ -393,15 +402,12 @@ export default function BattlePage() {
                 <>
                   <select 
                     value={selectedMyTeam?.id || ''} 
-                    onChange={(e) => {
-                      const team = myTeams.find(t => t.id === e.target.value);
-                      setSelectedMyTeam(team);
-                    }}
+                    onChange={(e) => changeTeam(e.target.value)}
                     className={styles.teamSelect}
                   >
                     {myTeams.map(team => (
                       <option key={team.id} value={team.id}>
-                        {team.name} (Power: {calculateTeamPower(team)})
+                        {team.name} (ELO: {team.eloRating || 1000})
                       </option>
                     ))}
                   </select>
@@ -411,35 +417,20 @@ export default function BattlePage() {
                       <h3>{selectedMyTeam.name}</h3>
                       <div 
                         className={styles.eloDisplay}
-                        style={{ 
-                          color: getEloTierColor(selectedMyTeam.eloRating || 1000)
-                        }}
+                        style={{ color: getEloTierColor(selectedMyTeam.eloRating || 1000) }}
                       >
-                        <span className={styles.eloLabel}>ELO:</span>
                         <span className={styles.eloValue}>{selectedMyTeam.eloRating || 1000}</span>
                         <span className={styles.eloTier}>({getEloTier(selectedMyTeam.eloRating || 1000)})</span>
                       </div>
                       <div className={styles.teamStats}>
                         <div className={styles.stat}>
-                          <span className={styles.statLabel}>Cards:</span>
-                          <span className={styles.statValue}>{selectedMyTeam.cards?.length || 0}</span>
-                        </div>
-                        <div className={styles.stat}>
-                          <span className={styles.statLabel}>Power:</span>
-                          <span className={styles.statValue}>{calculateTeamPower(selectedMyTeam)}</span>
-                        </div>
-                        <div className={styles.stat}>
-                          <span className={styles.statLabel}>Wins:</span>
-                          <span className={styles.statValue}>{selectedMyTeam.battlesWon || 0}</span>
-                        </div>
-                        <div className={styles.stat}>
-                          <span className={styles.statLabel}>Losses:</span>
-                          <span className={styles.statValue}>{selectedMyTeam.battlesLost || 0}</span>
+                          <span className={styles.statLabel}>W/L:</span>
+                          <span className={styles.statValue}>{selectedMyTeam.battlesWon || 0} / {selectedMyTeam.battlesLost || 0}</span>
                         </div>
                       </div>
                       <div className={styles.teamCards}>
-                        {selectedMyTeam.cards?.map(card => (
-                          <div key={card.id} className={styles.cardMini}>
+                        {selectedMyTeam.cards?.map((card, idx) => (
+                          <div key={idx} className={styles.cardMini}>
                             <img src={card.image || card.imageUrl} alt={card.name} />
                             <span className={styles.cardName}>{card.name}</span>
                           </div>
@@ -453,162 +444,68 @@ export default function BattlePage() {
 
             <div className={styles.vsSection}>
               <div className={styles.vsIcon}>⚔️</div>
+              {selectedMyTeam && opponentTeam && (
+                <div className={styles.winProbability}>
+                  Win Chance: {getWinProbability(selectedMyTeam.eloRating || 1000, opponentTeam.eloRating || 1000)}%
+                </div>
+              )}
             </div>
 
-            <div className={styles.opponentSection}>
-              <h2>🎯 Select Opponent</h2>
-              
-              <div className={styles.opponentFilters}>
-                <input
-                  type="text"
-                  placeholder="Search teams..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={styles.searchInput}
-                />
-                <select 
-                  value={filterBy} 
-                  onChange={(e) => setFilterBy(e.target.value)}
-                  className={styles.filterSelect}
-                >
-                  <option value="similar">Similar ELO</option>
-                  <option value="all">All Teams</option>
-                  <option value="top">Top Ranked</option>
-                  <option value="random">Random</option>
-                </select>
-              </div>
-
-              <div className={styles.opponentActions}>
-                <button 
-                  onClick={getRandomOpponent}
-                  className={styles.randomButton}
-                  disabled={loading || opponentTeams.length === 0}
-                  title="Pick a random opponent"
-                >
-                  🎲 Random Opponent
-                </button>
-                <button
-                  onClick={() => setShowAllOpponents(!showAllOpponents)}
-                  className={styles.toggleButton}
-                >
-                  {showAllOpponents ? '📋 Show List' : '🎯 Quick Match'}
-                </button>
-                <button
-                  onClick={loadOpponentTeams}
-                  className={styles.refreshButton}
-                  disabled={loading}
-                  title="Refresh opponent list"
-                >
-                  🔄 Refresh
-                </button>
-              </div>
-
+            <div className={styles.teamDisplay}>
+              <h2>🎯 Opponent</h2>
               {loading ? (
-                <div className={styles.loading}>Loading opponents...</div>
-              ) : opponentTeams.length === 0 ? (
-                <div className={styles.noOpponents}>
-                  <p>😔 No opponent teams found</p>
-                  {error ? (
-                    <p className={styles.errorHint}>{error}</p>
-                  ) : (
-                    <>
-                      <p>Waiting for teams from other wallet addresses!</p>
-                      <p className={styles.hint}>💡 Teams from the same wallet cannot battle each other</p>
-                    </>
-                  )}
-                </div>
-              ) : showAllOpponents ? (
-                <div className={styles.opponentsList}>
-                  {opponentTeams.map(team => (
-                    <div
-                      key={team.id}
-                      className={`${styles.opponentCard} ${selectedOpponentTeam?.id === team.id ? styles.selected : ''}`}
-                      onClick={() => setSelectedOpponentTeam(team)}
-                    >
-                      <div className={styles.opponentHeader}>
-                        <h4>{team.name}</h4>
-                        {selectedOpponentTeam?.id === team.id && (
-                          <span className={styles.selectedBadge}>✓ Selected</span>
-                        )}
-                      </div>
-                      <div 
-                        className={styles.opponentElo}
-                        style={{ color: getEloTierColor(team.eloRating || 1000) }}
-                      >
-                        ELO: {team.eloRating || 1000} ({getEloTier(team.eloRating || 1000)})
-                      </div>
-                      {selectedMyTeam && (
-                        <div className={styles.winProbability}>
-                          Your Win Chance: {getWinProbability(selectedMyTeam.eloRating || 1000, team.eloRating || 1000)}%
-                        </div>
-                      )}
-                      <div className={styles.opponentStats}>
-                        <span>Power: {calculateTeamPower(team)}</span>
-                        <span>W: {team.battlesWon || 0} / L: {team.battlesLost || 0}</span>
-                        {team.winRate !== undefined && team.totalBattles > 0 && (
-                          <span className={styles.winRate}>
-                            {team.winRate.toFixed(1)}% WR
-                          </span>
-                        )}
-                      </div>
-                      <div className={styles.opponentOwner}>
-                        Owner: {team.ownerAddress?.slice(0, 8)}...{team.ownerAddress?.slice(-6)}
-                      </div>
-                    </div>
-                  ))}
+                <div className={styles.loading}>Finding opponent...</div>
+              ) : !opponentTeam ? (
+                <div className={styles.noOpponent}>
+                  <p>No opponents available</p>
+                  <button onClick={() => findOpponent(selectedMyTeam)} className={styles.refreshButton}>
+                    🔄 Retry
+                  </button>
                 </div>
               ) : (
-                <div className={styles.quickMatch}>
-                  {selectedOpponentTeam ? (
-                    <div className={styles.quickMatchCard}>
-                      <h3>🎯 {selectedOpponentTeam.name}</h3>
-                      <div className={styles.quickMatchStats}>
-                        <div className={styles.quickStat}>
-                          <span className={styles.quickLabel}>Power:</span>
-                          <span className={styles.quickValue}>{calculateTeamPower(selectedOpponentTeam)}</span>
-                        </div>
-                        <div className={styles.quickStat}>
-                          <span className={styles.quickLabel}>Wins:</span>
-                          <span className={styles.quickValue}>{selectedOpponentTeam.battlesWon || 0}</span>
-                        </div>
-                        <div className={styles.quickStat}>
-                          <span className={styles.quickLabel}>Losses:</span>
-                          <span className={styles.quickValue}>{selectedOpponentTeam.battlesLost || 0}</span>
-                        </div>
-                        {selectedOpponentTeam.totalBattles > 0 && (
-                          <div className={styles.quickStat}>
-                            <span className={styles.quickLabel}>Win Rate:</span>
-                            <span className={styles.quickValue}>{selectedOpponentTeam.winRate.toFixed(1)}%</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className={styles.quickMatchCards}>
-                        {selectedOpponentTeam.cards?.slice(0, 5).map(card => (
-                          <div key={card.id} className={styles.quickCardMini}>
-                            <img src={card.image || card.imageUrl} alt={card.name} />
-                          </div>
-                        ))}
-                      </div>
-                      <p className={styles.quickMatchHint}>Click "Random Opponent" to change</p>
+                <div className={styles.teamPreview}>
+                  <h3>{opponentTeam.name}</h3>
+                  <div 
+                    className={styles.eloDisplay}
+                    style={{ color: getEloTierColor(opponentTeam.eloRating || 1000) }}
+                  >
+                    <span className={styles.eloValue}>{opponentTeam.eloRating || 1000}</span>
+                    <span className={styles.eloTier}>({getEloTier(opponentTeam.eloRating || 1000)})</span>
+                  </div>
+                  <div className={styles.teamStats}>
+                    <div className={styles.stat}>
+                      <span className={styles.statLabel}>W/L:</span>
+                      <span className={styles.statValue}>{opponentTeam.battlesWon || 0} / {opponentTeam.battlesLost || 0}</span>
                     </div>
-                  ) : (
-                    <div className={styles.quickMatchEmpty}>
-                      <p>Click "Random Opponent" to select a team!</p>
-                    </div>
-                  )}
+                  </div>
+                  <div className={styles.teamCards}>
+                    {opponentTeam.cards?.map((card, idx) => (
+                      <div key={idx} className={styles.cardMini}>
+                        <img src={card.image || card.imageUrl} alt={card.name} />
+                        <span className={styles.cardName}>{card.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button 
+                    onClick={() => findOpponent(selectedMyTeam)} 
+                    className={styles.rerollButton}
+                    disabled={loading}
+                  >
+                    🎲 Find Different Opponent
+                  </button>
                 </div>
               )}
             </div>
           </div>
 
-          {selectedMyTeam && selectedOpponentTeam && (
+          {selectedMyTeam && opponentTeam && (
             <div className={styles.battleActions}>
-              <button
-                onClick={startBattle}
-                disabled={battleInProgress}
-                className={styles.battleButton}
+              <button 
+                onClick={startBattle} 
+                className={styles.startBattleButton}
+                disabled={battling || loading}
               >
-                {battleInProgress ? '⚔️ Battle in Progress...' : '⚔️ Start Battle!'}
+                {battling ? '⚔️ Battling...' : '⚔️ Start Battle!'}
               </button>
             </div>
           )}
