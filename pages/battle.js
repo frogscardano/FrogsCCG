@@ -16,6 +16,7 @@ export default function BattlePage() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState('all'); // all, top, random
+  const [showAllOpponents, setShowAllOpponents] = useState(true);
 
   // Load user's teams
   useEffect(() => {
@@ -34,19 +35,40 @@ export default function BattlePage() {
   const loadMyTeams = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      console.log(`🔍 Loading teams for address: ${address}`);
+      
       const response = await fetch(`/api/teams/${address}`);
-      if (!response.ok) throw new Error('Failed to load teams');
+      if (!response.ok) {
+        throw new Error(`Failed to load teams: ${response.status}`);
+      }
       
       const data = await response.json();
+      console.log('📊 Received teams data:', data);
+      
       const teams = data.teams || [];
+      console.log(`✅ Found ${teams.length} teams for user`);
+      
+      // Log owner addresses for debugging
+      if (teams.length > 0) {
+        console.log('👤 My teams owner addresses:', teams.map(t => ({
+          name: t.name,
+          owner: t.ownerAddress || 'MISSING'
+        })));
+      }
+      
       setMyTeams(teams);
       
       if (teams.length > 0 && !selectedMyTeam) {
         setSelectedMyTeam(teams[0]);
+        console.log(`🎯 Auto-selected team: ${teams[0].name} (Owner: ${teams[0].ownerAddress})`);
+      } else if (teams.length === 0) {
+        setError('You don\'t have any teams yet. Please create a team first!');
       }
     } catch (err) {
-      console.error('Error loading teams:', err);
-      setError(err.message);
+      console.error('❌ Error loading teams:', err);
+      setError(`Failed to load your teams: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -55,20 +77,50 @@ export default function BattlePage() {
   const loadOpponentTeams = async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      // Get all teams from leaderboard
-      const response = await fetch('/api/leaderboard?type=teams&limit=100');
-      if (!response.ok) throw new Error('Failed to load opponent teams');
+      // Get all teams from database
+      const response = await fetch(`/api/teams/all?limit=100`);
+      if (!response.ok) {
+        throw new Error('Failed to load opponent teams');
+      }
       
       const data = await response.json();
       let teams = data.teams || [];
       
-      // Filter out own teams
-      teams = teams.filter(team => team.ownerAddress !== address);
+      console.log(`📊 Loaded ${teams.length} total teams from database`);
+      console.log('🔍 All teams:', teams.map(t => ({
+        name: t.name,
+        owner: t.ownerAddress
+      })));
+      
+      // Filter out teams from the same owner (same wallet address)
+      if (selectedMyTeam && selectedMyTeam.ownerAddress) {
+        const myOwnerAddress = selectedMyTeam.ownerAddress;
+        console.log(`🔍 Filtering out teams from my wallet: ${myOwnerAddress}`);
+        
+        const beforeCount = teams.length;
+        teams = teams.filter(team => team.ownerAddress !== myOwnerAddress);
+        const afterCount = teams.length;
+        
+        console.log(`🔍 Filtered: ${beforeCount} total → ${afterCount} opponents (removed ${beforeCount - afterCount} teams from same wallet)`);
+        console.log('✅ Remaining opponent teams:', teams.map(t => ({
+          name: t.name,
+          owner: t.ownerAddress
+        })));
+      }
       
       // Apply filters
       if (filterBy === 'top') {
-        teams = teams.slice(0, 20); // Top 20 teams
+        // Sort by win rate first, then by total wins
+        teams = teams
+          .sort((a, b) => {
+            if (b.winRate !== a.winRate) {
+              return b.winRate - a.winRate;
+            }
+            return b.battlesWon - a.battlesWon;
+          })
+          .slice(0, 20); // Top 20 teams
       } else if (filterBy === 'random') {
         teams = teams.sort(() => Math.random() - 0.5).slice(0, 20);
       }
@@ -81,9 +133,15 @@ export default function BattlePage() {
       }
       
       setOpponentTeams(teams);
+      
+      if (teams.length === 0) {
+        setError('No opponent teams found. Teams from other wallets will appear here!');
+      } else {
+        console.log(`✅ ${teams.length} opponent teams ready for battle (from different wallets)`);
+      }
     } catch (err) {
       console.error('Error loading opponent teams:', err);
-      setError(err.message);
+      setError(`Failed to load opponents: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -170,6 +228,29 @@ export default function BattlePage() {
   const resetBattle = () => {
     setBattleResult(null);
     setSelectedOpponentTeam(null);
+  };
+
+  const getRandomOpponent = () => {
+    if (opponentTeams.length === 0) {
+      setError('No teams available. Please refresh the page.');
+      return;
+    }
+    
+    // Get a random team that's not currently selected
+    const availableTeams = opponentTeams.filter(team => 
+      !selectedOpponentTeam || team.id !== selectedOpponentTeam.id
+    );
+    
+    if (availableTeams.length === 0) {
+      // If only one team, just select it again
+      setSelectedOpponentTeam(opponentTeams[0]);
+      return;
+    }
+    
+    const randomIndex = Math.floor(Math.random() * availableTeams.length);
+    const randomTeam = availableTeams[randomIndex];
+    setSelectedOpponentTeam(randomTeam);
+    console.log(`🎲 Random opponent selected: ${randomTeam.name}`);
   };
 
   if (!connected) {
@@ -353,13 +434,46 @@ export default function BattlePage() {
                 </select>
               </div>
 
+              <div className={styles.opponentActions}>
+                <button 
+                  onClick={getRandomOpponent}
+                  className={styles.randomButton}
+                  disabled={loading || opponentTeams.length === 0}
+                  title="Pick a random opponent"
+                >
+                  🎲 Random Opponent
+                </button>
+                <button
+                  onClick={() => setShowAllOpponents(!showAllOpponents)}
+                  className={styles.toggleButton}
+                >
+                  {showAllOpponents ? '📋 Show List' : '🎯 Quick Match'}
+                </button>
+                <button
+                  onClick={loadOpponentTeams}
+                  className={styles.refreshButton}
+                  disabled={loading}
+                  title="Refresh opponent list"
+                >
+                  🔄 Refresh
+                </button>
+              </div>
+
               {loading ? (
                 <div className={styles.loading}>Loading opponents...</div>
               ) : opponentTeams.length === 0 ? (
                 <div className={styles.noOpponents}>
-                  <p>No opponent teams found</p>
+                  <p>😔 No opponent teams found</p>
+                  {error ? (
+                    <p className={styles.errorHint}>{error}</p>
+                  ) : (
+                    <>
+                      <p>Waiting for teams from other wallet addresses!</p>
+                      <p className={styles.hint}>💡 Teams from the same wallet cannot battle each other</p>
+                    </>
+                  )}
                 </div>
-              ) : (
+              ) : showAllOpponents ? (
                 <div className={styles.opponentsList}>
                   {opponentTeams.map(team => (
                     <div
@@ -376,7 +490,7 @@ export default function BattlePage() {
                       <div className={styles.opponentStats}>
                         <span>Power: {calculateTeamPower(team)}</span>
                         <span>W: {team.battlesWon || 0} / L: {team.battlesLost || 0}</span>
-                        {team.winRate !== undefined && (
+                        {team.winRate !== undefined && team.totalBattles > 0 && (
                           <span className={styles.winRate}>
                             {team.winRate.toFixed(1)}% WR
                           </span>
@@ -387,6 +501,46 @@ export default function BattlePage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              ) : (
+                <div className={styles.quickMatch}>
+                  {selectedOpponentTeam ? (
+                    <div className={styles.quickMatchCard}>
+                      <h3>🎯 {selectedOpponentTeam.name}</h3>
+                      <div className={styles.quickMatchStats}>
+                        <div className={styles.quickStat}>
+                          <span className={styles.quickLabel}>Power:</span>
+                          <span className={styles.quickValue}>{calculateTeamPower(selectedOpponentTeam)}</span>
+                        </div>
+                        <div className={styles.quickStat}>
+                          <span className={styles.quickLabel}>Wins:</span>
+                          <span className={styles.quickValue}>{selectedOpponentTeam.battlesWon || 0}</span>
+                        </div>
+                        <div className={styles.quickStat}>
+                          <span className={styles.quickLabel}>Losses:</span>
+                          <span className={styles.quickValue}>{selectedOpponentTeam.battlesLost || 0}</span>
+                        </div>
+                        {selectedOpponentTeam.totalBattles > 0 && (
+                          <div className={styles.quickStat}>
+                            <span className={styles.quickLabel}>Win Rate:</span>
+                            <span className={styles.quickValue}>{selectedOpponentTeam.winRate.toFixed(1)}%</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className={styles.quickMatchCards}>
+                        {selectedOpponentTeam.cards?.slice(0, 5).map(card => (
+                          <div key={card.id} className={styles.quickCardMini}>
+                            <img src={card.image || card.imageUrl} alt={card.name} />
+                          </div>
+                        ))}
+                      </div>
+                      <p className={styles.quickMatchHint}>Click "Random Opponent" to change</p>
+                    </div>
+                  ) : (
+                    <div className={styles.quickMatchEmpty}>
+                      <p>Click "Random Opponent" to select a team!</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
