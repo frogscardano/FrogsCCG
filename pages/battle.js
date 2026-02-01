@@ -3,6 +3,7 @@ import { useWallet } from '../contexts/WalletContext';
 import Head from 'next/head';
 import Link from 'next/link';
 import styles from '../styles/Battle.module.css';
+import { getEloTier, getEloTierColor, getWinProbability, findBestMatches } from '../utils/elo';
 
 export default function BattlePage() {
   const { connected, address } = useWallet();
@@ -15,7 +16,7 @@ export default function BattlePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterBy, setFilterBy] = useState('all'); // all, top, random
+  const [filterBy, setFilterBy] = useState('similar'); // similar (ELO-based), all, top, random
   const [showAllOpponents, setShowAllOpponents] = useState(true);
 
   // Load user's teams
@@ -91,7 +92,8 @@ export default function BattlePage() {
       console.log(`📊 Loaded ${teams.length} total teams from database`);
       console.log('🔍 All teams:', teams.map(t => ({
         name: t.name,
-        owner: t.ownerAddress
+        owner: t.ownerAddress,
+        elo: t.eloRating || 1000
       })));
       
       // Filter out teams from the same owner (same wallet address)
@@ -106,21 +108,22 @@ export default function BattlePage() {
         console.log(`🔍 Filtered: ${beforeCount} total → ${afterCount} opponents (removed ${beforeCount - afterCount} teams from same wallet)`);
         console.log('✅ Remaining opponent teams:', teams.map(t => ({
           name: t.name,
-          owner: t.ownerAddress
+          owner: t.ownerAddress,
+          elo: t.eloRating || 1000
         })));
       }
       
       // Apply filters
-      if (filterBy === 'top') {
-        // Sort by win rate first, then by total wins
+      if (filterBy === 'similar') {
+        // ELO-based matchmaking - find teams with similar rating
+        const myElo = selectedMyTeam?.eloRating || 1000;
+        teams = findBestMatches(myElo, teams, 20);
+        console.log(`🎯 Found ${teams.length} opponents with similar ELO (±200)`);
+      } else if (filterBy === 'top') {
+        // Sort by ELO rating
         teams = teams
-          .sort((a, b) => {
-            if (b.winRate !== a.winRate) {
-              return b.winRate - a.winRate;
-            }
-            return b.battlesWon - a.battlesWon;
-          })
-          .slice(0, 20); // Top 20 teams
+          .sort((a, b) => (b.eloRating || 1000) - (a.eloRating || 1000))
+          .slice(0, 20);
       } else if (filterBy === 'random') {
         teams = teams.sort(() => Math.random() - 0.5).slice(0, 20);
       }
@@ -333,6 +336,36 @@ export default function BattlePage() {
             </div>
           </div>
 
+          {battleResult.eloChanges && (
+            <div className={styles.eloChanges}>
+              <h3>📈 ELO Rating Changes</h3>
+              <div className={styles.eloChangesSummary}>
+                <div className={`${styles.eloChange} ${battleResult.winner === 'A' ? styles.eloWin : styles.eloLoss}`}>
+                  <div className={styles.eloChangeTeam}>{selectedMyTeam.name}</div>
+                  <div className={styles.eloChangeValues}>
+                    <span className={styles.eloOld}>{battleResult.eloChanges.teamA.oldRating}</span>
+                    <span className={styles.eloArrow}>→</span>
+                    <span className={styles.eloNew}>{battleResult.eloChanges.teamA.newRating}</span>
+                    <span className={`${styles.eloChangeAmount} ${battleResult.eloChanges.teamA.change >= 0 ? styles.positive : styles.negative}`}>
+                      {battleResult.eloChanges.teamA.change >= 0 ? '+' : ''}{battleResult.eloChanges.teamA.change}
+                    </span>
+                  </div>
+                </div>
+                <div className={`${styles.eloChange} ${battleResult.winner === 'B' ? styles.eloWin : styles.eloLoss}`}>
+                  <div className={styles.eloChangeTeam}>{selectedOpponentTeam.name}</div>
+                  <div className={styles.eloChangeValues}>
+                    <span className={styles.eloOld}>{battleResult.eloChanges.teamB.oldRating}</span>
+                    <span className={styles.eloArrow}>→</span>
+                    <span className={styles.eloNew}>{battleResult.eloChanges.teamB.newRating}</span>
+                    <span className={`${styles.eloChangeAmount} ${battleResult.eloChanges.teamB.change >= 0 ? styles.positive : styles.negative}`}>
+                      {battleResult.eloChanges.teamB.change >= 0 ? '+' : ''}{battleResult.eloChanges.teamB.change}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className={styles.resultsActions}>
             <button onClick={resetBattle} className={styles.primaryButton}>
               ⚔️ Battle Again
@@ -376,6 +409,16 @@ export default function BattlePage() {
                   {selectedMyTeam && (
                     <div className={styles.teamPreview}>
                       <h3>{selectedMyTeam.name}</h3>
+                      <div 
+                        className={styles.eloDisplay}
+                        style={{ 
+                          color: getEloTierColor(selectedMyTeam.eloRating || 1000)
+                        }}
+                      >
+                        <span className={styles.eloLabel}>ELO:</span>
+                        <span className={styles.eloValue}>{selectedMyTeam.eloRating || 1000}</span>
+                        <span className={styles.eloTier}>({getEloTier(selectedMyTeam.eloRating || 1000)})</span>
+                      </div>
                       <div className={styles.teamStats}>
                         <div className={styles.stat}>
                           <span className={styles.statLabel}>Cards:</span>
@@ -428,6 +471,7 @@ export default function BattlePage() {
                   onChange={(e) => setFilterBy(e.target.value)}
                   className={styles.filterSelect}
                 >
+                  <option value="similar">Similar ELO</option>
                   <option value="all">All Teams</option>
                   <option value="top">Top Ranked</option>
                   <option value="random">Random</option>
@@ -487,6 +531,17 @@ export default function BattlePage() {
                           <span className={styles.selectedBadge}>✓ Selected</span>
                         )}
                       </div>
+                      <div 
+                        className={styles.opponentElo}
+                        style={{ color: getEloTierColor(team.eloRating || 1000) }}
+                      >
+                        ELO: {team.eloRating || 1000} ({getEloTier(team.eloRating || 1000)})
+                      </div>
+                      {selectedMyTeam && (
+                        <div className={styles.winProbability}>
+                          Your Win Chance: {getWinProbability(selectedMyTeam.eloRating || 1000, team.eloRating || 1000)}%
+                        </div>
+                      )}
                       <div className={styles.opponentStats}>
                         <span>Power: {calculateTeamPower(team)}</span>
                         <span>W: {team.battlesWon || 0} / L: {team.battlesLost || 0}</span>
@@ -494,6 +549,7 @@ export default function BattlePage() {
                           <span className={styles.winRate}>
                             {team.winRate.toFixed(1)}% WR
                           </span>
+                        )}
                         )}
                       </div>
                       <div className={styles.opponentOwner}>
