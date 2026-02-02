@@ -2,17 +2,26 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useContext, useEffect } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import TeamBuilder from '../components/TeamBuilder';
 import Scoreboard from '../components/Scoreboard';
 import styles from '../styles/Teams.module.css';
 import { WalletContext } from '../contexts/WalletContext';
 
 const Teams = () => {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('builder');
   const [currentCards, setCurrentCards] = useState([]);
   const [isLoadingCards, setIsLoadingCards] = useState(true);
   
   const walletContext = useContext(WalletContext);
+
+  // Read tab from URL query parameter
+  useEffect(() => {
+    if (router.query.tab === 'leaderboard') {
+      setActiveTab('leaderboard');
+    }
+  }, [router.query.tab]);
 
   // Load user's cards when wallet is connected
   useEffect(() => {
