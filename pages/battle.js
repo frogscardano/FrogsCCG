@@ -74,9 +74,15 @@ export default function BattleArena() {
       
       console.log(`📊 Loaded ${allTeams.length} total teams from database`);
       
-      // Filter out my teams
+      // Filter out my teams (same wallet address)
       const myOwnerAddress = myTeam.ownerAddress;
-      allTeams = allTeams.filter(team => team.ownerAddress !== myOwnerAddress);
+      console.log(`🔍 My wallet address: ${myOwnerAddress}`);
+      
+      allTeams = allTeams.filter(team => {
+        const isDifferentWallet = team.ownerAddress !== myOwnerAddress;
+        const isDifferentTeam = team.id !== myTeam.id; // Extra safety
+        return isDifferentWallet && isDifferentTeam;
+      });
       
       console.log(`🔍 After filtering same wallet: ${allTeams.length} opponents`);
       
@@ -95,6 +101,7 @@ export default function BattleArena() {
       
       console.log(`✅ Auto-matched opponent: ${selectedOpponent.name} (ELO: ${selectedOpponent.eloRating || 1000})`);
       console.log(`📊 ELO difference: ${Math.abs(myElo - (selectedOpponent.eloRating || 1000))}`);
+      console.log(`✅ Different wallet confirmed: ${selectedOpponent.ownerAddress} !== ${myOwnerAddress}`);
       
       setOpponentTeam(selectedOpponent);
       setError(null);
@@ -374,8 +381,8 @@ export default function BattleArena() {
           <div className={styles.battleLogContainer}>
             <h3>📜 Battle Log</h3>
             <div className={styles.battleLog}>
-              {battleResult.battleLog.slice(0, currentLogIndex).map((log, idx) => (
-                <div key={idx} className={`${styles.logEntry} ${styles[log.type]}`}>
+              {battleResult.battleLog.slice(0, currentLogIndex).reverse().map((log, idx) => (
+                <div key={currentLogIndex - idx - 1} className={`${styles.logEntry} ${styles[log.type]}`}>
                   {log.type === 'attack' && (
                     <div className={styles.attackLog}>
                       <img src={log.attacker.image} alt={log.attacker.name} className={styles.attackerImage} />
