@@ -1046,12 +1046,43 @@
   border-radius: 8px;
   padding: 0.5rem;
   transition: all 0.3s;
+  position: relative;
 }
 
 .battleCard.defeated {
   opacity: 0.3;
   border-color: #ef4444;
   filter: grayscale(100%);
+  animation: fadeOut 0.5s ease;
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+}
+
+.battleCard.damaged {
+  animation: damageFlash 0.3s ease;
+}
+
+@keyframes damageFlash {
+  0%, 100% {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  50% {
+    background: rgba(239, 68, 68, 0.3);
+    border-color: #ef4444;
+  }
 }
 
 .battleCard img {
