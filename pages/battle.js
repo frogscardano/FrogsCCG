@@ -159,7 +159,7 @@ export default function BattleArena() {
     }
   };
 
-  // Animate battle log step by step
+  // Animate battle log step by step AND update card states
   useEffect(() => {
     if (battleResult && battling && currentLogIndex < battleResult.battleLog.length) {
       const timer = setTimeout(() => {
@@ -172,6 +172,67 @@ export default function BattleArena() {
       setBattling(false);
     }
   }, [battleResult, battling, currentLogIndex, battleSpeed]);
+
+  // Get current battle state based on log index
+  const getCurrentBattleState = () => {
+    if (!battleResult || currentLogIndex === 0) {
+      // Initial state - all cards at full health
+      return {
+        teamA: battleResult?.finalState?.teamA.map(card => ({
+          ...card,
+          currentHealth: card.maxHealth,
+          isAlive: true,
+          justDamaged: false
+        })) || [],
+        teamB: battleResult?.finalState?.teamB.map(card => ({
+          ...card,
+          currentHealth: card.maxHealth,
+          isAlive: true,
+          justDamaged: false
+        })) || []
+      };
+    }
+
+    // Replay the battle up to current log index
+    const teamACards = battleResult.finalState.teamA.map(card => ({
+      ...card,
+      currentHealth: card.maxHealth,
+      isAlive: true,
+      justDamaged: false
+    }));
+    
+    const teamBCards = battleResult.finalState.teamB.map(card => ({
+      ...card,
+      currentHealth: card.maxHealth,
+      isAlive: true,
+      justDamaged: false
+    }));
+
+    // Apply all attacks up to current index
+    for (let i = 0; i < currentLogIndex; i++) {
+      const log = battleResult.battleLog[i];
+      if (log.type === 'attack') {
+        // Find the target card and apply damage
+        const targetTeam = log.target.team === 'A' ? teamACards : teamBCards;
+        const targetCard = targetTeam.find(c => c.name === log.target.name);
+        
+        if (targetCard) {
+          targetCard.currentHealth -= log.damage;
+          // Mark as just damaged if this is the current log entry
+          targetCard.justDamaged = (i === currentLogIndex - 1);
+          
+          if (targetCard.currentHealth <= 0) {
+            targetCard.currentHealth = 0;
+            targetCard.isAlive = false;
+          }
+        }
+      }
+    }
+
+    return { teamA: teamACards, teamB: teamBCards };
+  };
+
+  const currentBattleState = getCurrentBattleState();
 
   const resetBattle = () => {
     setBattleResult(null);
@@ -249,10 +310,10 @@ export default function BattleArena() {
             <div className={styles.teamSide}>
               <h3>{selectedMyTeam.name}</h3>
               <div className={styles.cardsGrid}>
-                {battleResult.finalState?.teamA?.map((card, idx) => (
+                {currentBattleState.teamA.map((card, idx) => (
                   <div 
                     key={idx} 
-                    className={`${styles.battleCard} ${!card.isAlive ? styles.defeated : ''}`}
+                    className={`${styles.battleCard} ${!card.isAlive ? styles.defeated : ''} ${card.justDamaged ? styles.damaged : ''}`}
                   >
                     <img src={card.image || card.imageUrl} alt={card.name} />
                     <div className={styles.cardName}>{card.name}</div>
@@ -264,7 +325,7 @@ export default function BattleArena() {
                           backgroundColor: card.isAlive ? '#22c55e' : '#ef4444'
                         }}
                       />
-                      <span>{card.currentHealth} / {card.maxHealth}</span>
+                      <span>{Math.max(0, Math.round(card.currentHealth))} / {card.maxHealth}</span>
                     </div>
                   </div>
                 ))}
@@ -278,10 +339,10 @@ export default function BattleArena() {
             <div className={styles.teamSide}>
               <h3>{opponentTeam.name}</h3>
               <div className={styles.cardsGrid}>
-                {battleResult.finalState?.teamB?.map((card, idx) => (
+                {currentBattleState.teamB.map((card, idx) => (
                   <div 
                     key={idx} 
-                    className={`${styles.battleCard} ${!card.isAlive ? styles.defeated : ''}`}
+                    className={`${styles.battleCard} ${!card.isAlive ? styles.defeated : ''} ${card.justDamaged ? styles.damaged : ''}`}
                   >
                     <img src={card.image || card.imageUrl} alt={card.name} />
                     <div className={styles.cardName}>{card.name}</div>
@@ -293,7 +354,7 @@ export default function BattleArena() {
                           backgroundColor: card.isAlive ? '#22c55e' : '#ef4444'
                         }}
                       />
-                      <span>{card.currentHealth} / {card.maxHealth}</span>
+                      <span>{Math.max(0, Math.round(card.currentHealth))} / {card.maxHealth}</span>
                     </div>
                   </div>
                 ))}
