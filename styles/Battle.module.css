@@ -1036,8 +1036,9 @@
 
 .cardsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 1rem;
+  max-width: 100%;
 }
 
 .battleCard {
@@ -1047,6 +1048,7 @@
   padding: 0.5rem;
   transition: all 0.3s;
   position: relative;
+  min-width: 0;
 }
 
 .battleCard.defeated {
@@ -1092,10 +1094,13 @@
 }
 
 .battleCard .cardName {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   color: white;
   margin-bottom: 0.5rem;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .healthBar {
