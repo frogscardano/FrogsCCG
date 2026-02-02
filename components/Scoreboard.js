@@ -10,7 +10,7 @@ export default function Scoreboard() {
   const [error, setError] = useState(null);
   const [myRank, setMyRank] = useState(null);
   const [limit, setLimit] = useState(50);
-  const [sortBy, setSortBy] = useState('winRate'); // winRate, totalWins, totalBattles
+  const [sortBy, setSortBy] = useState('elo'); // elo, winRate, totalWins, totalBattles
 
   useEffect(() => {
     loadLeaderboard();
@@ -28,7 +28,9 @@ export default function Scoreboard() {
       let entries = leaderboardType === 'teams' ? data.teams : data.users;
 
       // Apply additional sorting
-      if (sortBy === 'winRate') {
+      if (sortBy === 'elo') {
+        entries = entries.sort((a, b) => (b.eloRating || 1000) - (a.eloRating || 1000));
+      } else if (sortBy === 'winRate') {
         entries = entries.sort((a, b) => b.winRate - a.winRate);
       } else if (sortBy === 'totalWins') {
         const winsKey = leaderboardType === 'teams' ? 'battlesWon' : 'totalBattlesWon';
@@ -114,6 +116,7 @@ export default function Scoreboard() {
             onChange={(e) => setSortBy(e.target.value)}
             className={styles.sortSelect}
           >
+            <option value="elo">ELO Rating</option>
             <option value="winRate">Win Rate</option>
             <option value="totalWins">Total Wins</option>
             <option value="totalBattles">Total Battles</option>
@@ -164,6 +167,7 @@ export default function Scoreboard() {
                     <th>Rank</th>
                     <th>Team Name</th>
                     <th>Owner</th>
+                    <th>ELO</th>
                     <th>Wins</th>
                     <th>Losses</th>
                     <th>Total</th>
@@ -191,6 +195,9 @@ export default function Scoreboard() {
                         </td>
                         <td className={styles.addressCell}>
                           {formatAddress(team.ownerAddress)}
+                        </td>
+                        <td className={styles.statCell}>
+                          <span className={styles.elo}>{team.eloRating || 1000}</span>
                         </td>
                         <td className={styles.statCell}>
                           <span className={styles.wins}>{team.battlesWon || 0}</span>
