@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useContext, useEffect } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import TeamBuilder from '../components/TeamBuilder';
 import Scoreboard from '../components/Scoreboard';
@@ -70,6 +71,14 @@ const Teams = () => {
 
       <div className={styles.container}>
         <div className={styles.header}>
+          <div className={styles.headerNav}>
+            <Link href="/">
+              <a className={styles.navButton}>← Home</a>
+            </Link>
+            <Link href="/battle">
+              <a className={styles.navButton}>⚔️ Battle Arena</a>
+            </Link>
+          </div>
           <h1>⚔️ Teams & Battles</h1>
           <p>Build your ultimate team, challenge other players, and dominate the leaderboard!</p>
         </div>
