@@ -454,7 +454,7 @@ export default function BattleArena() {
                 <button onClick={resetBattle} className={styles.primaryButton}>
                   ⚔️ Next Battle
                 </button>
-                <Link href="/teams">
+                <Link href="/teams?tab=leaderboard">
                   <a className={styles.secondaryButton}>🏆 View Leaderboard</a>
                 </Link>
               </div>
