@@ -103,7 +103,7 @@ export default async function handler(req, res) {
             },
             target: {
               name: target.name,
-              team: target.team === 'A' ? 'B' : 'A',
+              team: attacker.team === 'A' ? 'B' : 'A',  // Target is on opposite team
               image: target.image || target.imageUrl
             },
             damage,
