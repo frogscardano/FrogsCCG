@@ -217,6 +217,7 @@ export default function BattleArena() {
         const targetCard = targetTeam.find(c => c.name === log.target.name);
         
         if (targetCard) {
+          const oldHealth = targetCard.currentHealth;
           targetCard.currentHealth -= log.damage;
           // Mark as just damaged if this is the current log entry
           targetCard.justDamaged = (i === currentLogIndex - 1);
@@ -225,6 +226,14 @@ export default function BattleArena() {
             targetCard.currentHealth = 0;
             targetCard.isAlive = false;
           }
+          
+          // Debug log for the most recent attack
+          if (i === currentLogIndex - 1) {
+            console.log(`🎯 Attack: ${log.attacker.name} (Team ${log.attacker.team}) → ${log.target.name} (Team ${log.target.team})`);
+            console.log(`   Damage: ${log.damage}, Health: ${oldHealth} → ${targetCard.currentHealth}`);
+          }
+        } else {
+          console.warn(`⚠️ Could not find target card: ${log.target.name} in team ${log.target.team}`);
         }
       }
     }
