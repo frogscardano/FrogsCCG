@@ -178,10 +178,18 @@ export default async function handler(req, res) {
       try {
         await withDatabase(async (db) => {
           console.log(`🔍 Fetching team data for ELO calculation...`);
+          console.log(`Team A ID: ${teamAId}, Team B ID: ${teamBId}`);
+          
+          // Try both Team and team (Prisma model names can vary)
+          const teamModel = db.Team || db.team;
+          
+          if (!teamModel) {
+            throw new Error('Team model not found in Prisma client');
+          }
           
           // Get current team data including ELO
           const [teamAData, teamBData] = await Promise.all([
-            db.team.findUnique({ 
+            teamModel.findUnique({ 
               where: { id: teamAId },
               select: { 
                 eloRating: true, 
@@ -190,7 +198,7 @@ export default async function handler(req, res) {
                 name: true 
               }
             }),
-            db.team.findUnique({ 
+            teamModel.findUnique({ 
               where: { id: teamBId },
               select: { 
                 eloRating: true, 
@@ -201,11 +209,12 @@ export default async function handler(req, res) {
             })
           ]);
 
-          console.log(`📊 Team A (${teamAData?.name}): ELO=${teamAData?.eloRating || 1000}, W/L=${teamAData?.battlesWon}/${teamAData?.battlesLost}`);
-          console.log(`📊 Team B (${teamBData?.name}): ELO=${teamBData?.eloRating || 1000}, W/L=${teamBData?.battlesWon}/${teamBData?.battlesLost}`);
+          console.log(`📊 Team A Data:`, teamAData);
+          console.log(`📊 Team B Data:`, teamBData);
 
           if (!teamAData || !teamBData) {
             console.error('❌ One or both teams not found in database');
+            console.error(`Team A found: ${!!teamAData}, Team B found: ${!!teamBData}`);
             throw new Error('Teams not found');
           }
 
@@ -227,10 +236,11 @@ export default async function handler(req, res) {
           console.log(`📈 ELO Changes calculated:`, eloChanges);
 
           // Update teams with new stats and ELO
+          console.log(`Updating teams in database...`);
           if (battleResult.winner === 'A') {
-            console.log(`Updating Team A as winner...`);
+            console.log(`Team A won - updating records...`);
             await Promise.all([
-              db.team.update({
+              teamModel.update({
                 where: { id: teamAId },
                 data: { 
                   battlesWon: { increment: 1 },
@@ -238,7 +248,7 @@ export default async function handler(req, res) {
                   updatedAt: new Date()
                 }
               }),
-              db.team.update({
+              teamModel.update({
                 where: { id: teamBId },
                 data: { 
                   battlesLost: { increment: 1 },
@@ -248,9 +258,9 @@ export default async function handler(req, res) {
               })
             ]);
           } else {
-            console.log(`Updating Team B as winner...`);
+            console.log(`Team B won - updating records...`);
             await Promise.all([
-              db.team.update({
+              teamModel.update({
                 where: { id: teamBId },
                 data: { 
                   battlesWon: { increment: 1 },
@@ -258,7 +268,7 @@ export default async function handler(req, res) {
                   updatedAt: new Date()
                 }
               }),
-              db.team.update({
+              teamModel.update({
                 where: { id: teamAId },
                 data: { 
                   battlesLost: { increment: 1 },
@@ -270,6 +280,8 @@ export default async function handler(req, res) {
           }
 
           console.log(`✅ Successfully updated battle records and ELO ratings`);
+          console.log(`   Team A: ${teamAData.eloRating || 1000} → ${eloChanges.teamA.newRating}`);
+          console.log(`   Team B: ${teamBData.eloRating || 1000} → ${eloChanges.teamB.newRating}`);
         });
       } catch (dbError) {
         console.error('❌ Failed to update battle records:', dbError);
