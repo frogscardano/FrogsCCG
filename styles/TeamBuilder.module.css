@@ -5,12 +5,11 @@
 
 /* Team Display */
 .teamDisplay {
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 16px;
-  padding: 2rem;
-  margin-bottom: 2.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .teamHeader {
@@ -76,19 +75,19 @@
   background: #16a34a;
 }
 
-/* CRITICAL: 5 Cards in One Row - Better Sizing */
+/* CRITICAL: 5 Cards in One Row */
 .teamCards {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr)); /* 5 equal columns */
-  gap: 1.25rem;
+  grid-template-columns: repeat(5, 1fr); /* Always 5 columns */
+  gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
 .cardSlot {
-  aspect-ratio: 2/3; /* Better card proportions */
+  aspect-ratio: 3/4;
   background: rgba(255, 255, 255, 0.05);
   border: 2px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -96,7 +95,6 @@
   transition: all 0.3s;
   position: relative;
   overflow: hidden;
-  min-height: 250px; /* Ensure minimum height */
 }
 
 .cardSlot:hover {
@@ -107,26 +105,24 @@
 .card {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.6) 100%);
+  background: rgba(0, 0, 0, 0.6);
   border: 2px solid #22c55e;
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .cardImage {
   width: 100%;
-  height: 65%;
+  height: 60%;
   object-fit: cover;
-  background: rgba(0, 0, 0, 0.4);
 }
 
 .cardInfo {
-  padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.9);
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.8);
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -134,107 +130,87 @@
 }
 
 .cardName {
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: white;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .cardStats {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.25rem;
+  font-size: 0.7rem;
 }
 
 .stat {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.25rem;
   color: #94a3b8;
-  padding: 0.15rem 0;
 }
 
 .stat strong {
   color: #22c55e;
-  font-size: 0.85rem;
 }
 
 .removeCard {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  width: 28px;
-  height: 28px;
-  background: rgba(239, 68, 68, 0.95);
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 24px;
+  height: 24px;
+  background: rgba(239, 68, 68, 0.9);
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   color: white;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  font-size: 1.1rem;
   transition: all 0.3s;
   z-index: 10;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .removeCard:hover {
   background: #dc2626;
-  transform: scale(1.15);
+  transform: scale(1.1);
 }
 
 .emptySlot {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.8rem;
   text-align: center;
-  font-weight: 500;
 }
 
 /* Team Stats */
 .teamStats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 1.5rem;
-  padding: 1.5rem;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  margin-top: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
 }
 
 .teamStat {
   text-align: center;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-  transition: all 0.3s;
-}
-
-.teamStat:hover {
-  background: rgba(255, 255, 255, 0.06);
-  transform: translateY(-2px);
 }
 
 .teamStatLabel {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #94a3b8;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
 }
 
 .teamStatValue {
-  font-size: 1.8rem;
+  font-size: 1.5rem;
   font-weight: bold;
   color: #22c55e;
-  text-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
 }
 
 /* Create Team Section */
@@ -348,40 +324,16 @@
   margin-bottom: 1rem;
 }
 
-/* Responsive - Keep 5 cards as long as possible */
-@media (max-width: 1400px) {
-  .teamCards {
-    gap: 1rem;
-  }
-  
-  .cardSlot {
-    min-height: 220px;
-  }
-}
-
+/* Responsive - Stack on smaller screens */
 @media (max-width: 1200px) {
-  .teamCards {
-    gap: 0.75rem;
-  }
-  
-  .cardSlot {
-    min-height: 200px;
-  }
-  
-  .cardName {
-    font-size: 0.85rem;
-  }
-  
-  .cardStats {
-    font-size: 0.75rem;
+  .teamCards,
+  .availableCards {
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
 @media (max-width: 900px) {
-  .teamCards {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  
+  .teamCards,
   .availableCards {
     grid-template-columns: repeat(3, 1fr);
   }

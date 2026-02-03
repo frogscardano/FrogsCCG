@@ -1,0 +1,419 @@
+.container {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 2rem;
+  color: white;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.header h2 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(45deg, #22c55e, #10b981);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header p {
+  color: #94a3b8;
+  font-size: 1rem;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.typeSelector {
+  display: flex;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.25rem;
+  border-radius: 8px;
+}
+
+.typeButton {
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 1rem;
+}
+
+.typeButton:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.typeButton.active {
+  background: #22c55e;
+  color: white;
+}
+
+.filters {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sortSelect,
+.limitSelect {
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.sortSelect:hover,
+.limitSelect:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.sortSelect option,
+.limitSelect option {
+  background: #1a1a2e;
+  color: white;
+}
+
+.myRank {
+  background: rgba(34, 197, 94, 0.1);
+  border: 2px solid #22c55e;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  animation: slideIn 0.5s;
+}
+
+.myRankLabel {
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.myRankValue {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #22c55e;
+}
+
+.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top: 4px solid #22c55e;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+.empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #94a3b8;
+}
+
+.empty p {
+  margin: 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.leaderboard {
+  margin-bottom: 2rem;
+}
+
+.tableContainer {
+  overflow-x: auto;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.table thead {
+  background: rgba(34, 197, 94, 0.1);
+  border-bottom: 2px solid #22c55e;
+}
+
+.table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #22c55e;
+  white-space: nowrap;
+}
+
+.table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s;
+}
+
+.table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.table tbody tr.highlighted {
+  background: rgba(34, 197, 94, 0.1);
+  border-left: 4px solid #22c55e;
+}
+
+.table td {
+  padding: 1rem;
+}
+
+/* Rank badges */
+.rankCell {
+  width: 80px;
+}
+
+.rankBadge {
+  display: inline-block;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.gold .rankBadge {
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+}
+
+.silver .rankBadge {
+  color: #cbd5e1;
+  text-shadow: 0 0 10px rgba(203, 213, 225, 0.5);
+}
+
+.bronze .rankBadge {
+  color: #f97316;
+  text-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
+}
+
+/* Name cell */
+.nameCell {
+  font-weight: 600;
+  position: relative;
+}
+
+.nameCell strong {
+  color: white;
+}
+
+.youBadge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: #22c55e;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+/* Address cell */
+.addressCell {
+  font-family: 'Courier New', monospace;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+/* Stats cells */
+.statCell {
+  text-align: center;
+  font-weight: 500;
+}
+
+.wins {
+  color: #22c55e;
+  font-weight: bold;
+}
+
+.losses {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.winRate {
+  font-weight: bold;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  display: inline-block;
+}
+
+.winRate.excellent {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.winRate.good {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.winRate.average {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+.winRate.poor {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.refreshButton {
+  padding: 0.75rem 1.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.refreshButton:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.hint {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* Animations */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .typeSelector {
+    width: 100%;
+  }
+
+  .typeButton {
+    flex: 1;
+    padding: 0.75rem;
+  }
+
+  .filters {
+    width: 100%;
+  }
+
+  .sortSelect,
+  .limitSelect {
+    flex: 1;
+  }
+
+  .table {
+    font-size: 0.85rem;
+  }
+
+  .table th,
+  .table td {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .refreshButton {
+    width: 100%;
+  }
+}
+
+/* Scrollbar styling */
+.tableContainer::-webkit-scrollbar {
+  height: 8px;
+}
+
+.tableContainer::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.tableContainer::-webkit-scrollbar-thumb {
+  background: rgba(34, 197, 94, 0.5);
+  border-radius: 4px;
+}
+
+.tableContainer::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 197, 94, 0.7);
+}
+
+/* ELO Rating Styling */
+.elo {
+  font-weight: bold;
+  color: #22c55e;
+  font-size: 1.1rem;
+}

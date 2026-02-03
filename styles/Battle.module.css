@@ -1,0 +1,1336 @@
+.container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: white;
+  padding: 2rem;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 3rem;
+  position: relative;
+}
+
+.header h1 {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(45deg, #22c55e, #10b981);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header p {
+  color: #94a3b8;
+  font-size: 1.1rem;
+}
+
+.backButton {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 0.75rem 1.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  text-decoration: none;
+  transition: all 0.3s;
+  font-weight: 500;
+}
+
+.backButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateX(-4px);
+}
+
+.notConnected {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.notConnected h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.notConnected p {
+  color: #94a3b8;
+  font-size: 1.2rem;
+  margin-bottom: 2rem;
+}
+
+.error {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid #ef4444;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: slideIn 0.3s;
+}
+
+.error span {
+  margin-right: 0.5rem;
+}
+
+.error button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0 0.5rem;
+}
+
+/* Battle Results */
+.battleResults {
+  max-width: 1200px;
+  margin: 0 auto;
+  animation: fadeIn 0.5s;
+}
+
+.resultsHeader {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.resultsHeader h2 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.battleSummary {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 2rem;
+  align-items: center;
+  margin-bottom: 3rem;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.teamResult {
+  padding: 2rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s;
+}
+
+.teamResult.winner {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+}
+
+.teamResult.loser {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  opacity: 0.8;
+}
+
+.teamResult h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.teamStatus {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.finalStats {
+  text-align: center;
+}
+
+.finalStats p {
+  margin: 0.5rem 0;
+  color: #cbd5e1;
+}
+
+.vsIcon {
+  font-size: 3rem;
+  font-weight: bold;
+  text-align: center;
+  color: #22c55e;
+}
+
+.battleLog {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.battleLog h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.logContent {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 1rem;
+}
+
+.logEntry {
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid #22c55e;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* ELO Changes Display */
+.eloChanges {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.eloChanges h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: #22c55e;
+}
+
+.eloChangesSummary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+}
+
+.eloChange {
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.eloChange.eloWin {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.eloChange.eloLoss {
+  border-color: rgba(255, 255, 255, 0.1);
+  opacity: 0.8;
+}
+
+.eloChangeTeam {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: white;
+}
+
+.eloChangeValues {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  font-size: 1.1rem;
+}
+
+.eloOld {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.eloArrow {
+  color: #22c55e;
+  font-size: 1.5rem;
+}
+
+.eloNew {
+  color: white;
+  font-weight: bold;
+  font-size: 1.3rem;
+}
+
+.eloChangeAmount {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.eloChangeAmount.positive {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.eloChangeAmount.negative {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.resultsActions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+/* Battle Setup */
+.battleSetup {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.teamSelection {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.myTeamSection,
+.opponentSection {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 2rem;
+}
+
+.myTeamSection h2,
+.opponentSection h2 {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.vsSection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vsSection .vsIcon {
+  font-size: 4rem;
+  color: #22c55e;
+  animation: pulse 2s infinite;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+}
+
+.noTeams,
+.noOpponents {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+}
+
+.noOpponents p {
+  margin: 0.75rem 0;
+}
+
+.errorHint {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.hint {
+  color: #22c55e;
+  font-size: 0.9rem;
+  font-style: italic;
+  margin-top: 1rem;
+}
+
+.createTeamButton {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: #22c55e;
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.createTeamButton:hover {
+  background: #16a34a;
+  transform: translateY(-2px);
+}
+
+.teamSelect {
+  width: 100%;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  cursor: pointer;
+}
+
+.teamSelect option {
+  background: #1a1a2e;
+  color: white;
+}
+
+/* Team Preview */
+.teamPreview {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.teamPreview h3 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: #22c55e;
+}
+
+/* ELO Display */
+.eloDisplay {
+  text-align: center;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.eloLabel {
+  font-size: 0.9rem;
+  margin-right: 0.5rem;
+  opacity: 0.8;
+}
+
+.eloValue {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-right: 0.5rem;
+}
+
+.eloTier {
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.teamStats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+.statLabel {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.statValue {
+  color: #22c55e;
+  font-weight: bold;
+}
+
+.teamCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.5rem;
+}
+
+.cardMini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s;
+}
+
+.cardMini:hover {
+  transform: scale(1.05);
+  border-color: #22c55e;
+}
+
+.cardMini img {
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  object-fit: cover;
+  margin-bottom: 0.25rem;
+}
+
+.cardName {
+  font-size: 0.7rem;
+  text-align: center;
+  color: #cbd5e1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+/* Opponent Filters */
+.opponentFilters {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.opponentActions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.randomButton,
+.toggleButton,
+.refreshButton {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.randomButton:hover:not(:disabled),
+.toggleButton:hover:not(:disabled),
+.refreshButton:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: #22c55e;
+  transform: translateY(-2px);
+}
+
+.randomButton:disabled,
+.toggleButton:disabled,
+.refreshButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.randomButton {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: #22c55e;
+}
+
+.searchInput,
+.filterSelect {
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.searchInput::placeholder {
+  color: #94a3b8;
+}
+
+.filterSelect {
+  cursor: pointer;
+}
+
+.filterSelect option {
+  background: #1a1a2e;
+}
+
+/* Opponents List */
+.opponentsList {
+  max-height: 500px;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.75rem;
+}
+
+/* Quick Match Mode */
+.quickMatch {
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quickMatchCard {
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid #22c55e;
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  max-width: 500px;
+  width: 100%;
+  animation: slideIn 0.3s;
+}
+
+.quickMatchCard h3 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  color: #22c55e;
+}
+
+.quickMatchStats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.quickStat {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.quickLabel {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 0.5rem;
+}
+
+.quickValue {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #22c55e;
+}
+
+.quickMatchCards {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.quickCardMini {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s;
+}
+
+.quickCardMini:hover {
+  transform: scale(1.1);
+  border-color: #22c55e;
+}
+
+.quickCardMini img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.quickMatchHint {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  font-style: italic;
+  margin-top: 1rem;
+}
+
+.quickMatchEmpty {
+  text-align: center;
+  padding: 3rem;
+  color: #94a3b8;
+}
+
+.quickMatchEmpty p {
+  font-size: 1.2rem;
+}
+
+.opponentCard {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.opponentCard:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(34, 197, 94, 0.5);
+  transform: translateX(4px);
+}
+
+.opponentCard.selected {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.3);
+}
+
+.opponentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.opponentHeader h4 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.opponentElo {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0.5rem 0;
+  padding: 0.25rem 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  text-align: center;
+}
+
+.winProbability {
+  font-size: 0.8rem;
+  color: #22c55e;
+  font-weight: 600;
+  text-align: center;
+  margin: 0.25rem 0;
+  padding: 0.25rem;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 4px;
+}
+
+.selectedBadge {
+  background: #22c55e;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.opponentStats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+.winRate {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.opponentOwner {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-family: 'Courier New', monospace;
+}
+
+/* Battle Actions */
+.battleActions {
+  text-align: center;
+  padding: 2rem;
+}
+
+.battleButton {
+  padding: 1.25rem 3rem;
+  font-size: 1.3rem;
+  font-weight: bold;
+  background: linear-gradient(45deg, #22c55e, #10b981);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+}
+
+.battleButton:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(34, 197, 94, 0.6);
+}
+
+.battleButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Common Buttons */
+.primaryButton {
+  padding: 1rem 2rem;
+  background: #22c55e;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.primaryButton:hover {
+  background: #16a34a;
+  transform: translateY(-2px);
+}
+
+.secondaryButton {
+  padding: 1rem 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.secondaryButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* Scrollbar Styling */
+.logContent::-webkit-scrollbar,
+.opponentsList::-webkit-scrollbar {
+  width: 8px;
+}
+
+.logContent::-webkit-scrollbar-track,
+.opponentsList::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.logContent::-webkit-scrollbar-thumb,
+.opponentsList::-webkit-scrollbar-thumb {
+  background: rgba(34, 197, 94, 0.5);
+  border-radius: 4px;
+}
+
+.logContent::-webkit-scrollbar-thumb:hover,
+.opponentsList::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 197, 94, 0.7);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .teamSelection {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .vsSection {
+    order: 2;
+  }
+
+  .vsSection .vsIcon {
+    font-size: 3rem;
+    transform: rotate(90deg);
+  }
+
+  .myTeamSection {
+    order: 1;
+  }
+
+  .opponentSection {
+    order: 3;
+  }
+
+  .battleSummary {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .vsIcon {
+    transform: rotate(90deg);
+    margin: 1rem 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+
+  .header h1 {
+    font-size: 2rem;
+  }
+
+  .teamStats {
+    grid-template-columns: 1fr;
+  }
+
+  .teamCards {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  }
+
+  .opponentFilters {
+    grid-template-columns: 1fr;
+  }
+
+  .battleButton {
+    font-size: 1.1rem;
+    padding: 1rem 2rem;
+  }
+
+  .resultsActions {
+    flex-direction: column;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    width: 100%;
+  }
+}
+/* Battle Animation Styles */
+.battleAnimation {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.battleHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+}
+
+.battleHeader h2 {
+  color: #22c55e;
+  font-size: 2rem;
+}
+
+.speedControl {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.speedControl label {
+  color: #94a3b8;
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+
+.speedControl button {
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.speedControl button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.speedControl button.active {
+  background: #22c55e;
+  border-color: #22c55e;
+}
+
+.skipButton {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
+
+.skipButton:hover {
+  background: rgba(239, 68, 68, 0.3) !important;
+}
+
+.battleField {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  padding: 2rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.teamSide {
+  text-align: center;
+}
+
+.teamSide h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: #22c55e;
+}
+
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+  max-width: 100%;
+}
+
+.battleCard {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid #22c55e;
+  border-radius: 8px;
+  padding: 0.5rem;
+  transition: all 0.3s;
+  position: relative;
+  min-width: 0;
+}
+
+.battleCard.defeated {
+  opacity: 0.3;
+  border-color: #ef4444;
+  filter: grayscale(100%);
+  animation: fadeOut 0.5s ease;
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+}
+
+.battleCard.damaged {
+  animation: damageFlash 0.3s ease;
+}
+
+@keyframes damageFlash {
+  0%, 100% {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  50% {
+    background: rgba(239, 68, 68, 0.3);
+    border-color: #ef4444;
+  }
+}
+
+.battleCard img {
+  width: 100%;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+}
+
+.battleCard .cardName {
+  font-size: 0.75rem;
+  color: white;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.healthBar {
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  height: 20px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.healthFill {
+  height: 100%;
+  transition: width 0.5s ease;
+  background: #22c55e;
+}
+
+.healthBar span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 0 3px black;
+  z-index: 1;
+}
+
+.battleLogContainer {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.battleLogContainer h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: #22c55e;
+  text-align: center;
+}
+
+.battleLog {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.logEntry {
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid #22c55e;
+  border-radius: 6px;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.attackLog {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.attackerImage,
+.targetImage {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #22c55e;
+  object-fit: cover;
+}
+
+.attackText {
+  flex: 1;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.damage {
+  color: #ef4444;
+  font-size: 1.1rem;
+}
+
+.defeated {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.roundStart {
+  text-align: center;
+  color: #22c55e;
+  font-weight: 600;
+  border-left-color: #3b82f6;
+}
+
+.roundStart strong {
+  display: block;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.battleStart {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #22c55e;
+  border-left-color: #22c55e;
+}
+
+.battleEnd {
+  text-align: center;
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #fbbf24;
+  border-left-color: #fbbf24;
+}
+
+.matchup {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.teamDisplay {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.teamDisplay h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: #22c55e;
+}
+
+.noOpponent {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+}
+
+.rerollButton {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.rerollButton:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.battleActions {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.startBattleButton {
+  padding: 1.5rem 3rem;
+  font-size: 1.5rem;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+}
+
+.startBattleButton:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+}
+
+.startBattleButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1200px) {
+  .battleField,
+  .matchup {
+    grid-template-columns: 1fr;
+  }
+  
+  .vsSection {
+    order: -1;
+  }
+  
+  .cardsGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .cardsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .speedControl {
+    flex-wrap: wrap;
+  }
+  
+  .battleHeader {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}

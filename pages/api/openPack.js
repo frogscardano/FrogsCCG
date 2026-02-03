@@ -67,6 +67,34 @@ function isAllowedNumber(number, collection) {
   return !COLLECTIONS[collection].blockedNumbers.includes(number.toString());
 }
 
+// Check if THIS USER already has this NFT in their database collection
+async function isUserDuplicate(nftNumber, collectionPolicyId, collectionName, walletAddress) {
+  try {
+    // Check database for this specific user + NFT combination
+    const existingCard = await prisma.card.findFirst({
+      where: {
+        tokenId: nftNumber.toString(),
+        contractAddress: collectionPolicyId,
+        owner: {
+          address: walletAddress
+        }
+      }
+    });
+    
+    if (existingCard) {
+      console.log(`⚠️ User ${walletAddress} already owns ${collectionName} #${nftNumber} - skipping`);
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking user duplicate:', error);
+    // If database check fails, be safe and don't allow duplicate
+    return false;
+  }
+}
+
+// Legacy check - keep for backwards compatibility with in-memory collection
 function isDuplicate(nftNumber, collection, collectionName, userCards) {
   return userCards.some(card => 
     card.attributes?.find(attr => 
@@ -122,20 +150,34 @@ function sanitizeNumber(number, collectionConfig) {
   return num.toString();
 }
 
-function generateRandomCard(collectionConfig, userCards) {
+async function generateRandomCard(collectionConfig, userCards, walletAddress) {
   let randomNumber;
   let attempts = 0;
   
   do {
     randomNumber = Math.floor(Math.random() * collectionConfig.maxNumber) + 1;
     attempts++;
+    
     if (attempts > 1000) {
-      throw new Error(`No more unique ${collectionConfig.name} available!`);
+      throw new Error(`No more unique ${collectionConfig.name} available for this user!`);
     }
-  } while (!isAllowedNumber(randomNumber, collectionConfig.id) || 
-           isDuplicate(randomNumber, collectionConfig.policyId, collectionConfig.name, userCards));
+    
+    // Check if number is allowed and not a duplicate for THIS user
+    const isAllowed = isAllowedNumber(randomNumber, collectionConfig.id);
+    const isMemoryDupe = isDuplicate(randomNumber, collectionConfig.policyId, collectionConfig.name, userCards);
+    const isDbDupe = await isUserDuplicate(randomNumber, collectionConfig.policyId, collectionConfig.name, walletAddress);
+    
+    if (isAllowed && !isMemoryDupe && !isDbDupe) {
+      break; // Found a valid unique number for this user
+    }
+    
+    if (attempts % 100 === 0) {
+      console.log(`🔄 Attempt ${attempts}: Finding unique ${collectionConfig.name} for user...`);
+    }
+    
+  } while (true);
   
-  console.log(`Generated random ${collectionConfig.name} #:`, randomNumber);
+  console.log(`✅ Generated random ${collectionConfig.name} #${randomNumber} for ${walletAddress.slice(0, 8)}...`);
   
   const rarity = determineRarity(randomNumber, collectionConfig.id);
   const basicAttributes = [
@@ -149,7 +191,7 @@ function generateRandomCard(collectionConfig, userCards) {
   let imageUrl;
   if (collectionConfig.useCsvLookup) {
     imageUrl = getHoskyImageUrl(randomNumber);
-    console.log(`HOSKY #${randomNumber} image URL: ${imageUrl}`); // DEBUG LOG
+    console.log(`HOSKY #${randomNumber} image URL: ${imageUrl}`);
     if (!imageUrl) {
       console.error(`❌ No IPFS hash found for ${collectionConfig.name} #${randomNumber}`);
       throw new Error(`No IPFS hash found for ${collectionConfig.name} #${randomNumber}`);
@@ -198,11 +240,11 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log(`🔍 Validated wallet address: ${walletAddress} (length: ${walletAddress.length})`);
+    console.log(`🔍 Opening pack for wallet: ${walletAddress.slice(0, 8)}...${walletAddress.slice(-6)} (length: ${walletAddress.length})`);
 
     // Get requested collection type (defaulting to frogs if not specified)
     const requestedCollection = req.query.collectionType || 'frogs';
-    console.log(`Requested collection: ${requestedCollection}`);
+    console.log(`📦 Requested collection: ${requestedCollection}`);
     
     // Validate collection type
     if (!COLLECTIONS[requestedCollection]) {
@@ -243,11 +285,10 @@ export default async function handler(req, res) {
     if (requestedCollection === 'hosky') {
       console.log(`Collection ${collectionConfig.name} is using direct random generation with CSV lookup`);
       try {
-        const card = generateRandomCard(collectionConfig, userCards);
+        const card = await generateRandomCard(collectionConfig, userCards, walletAddress);
         
-        // Increment Hosky Poopmeter - use the SAME pattern as consumePack
+        // Increment Hosky Poopmeter
         try {
-          // First ensure user exists
           const existingUser = await prisma.user.findUnique({
             where: { address: walletAddress },
             select: { id: true, hoskyPoopmeter: true }
@@ -256,7 +297,6 @@ export default async function handler(req, res) {
           let newPoopScore = 0;
 
           if (existingUser) {
-            // User exists, just increment
             const updatedUser = await prisma.user.update({
               where: { address: walletAddress },
               data: { 
@@ -266,7 +306,6 @@ export default async function handler(req, res) {
             });
             newPoopScore = updatedUser.hoskyPoopmeter;
           } else {
-            // Create new user with poopmeter = 1
             const newUser = await prisma.user.create({
               data: {
                 id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -297,7 +336,7 @@ export default async function handler(req, res) {
     if (!collectionConfig.useBlockfrost) {
       console.log(`Collection ${collectionConfig.name} is using direct random generation`);
       try {
-        const card = generateRandomCard(collectionConfig, userCards);
+        const card = await generateRandomCard(collectionConfig, userCards, walletAddress);
         return res.status(200).json(card);
       } catch (error) {
         console.error('Error generating random card:', error);
@@ -306,7 +345,7 @@ export default async function handler(req, res) {
     }
     
     // For collections using BlockFrost, continue with normal flow
-    // Keep trying until we get a valid number
+    // Keep trying until we get a valid number that user doesn't already own
     let validNumber = null;
     let attempts = 0;
     let selectedAsset, assetDetails;
@@ -340,7 +379,6 @@ export default async function handler(req, res) {
         if (assetDetails.onchain_metadata?.image) {
           const imageUrl = assetDetails.onchain_metadata.image;
           console.log(`Found image URL: ${imageUrl}`);
-          // Extract number from URL patterns like ".../{number}.png"
           const imageMatch = imageUrl.match(/\/(\d+)\.png$/);
           if (imageMatch && imageMatch[1]) {
             nftNumber = sanitizeNumber(imageMatch[1], collectionConfig);
@@ -350,7 +388,6 @@ export default async function handler(req, res) {
         
         // Fallback to other methods if image URL didn't contain a number
         if (!nftNumber) {
-          // Check if there's an explicit name with number in the metadata
           if (assetDetails.onchain_metadata?.name) {
             const nameMatch = assetDetails.onchain_metadata.name.match(/(\d+)/);
             if (nameMatch && nameMatch[1]) {
@@ -362,20 +399,16 @@ export default async function handler(req, res) {
           // For Titans collection, try to decode the hex asset name
           if (collectionConfig.id === 'titans') {
             try {
-              // Convert the hex asset name to ASCII and extract the number
               const hexPart = selectedAsset.asset.replace(collectionConfig.policyId, '');
-              // Skip the first few bytes which usually contain metadata
-              const hexText = hexPart.slice(8); // Skip first 8 characters
+              const hexText = hexPart.slice(8);
               let text = '';
               
-              // Convert hex to ASCII
               for (let i = 0; i < hexText.length; i += 2) {
                 text += String.fromCharCode(parseInt(hexText.substr(i, 2), 16));
               }
               
               console.log(`Decoded asset name: ${text}`);
               
-              // Extract the number - assuming format like "HouseOfTitans4971"
               const numberMatch = text.match(/HouseOfTitans(\d+)/);
               if (numberMatch && numberMatch[1]) {
                 nftNumber = sanitizeNumber(numberMatch[1], collectionConfig);
@@ -386,33 +419,35 @@ export default async function handler(req, res) {
             }
           }
           
-          // If still no number, try the original approach
           if (!nftNumber) {
-            // Extract only the first set of digits from the asset name
             const assetNameDigits = assetDetails.asset_name?.match(/\d+/)?.[0];
             nftNumber = sanitizeNumber(assetNameDigits, collectionConfig);
             console.log(`Extracted number from asset name: ${nftNumber}`);
           }
         }
         
-        // If we found a valid number, it's not blocked, and not a duplicate, use this asset
-        if (nftNumber && 
-            isAllowedNumber(nftNumber, collectionConfig.id) && 
-            !isDuplicate(nftNumber, collectionConfig.policyId, collectionConfig.name, userCards)) {
-          validNumber = nftNumber;
-          console.log(`Found valid NFT number: ${validNumber}`);
+        // Check if valid number, allowed, and NOT already owned by THIS user
+        if (nftNumber && isAllowedNumber(nftNumber, collectionConfig.id)) {
+          // Check both in-memory and database for user duplicates
+          const isMemoryDupe = isDuplicate(nftNumber, collectionConfig.policyId, collectionConfig.name, userCards);
+          const isDbDupe = await isUserDuplicate(nftNumber, collectionConfig.policyId, collectionConfig.name, walletAddress);
+          
+          if (!isMemoryDupe && !isDbDupe) {
+            validNumber = nftNumber;
+            console.log(`✅ Found valid unique NFT for user: ${validNumber}`);
+          } else {
+            console.log(`⚠️ NFT #${nftNumber} already owned by this user - trying different NFT...`);
+          }
         } else {
-          console.log(`NFT number ${nftNumber} is invalid, blocked, or a duplicate. Trying again...`);
+          console.log(`NFT number ${nftNumber} is invalid or blocked. Trying again...`);
         }
       } catch (error) {
         console.error(`Error in attempt ${attempts}:`, error);
-        // Continue to next attempt
       }
     }
     
     if (validNumber) {
       try {
-        // Normal image extraction for Blockfrost collections
         const extractedImageUrl = extractImageUrl(assetDetails);
         const fallbackImageUrl = `https://ipfs.io/ipfs/${collectionConfig.fallbackIpfs}/${validNumber}.png`;
         const imageUrl = extractedImageUrl || fallbackImageUrl;
@@ -422,13 +457,10 @@ export default async function handler(req, res) {
         console.log('Original digits:', assetDetails.asset_name?.match(/\d+/)?.[0]);
         console.log(`Valid ${collectionConfig.name} #:`, validNumber);
         console.log('Final image URL:', imageUrl);
-        console.log('Metadata structure:', JSON.stringify(assetDetails.onchain_metadata, null, 2));
         
-        // Determine rarity and get stats
         const rarity = determineRarity(validNumber, collectionConfig.id);
         const stats = collectionConfig.id === 'titans' ? getTitanStats(validNumber, rarity, assetDetails.onchain_metadata?.attributes) : getFrogStats(validNumber, rarity);
         
-        // Create the card data with tokenId and contractAddress for frontend to save
         const card = {
           id: `${collectionConfig.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: `${collectionConfig.name} #${validNumber}`,
@@ -445,7 +477,6 @@ export default async function handler(req, res) {
             { trait_type: "Policy ID", value: collectionConfig.policyId },
             { trait_type: "Asset Name", value: assetDetails.asset_name }
           ],
-          // Include tokenId and contractAddress so frontend can save it
           tokenId: assetDetails.asset_name || validNumber.toString(),
           contractAddress: collectionConfig.policyId
         };
@@ -458,11 +489,9 @@ export default async function handler(req, res) {
         return res.status(500).json({ message: 'Error generating card', error: error.message });
       }
     } else {
-      console.log(`Couldn't find a valid NFT after ${attempts} attempts, generating a random one...`);
-      // If we couldn't find a valid NFT after multiple attempts,
-      // generate a random one in the valid range (avoiding blocked numbers and duplicates)
+      console.log(`Couldn't find a valid unique NFT after ${attempts} attempts, generating a random one...`);
       try {
-        const card = generateRandomCard(collectionConfig, userCards);
+        const card = await generateRandomCard(collectionConfig, userCards, walletAddress);
         return res.status(200).json(card);
       } catch (error) {
         console.error('Error generating random card:', error);

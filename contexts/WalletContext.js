@@ -7,10 +7,30 @@ export { WalletContext };
 
 // List of supported wallet providers
 const SUPPORTED_WALLETS = {
-  eternl: {
+  Eternl: {
     name: 'Eternl',
     icon: '/images/wallets/eternl.svg',
     key: 'eternl',
+  },
+  Lace: {
+    name: 'Lace',
+    icon: '/images/wallets/lace.svg',
+    key: 'lace',
+  },
+  Nami: {
+    name: 'Nami',
+    icon: '/images/wallets/nami.svg',
+    key: 'nami',
+  },
+  Vespr: {
+    name: 'Vespr',
+    icon: '/images/wallets/vespr.svg',
+    key: 'vespr',
+  },
+  Flint: {
+    name: 'Flint',
+    icon: '/images/wallets/flint.svg',
+    key: 'flint',
   }
 };
 

@@ -55,6 +55,7 @@ model Team {
   nftIds      String?  @db.Text
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  eloRating   Int      @default(1000)
   battlesWon  Int      @default(0)
   battlesLost Int      @default(0)
   isActive    Boolean  @default(true)
