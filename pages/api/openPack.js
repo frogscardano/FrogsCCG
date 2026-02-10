@@ -50,6 +50,16 @@ const COLLECTIONS = {
     rarityBreakpoints: { legendary: 100, epic: 1000, rare: 10000 },
     useBlockfrost: false, // HOSKY doesn't use Blockfrost - just random + CSV
     useCsvLookup: true
+  },
+  'perps': {
+    policyId: 'e6ba9c0ff27be029442c32533c6efd956a60d15ecb976acbb64c4de0',
+    blockedNumbers: [],
+    name: 'Perps',
+    maxNumber: 4098,
+    fallbackIpfs: 'QmNzvXAYyMxibq2N1Zhe3BDYYUMpCXmeKK1V8Gb6Az2XVF',
+    rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 },
+    useBlockfrost: true,
+    useCsvLookup: false
   }
 };
 
