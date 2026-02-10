@@ -21,12 +21,12 @@ const COLLECTIONS = {
     useBlockfrost: true,
     useCsvLookup: false
   },
-  'snekkies': {
-    policyId: 'b558ea5ecfa2a6e9701dab150248e94104402f789c090426eb60eb60',
+  'perps': {
+    policyId: 'e6ba9c0ff27be029442c32533c6efd956a60d15ecb976acbb64c4de0',
     blockedNumbers: [],
-    name: 'Snekkies',
-    maxNumber: 7777,
-    fallbackIpfs: 'QmbtcFbvt8F9MRuzHkRAZ63cE2WcfTj7NDNeFSSPkw3PY3',
+    name: 'Perps',
+    maxNumber: 4098,
+    fallbackIpfs: 'QmNzvXAYyMxibq2N1Zhe3BDYYUMpCXmeKK1V8Gb6Az2XVF',
     rarityBreakpoints: { legendary: 50, epic: 250, rare: 750 },
     useBlockfrost: true,
     useCsvLookup: false
