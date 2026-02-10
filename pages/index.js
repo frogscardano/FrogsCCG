@@ -258,8 +258,8 @@ const handlePackClick = async () => {
   setIsPackOpening(true);
   setIsRevealed(false);
   
-  const packName = selectedPack === 'titans'
-      ? 'Titan'
+  const packName = selectedPack === 'perps'
+      ? 'Perps'
         : 'Frog';
   
   setStatusMessage(`Fetching ${packName} NFT from Cardano...`);
@@ -279,8 +279,8 @@ const handlePackClick = async () => {
       
       if (response.status === 409) {
         throw new Error(`You have collected all available ${
-          selectedPack === 'titans'
-              ? 'Titans'
+          selectedPack === 'perps'
+              ? 'Perps'
                 : 'Frogs'
         }!`);
       }
@@ -612,10 +612,10 @@ const handlePackClick = async () => {
               
               <div 
                 className={styles.pack}
-                onClick={() => openPack('titans')}
+                onClick={() => openPack('perps')}
               >
-                <div className={styles.packImage}>🦁</div>
-                <h3 className={styles.packTitle}>Titans Card Pack</h3>
+                <div className={styles.packImage}>🍬</div>
+                <h3 className={styles.packTitle}>Perps Card Pack</h3>
                 <p className={styles.packDescription}>
                   Contains 1 random Titan card from the Cardano NFT collection via BlockFrost
                 </p>
@@ -841,8 +841,8 @@ const handlePackClick = async () => {
           }}>×</div>
           <div className={styles.modalContent}>
             <h2>Opening {
-              selectedPack === 'titans'
-                  ? 'Titans'
+              selectedPack === 'perps'
+                  ? 'Perps'
                     : 'Frog'
             } Pack with Love</h2>
             
